@@ -5,7 +5,6 @@ header('Cache-Control: no-store');
 
 require_once __DIR__.'/../includes/db.php';
 require_once __DIR__.'/../admin/includes/access.php';
-require_once __DIR__.'/../includes/logger.php';
 
 function out(array $data, int $status = 200): never {
     http_response_code($status);
@@ -61,7 +60,6 @@ try {
         if ($id > 0) {
             $stmt = $pdo->prepare("DELETE FROM ai_subjects WHERE id = :id");
             $stmt->execute([':id' => $id]);
-            logAction($pdo, $_SESSION['user_id'], 'DELETE_AI_SUBJECT', "Deleted AI subject ID $id");
         }
         out(['success' => true]);
     }
@@ -84,7 +82,6 @@ try {
                 ':active' => $isActive,
                 ':id' => $id
             ]);
-            logAction($pdo, $_SESSION['user_id'], 'UPDATE_AI_SUBJECT', "Updated AI subject ID $id ($name)");
         } else {
             $stmt = $pdo->prepare("INSERT INTO ai_subjects (subject_name, prompt_md, is_active, sort_order) VALUES (:name, :prompt, :active, 99)");
             $stmt->execute([
@@ -93,7 +90,6 @@ try {
                 ':active' => $isActive
             ]);
             $id = (int) $pdo->lastInsertId();
-            logAction($pdo, $_SESSION['user_id'], 'CREATE_AI_SUBJECT', "Created AI subject ID $id ($name)");
         }
         
         out(['success' => true, 'id' => $id]);
