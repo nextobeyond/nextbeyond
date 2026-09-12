@@ -26,14 +26,27 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
 
 try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $data = [];
+    if ($method === 'POST' || $method === 'PUT' || $method === 'PATCH') {
+        $data = body();
+    }
     
-    if ($method === 'GET') {
+    if ($method === 'GET' || ($method === 'POST' && ($data['action'] ?? '') === 'list')) {
         $stmt = $pdo->query("SELECT id, subject_name, prompt_md, is_active FROM ai_subjects ORDER BY sort_order ASC, id ASC");
         out(['subjects' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
     }
     
+    if ($method === 'DELETE' || ($method === 'POST' && ($data['action'] ?? '') === 'delete')) {
+        $id = (int)($data['id'] ?? $_GET['id'] ?? 0);
+        if ($id > 0) {
+            $stmt = $pdo->prepare("DELETE FROM ai_subjects WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+            logAction($pdo, $_SESSION['user_id'], 'DELETE_AI_SUBJECT', "Deleted AI subject ID $id");
+        }
+        out(['success' => true]);
+    }
+    
     if ($method === 'POST') {
-        $data = body();
         $id = (int)($data['id'] ?? 0);
         $name = trim((string)($data['subject_name'] ?? ''));
         $prompt = (string)($data['prompt_md'] ?? '');
@@ -64,16 +77,6 @@ try {
         }
         
         out(['success' => true, 'id' => $id]);
-    }
-    
-    if ($method === 'DELETE') {
-        $id = (int)($_GET['id'] ?? 0);
-        if ($id > 0) {
-            $stmt = $pdo->prepare("DELETE FROM ai_subjects WHERE id = :id");
-            $stmt->execute([':id' => $id]);
-            logAction($pdo, $_SESSION['user_id'], 'DELETE_AI_SUBJECT', "Deleted AI subject ID $id");
-        }
-        out(['success' => true]);
     }
     
     out(['error' => 'Method Not Allowed'], 405);

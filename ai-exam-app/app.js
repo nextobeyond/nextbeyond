@@ -454,7 +454,11 @@ window.closePromptListModal = function() {
 
 async function loadAiPrompts() {
   try {
-    const data = await apiRequest('../admin/ai-prompts-api.php');
+    const data = await apiRequest('../admin/ai-prompts-api', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'list'})
+    });
     aiPrompts = data.subjects || [];
     renderAiPrompts();
   } catch(e) {
@@ -519,7 +523,11 @@ window.editPrompt = function(id) {
 window.deletePrompt = async function(id) {
   if(!confirm('ยืนยันลบวิชานี้?')) return;
   try {
-    await apiRequest('../admin/ai-prompts-api.php?id='+id, { method: 'DELETE' });
+    await apiRequest('../admin/ai-prompts-api', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ action: 'delete', id: id })
+    });
     alert('ลบวิชาแล้ว');
     location.reload();
   } catch(e) { alert(e.message); }
@@ -534,7 +542,7 @@ window.savePrompt = async function() {
   };
 
   try {
-    const res = await apiRequest('../admin/ai-prompts-api.php', {
+    const res = await apiRequest('../admin/ai-prompts-api', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload)
