@@ -4,7 +4,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 require_once __DIR__.'/../includes/db.php';
-require_once __DIR__.'/includes/access.php';
+require_once __DIR__.'/../admin/includes/access.php';
 require_once __DIR__.'/../includes/logger.php';
 
 function out(array $data, int $status = 200): never {
@@ -19,10 +19,8 @@ function body(): array {
     return $data;
 }
 
-// Only admin can access
-if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
-    out(['error' => 'Unauthorized'], 401);
-}
+// Access control is handled by admin/includes/access.php
+// which allows teachers in ai-exam-app/ folder.
 
 try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';

@@ -436,8 +436,18 @@ const esc = (v) => String(v ?? "").replace(/[&<>'"]/g, c => ({"&": "&amp;", "<":
 
 async function apiRequest(url, options = {}) {
     const response = await fetch(url, options);
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "ดำเนินการไม่สำเร็จ");
+    const text = await response.text();
+    let data = {};
+    try {
+        data = JSON.parse(text);
+    } catch(e) {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ` + text.substring(0, 100));
+        } else {
+            throw new Error('Invalid JSON from server');
+        }
+    }
+    if (!response.ok) throw new Error(data.error || `HTTP ${response.status} (Unknown Error)`);
     return data;
 }
 
@@ -454,7 +464,7 @@ window.closePromptListModal = function() {
 
 async function loadAiPrompts() {
   try {
-    const data = await apiRequest('../admin/ai-prompts-api.php', {
+    const data = await apiRequest('prompts-api.php', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({action: 'list'})
@@ -522,7 +532,7 @@ window.editPrompt = function(id) {
 window.deletePrompt = async function(id) {
   if(!confirm('ยืนยันลบวิชานี้?')) return;
   try {
-    await apiRequest('../admin/ai-prompts-api.php', {
+    await apiRequest('prompts-api.php', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ action: 'delete', id: id })
@@ -541,7 +551,7 @@ window.savePrompt = async function() {
   };
 
   try {
-    const res = await apiRequest('../admin/ai-prompts-api.php', {
+    const res = await apiRequest('prompts-api.php', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload)
