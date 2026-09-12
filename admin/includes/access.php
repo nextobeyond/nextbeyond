@@ -58,6 +58,7 @@ if ($consoleUser['role'] === 'teacher') {
 $requestedPage = basename($_SERVER['SCRIPT_FILENAME'] ?? '');
 if ($requestedPage === 'ai-settings-api.php' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && $consoleUser['role'] === 'teacher') $requestedPage = 'ai-exam.php';
 if (str_contains($_SERVER['SCRIPT_FILENAME'] ?? '', '/AI-EXAM/')) $requestedPage = 'ai-exam.php';
+if (str_contains($_SERVER['SCRIPT_FILENAME'] ?? '', '/ai-exam-app/')) $requestedPage = 'ai-exam.php';
 if (!consoleAllowed($requestedPage)) {
     if ($requestedPage === 'index.php' && $consoleUser['role'] === 'teacher') {
         header('Location: welcome.php');
