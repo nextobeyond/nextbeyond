@@ -454,7 +454,7 @@ window.closePromptListModal = function() {
 
 async function loadAiPrompts() {
   try {
-    const data = await apiRequest('../admin/ai-prompts-api', {
+    const data = await apiRequest('../admin/ai-prompts-api.php', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({action: 'list'})
@@ -480,8 +480,7 @@ function renderAiPrompts() {
         ${p.is_active ? '<span class="px-2 py-1 bg-green-100 text-green-700 text-[11px] font-bold rounded-full">เปิดใช้งาน</span>' : '<span class="px-2 py-1 bg-gray-100 text-gray-500 text-[11px] font-bold rounded-full">ปิด</span>'}
       </td>
       <td class="px-6 py-4 text-right space-x-2">
-        <button type="button" onclick="editPrompt(${p.id})" class="text-[13px] font-bold text-[#2369dd] hover:underline">แก้ไข</button>
-        <button type="button" onclick="deletePrompt(${p.id})" class="text-[13px] font-bold text-red-500 hover:underline">ลบ</button>
+        <button type="button" onclick="editPrompt(${p.id})" class="text-[13px] font-bold text-[#2369dd] hover:underline">แก้ไข (ใส่ Prompt)</button>
       </td>
     </tr>
   `).join('');
@@ -523,7 +522,7 @@ window.editPrompt = function(id) {
 window.deletePrompt = async function(id) {
   if(!confirm('ยืนยันลบวิชานี้?')) return;
   try {
-    await apiRequest('../admin/ai-prompts-api', {
+    await apiRequest('../admin/ai-prompts-api.php', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ action: 'delete', id: id })
@@ -542,7 +541,7 @@ window.savePrompt = async function() {
   };
 
   try {
-    const res = await apiRequest('../admin/ai-prompts-api', {
+    const res = await apiRequest('../admin/ai-prompts-api.php', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload)

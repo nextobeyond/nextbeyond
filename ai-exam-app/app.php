@@ -217,9 +217,6 @@ try {
         <p class="mt-1 text-[12px] text-[#65738a]">ปรับแต่งพฤติกรรมและเงื่อนไขการสร้างข้อสอบของ AI แยกตามรายวิชา</p>
       </div>
       <div class="flex gap-2">
-          <button type="button" onclick="openPromptModal()" class="h-10 px-5 rounded-xl bg-pink-500 text-white font-bold text-[13px] shadow-[0_8px_18px_rgba(231,45,130,.2)] hover:-translate-y-0.5 transition-transform whitespace-nowrap">
-            + เพิ่มวิชาใหม่
-          </button>
           <button type="button" class="w-10 h-10 flex items-center justify-center rounded-xl bg-[#f4f7fb] text-[#65738a] hover:bg-[#e8ecf2]" onclick="closePromptListModal()">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
@@ -239,6 +236,52 @@ try {
           <tr><td colspan="4" class="py-10 text-center text-[#65738a]">กำลังโหลดข้อมูล...</td></tr>
         </tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- AI Prompt Modal -->
+<div id="ai-prompt-modal" class="fixed inset-0 bg-navy-950/40 z-[100] hidden items-center justify-center p-4">
+  <div class="bg-white w-full max-w-3xl rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="px-6 py-4 border-b border-[#e8ecf2] flex items-center justify-between shrink-0">
+      <h3 class="text-[17px] font-bold" id="prompt-modal-title">เพิ่มวิชาใหม่</h3>
+      <button type="button" class="w-8 h-8 flex items-center justify-center rounded-lg text-[#65738a] hover:bg-[#f4f7fb]" onclick="closePromptModal()">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="p-6 overflow-y-auto">
+      <form id="prompt-form" class="space-y-5">
+        <input type="hidden" id="prompt-id">
+        <label class="block text-[13px] font-bold">ชื่อวิชา<select id="prompt-name" required class="settings-field mt-2 bg-white">
+          <option value="">-- เลือกวิชา --</option>
+          <option value="คณิตศาสตร์ (Math)">คณิตศาสตร์ (Math)</option>
+          <option value="วิทยาศาสตร์ (Science)">วิทยาศาสตร์ (Science)</option>
+          <option value="ภาษาอังกฤษ (English)">ภาษาอังกฤษ (English)</option>
+          <option value="ภาษาไทย (Thai)">ภาษาไทย (Thai)</option>
+          <option value="สังคมศึกษา (Social Studies)">สังคมศึกษา (Social Studies)</option>
+          <option value="อื่นๆ (ระบุเอง)">อื่นๆ (ระบุเอง)...</option>
+        </select></label>
+        
+        <div>
+          <label class="block text-[13px] font-bold mb-2">Prompt (Markdown/Text)</label>
+          <div class="flex items-center gap-4 mb-2">
+            <button type="button" onclick="document.getElementById('md-file-input').click()" class="h-8 px-4 rounded-lg bg-[#f1f5f9] text-navy-950 font-bold text-[12px] hover:bg-[#e2e8f0]">อัปโหลดไฟล์ .md</button>
+            <span id="md-file-name" class="text-[12px] text-[#65738a]"></span>
+            <input type="file" id="md-file-input" accept=".md,.txt" class="hidden" onchange="handleMdUpload(event)">
+          </div>
+          <textarea id="prompt-content" class="settings-field w-full min-h-[300px] py-3 font-mono text-[12px]" placeholder="พิมพ์ Prompt หรือคำสั่งเฉพาะสำหรับวิชานี้ที่นี่..."></textarea>
+          <p class="mt-2 text-[11px] text-[#65738a]">ข้อความนี้จะถูกส่งไปพร้อมกับคำสั่งหลักเพื่อให้ AI สร้างข้อสอบได้ตรงตามรูปแบบของวิชานี้</p>
+        </div>
+
+        <label class="settings-toggle-row pt-5 border-t border-[#e8ecf2]">
+          <span><b>เปิดใช้งาน</b><small>ให้วิชานี้ปรากฏในหน้าสร้างข้อสอบ AI</small></span>
+          <input id="prompt-active" type="checkbox" class="settings-checkbox" checked>
+        </label>
+      </form>
+    </div>
+    <div class="px-6 py-4 bg-[#f8fafc] border-t border-[#e8ecf2] flex items-center justify-end gap-3 shrink-0">
+      <button type="button" class="settings-cancel" onclick="closePromptModal()">ยกเลิก</button>
+      <button type="button" class="settings-save" onclick="savePrompt()">บันทึก Prompt</button>
     </div>
   </div>
 </div>
