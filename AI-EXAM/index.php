@@ -3,22 +3,16 @@
  * AI-EXAM/index.php — Fragment สำหรับ include ใน admin/ai-exam.php
  */
 $apiPath = '../AI-EXAM/api.php';
-$defaultExamSubjects = ['คณิตศาสตร์', 'วิทยาศาสตร์', 'ภาษาอังกฤษ', 'ภาษาไทย', 'สังคมศึกษา'];
-$examSubjects = $defaultExamSubjects;
+$defaultExamSubjects = [];
 try {
-    $subjectRows = $pdo->query(
-        "SELECT DISTINCT subject FROM (
-            SELECT subject FROM courses WHERE subject IS NOT NULL AND TRIM(subject) <> ''
-            UNION
-            SELECT subject FROM exams WHERE subject IS NOT NULL AND TRIM(subject) <> ''
-        ) available_subjects ORDER BY subject"
-    )->fetchAll(PDO::FETCH_COLUMN);
-    $examSubjects = array_values(array_unique(array_merge(
-        $defaultExamSubjects,
-        array_filter(array_map('trim', $subjectRows))
-    )));
+    $subjectRows = $pdo->query("SELECT subject_name FROM ai_subjects WHERE is_active = 1 ORDER BY sort_order ASC, id ASC")->fetchAll(PDO::FETCH_COLUMN);
+    $examSubjects = array_filter(array_map('trim', $subjectRows));
+    if (empty($examSubjects)) {
+        $examSubjects = ['คณิตศาสตร์', 'วิทยาศาสตร์', 'ภาษาอังกฤษ', 'ภาษาไทย', 'สังคมศึกษา'];
+    }
 } catch (Throwable $error) {
     error_log('AI exam subjects: ' . $error->getMessage());
+    $examSubjects = ['คณิตศาสตร์', 'วิทยาศาสตร์', 'ภาษาอังกฤษ', 'ภาษาไทย', 'สังคมศึกษา'];
 }
 ?>
 

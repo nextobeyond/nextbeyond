@@ -3,22 +3,16 @@
  * ai-exam-app/app.php — หน้าสร้างข้อสอบสำหรับโปรแกรมแยก
  */
 $apiPath = 'api.php';
-$defaultExamSubjects = ['คณิตศาสตร์', 'วิทยาศาสตร์', 'ภาษาอังกฤษ', 'ภาษาไทย', 'สังคมศึกษา'];
-$examSubjects = $defaultExamSubjects;
+$defaultExamSubjects = [];
 try {
-    $subjectRows = $pdo->query(
-        "SELECT DISTINCT subject FROM (
-            SELECT subject FROM courses WHERE subject IS NOT NULL AND TRIM(subject) <> ''
-            UNION
-            SELECT subject FROM exams WHERE subject IS NOT NULL AND TRIM(subject) <> ''
-        ) available_subjects ORDER BY subject"
-    )->fetchAll(PDO::FETCH_COLUMN);
-    $examSubjects = array_values(array_unique(array_merge(
-        $defaultExamSubjects,
-        array_filter(array_map('trim', $subjectRows))
-    )));
+    $subjectRows = $pdo->query("SELECT subject_name FROM ai_subjects WHERE is_active = 1 ORDER BY sort_order ASC, id ASC")->fetchAll(PDO::FETCH_COLUMN);
+    $examSubjects = array_filter(array_map('trim', $subjectRows));
+    if (empty($examSubjects)) {
+        $examSubjects = ['คณิตศาสตร์', 'วิทยาศาสตร์', 'ภาษาอังกฤษ', 'ภาษาไทย', 'สังคมศึกษา'];
+    }
 } catch (Throwable $error) {
     error_log('AI exam subjects: ' . $error->getMessage());
+    $examSubjects = ['คณิตศาสตร์', 'วิทยาศาสตร์', 'ภาษาอังกฤษ', 'ภาษาไทย', 'สังคมศึกษา'];
 }
 ?>
 
@@ -40,6 +34,7 @@ try {
             </svg>
             ตั้งค่า API Key
         </button>
+        <button id="ai-prompts-btn" onclick="openPromptListModal()" class="text-[13px] font-bold text-[#65738a] hover:text-pink-500 flex items-center gap-1 transition-colors bg-[#f4f7fb] hover:bg-pink-50 px-3 py-1.5 rounded-lg border border-[#e8ecf2] hover:border-pink-200 ml-2">จัดการ AI Prompt</button>
     </div>
 
     <!-- Loading Overlay -->
@@ -212,3 +207,38 @@ try {
   const API_URL = '<?= $apiPath ?>';
 </script>
 <script src="app.js?v=<?= rawurlencode((string) filemtime(__DIR__ . '/app.js')) ?>"></script>
+
+<!-- AI Prompt List Modal -->
+<div id="ai-prompt-list-modal" class="fixed inset-0 bg-navy-950/40 z-[90] hidden items-center justify-center p-4">
+  <div class="bg-white w-full max-w-4xl rounded-[20px] shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="px-7 py-5 border-b border-[#e8ecf2] flex items-center justify-between">
+      <div>
+        <h3 class="text-[17px] font-bold">AI Prompt ประจำวิชา</h3>
+        <p class="mt-1 text-[12px] text-[#65738a]">ปรับแต่งพฤติกรรมและเงื่อนไขการสร้างข้อสอบของ AI แยกตามรายวิชา</p>
+      </div>
+      <div class="flex gap-2">
+          <button type="button" onclick="openPromptModal()" class="h-10 px-5 rounded-xl bg-pink-500 text-white font-bold text-[13px] shadow-[0_8px_18px_rgba(231,45,130,.2)] hover:-translate-y-0.5 transition-transform whitespace-nowrap">
+            + เพิ่มวิชาใหม่
+          </button>
+          <button type="button" class="w-10 h-10 flex items-center justify-center rounded-xl bg-[#f4f7fb] text-[#65738a] hover:bg-[#e8ecf2]" onclick="closePromptListModal()">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+      </div>
+    </div>
+    <div class="overflow-x-auto p-0">
+      <table class="w-full text-left text-[13px]">
+        <thead>
+          <tr class="bg-[#f8fafc] border-b border-[#e8ecf2]">
+            <th class="px-6 py-4 font-bold text-[#65738a] w-16 text-center">ลำดับ</th>
+            <th class="px-6 py-4 font-bold text-[#65738a]">ชื่อวิชา</th>
+            <th class="px-6 py-4 font-bold text-[#65738a] text-center w-24">สถานะ</th>
+            <th class="px-6 py-4 font-bold text-[#65738a] text-right w-24">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="ai-prompts-tbody">
+          <tr><td colspan="4" class="py-10 text-center text-[#65738a]">กำลังโหลดข้อมูล...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

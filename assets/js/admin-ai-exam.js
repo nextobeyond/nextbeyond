@@ -230,6 +230,7 @@ async function handleGenerate(e) {
                 counts:       countsObj,
                 details:      details,
                 shuffle:      shuffle,
+                subject:      subject,
                 useServerKey: true,   // ← ใช้ key จาก server DB
             }),
         });

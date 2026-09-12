@@ -26,6 +26,8 @@
       showNotice.timer = window.setTimeout(() => notice.classList.add("hidden"), 3500);
     }
 
+    const esc = (v) => String(v ?? "").replace(/[&<>'"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"}[c]));
+
     function showLogo(path) {
       if (!logoPreview) return;
       logoPreview.innerHTML = "";
@@ -359,17 +361,5 @@
         loadTracks();
       } catch(e) { showNotice(e.message, true); }
     };
-
-    openTab(location.hash.replace("#", "") || "general");
-    loadSettings();
-    loadAiStatus();
-    loadTracks();
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
-})();
+    })();
 

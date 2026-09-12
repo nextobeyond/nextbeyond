@@ -54,6 +54,23 @@ if (is_array($counts)) {
 $details = $input['details'] ?? '';
 $difficulty = $input['difficulty'] ?? '';
 $shuffle = $input['shuffle'] ?? false;
+$subject = $input['subject'] ?? '';
+
+// ดึง Subject Prompt จากฐานข้อมูล
+$subjectPrompt = '';
+if ($subject !== '') {
+    try {
+        require_once __DIR__ . '/../includes/db.php';
+        $stmt = $pdo->prepare("SELECT prompt_md FROM ai_subjects WHERE subject_name = :name AND is_active = 1 LIMIT 1");
+        $stmt->execute([':name' => $subject]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && !empty($row['prompt_md'])) {
+            $subjectPrompt = trim($row['prompt_md']);
+        }
+    } catch (Throwable $e) {
+        error_log("Failed to fetch subject prompt: " . $e->getMessage());
+    }
+}
 
 function extractFileId($url) {
     if (preg_match('/\/d\/([a-zA-Z0-9_-]+)/', $url, $matches)) {
@@ -227,7 +244,7 @@ function callGemini($modelName, $apiKey, $payload, $temperature) {
     throw new Exception("รูปแบบการตอบกลับจาก API ไม่ถูกต้อง");
 }
 
-function buildPrompt($qCount, $type, $difficulty, $details, $isPdf = false, $chunkText = "", $partIndex = 1, $totalParts = 1) {
+function buildPrompt($qCount, $type, $difficulty, $details, $isPdf = false, $chunkText = "", $partIndex = 1, $totalParts = 1, $subjectPrompt = "") {
     $prompt = "";
     if ($isPdf) {
         if ($type === 'copy') {
@@ -255,6 +272,11 @@ function buildPrompt($qCount, $type, $difficulty, $details, $isPdf = false, $chu
             if ($difficulty === 'expert') $levelText = "ยากมาก";
             $prompt = "นี่คือเนื้อหาต้นฉบับ (Part {$partIndex}/{$totalParts}):\n{$chunkText}\n\nจงสร้างข้อสอบใหม่คุณภาพสูงสุดจำนวน {$qCount} ข้อ โดยปรับความยากให้อยู่ในระดับ **{$levelText}**\nเงื่อนไขเพิ่มเติม: " . ($details ?: 'ไม่มี');
         }
+    }
+
+    if ($subjectPrompt !== "") {
+        $prompt .= "\n\n=== กฎและรูปแบบเฉพาะของวิชานี้ ===\n";
+        $prompt .= $subjectPrompt . "\n================================\n\n";
     }
 
     $prompt .= "\n\nคำแนะนำสำคัญอย่างยิ่งในการสร้าง `questionText` (โดยเฉพาะข้อสอบ Reading / Conversation / Cloze Test):\n";
@@ -292,7 +314,7 @@ function generateQuestions($payload, $candidateModels, $apiKey, $temperature) {
     throw new Exception("สร้างข้อสอบล้มเหลว: " . $lastErr);
 }
 
-function generateQuestionsInBatches($targetCount, $type, $difficulty, $details, $isPdf, $fileData, $chunkText, $partIndex, $totalParts, $candidateModels, $apiKey) {
+function generateQuestionsInBatches($targetCount, $type, $difficulty, $details, $isPdf, $fileData, $chunkText, $partIndex, $totalParts, $candidateModels, $apiKey, $subjectPrompt = "") {
     $batchSize = 20;
     $batchCount = (int) ceil($targetCount / $batchSize);
     $questions = [];
@@ -302,7 +324,7 @@ function generateQuestionsInBatches($targetCount, $type, $difficulty, $details, 
         $currentCount = min($batchSize, $targetCount - count($questions));
         if ($currentCount < 1) break;
 
-        $prompt = buildPrompt($currentCount, $type, $difficulty, $details, $isPdf, $chunkText, $partIndex, $totalParts);
+        $prompt = buildPrompt($currentCount, $type, $difficulty, $details, $isPdf, $chunkText, $partIndex, $totalParts, $subjectPrompt);
         if ($batchCount > 1) {
             $endNumber = $startNumber + $currentCount - 1;
             if ($type === 'copy') {
@@ -332,12 +354,12 @@ try {
             foreach ($counts as $lvl => $cText) {
                 $c = (int)$cText;
                 if ($c > 0) {
-                    $qs = generateQuestionsInBatches($c, $type, $lvl, $details, true, $fileData, '', 1, 1, $candidateModels, $apiKey);
+                    $qs = generateQuestionsInBatches($c, $type, $lvl, $details, true, $fileData, '', 1, 1, $candidateModels, $apiKey, $subjectPrompt);
                     $finalQuestions = array_merge($finalQuestions, $qs);
                 }
             }
         } else {
-            $finalQuestions = generateQuestionsInBatches($count, $type, $difficulty, $details, true, $fileData, '', 1, 1, $candidateModels, $apiKey);
+            $finalQuestions = generateQuestionsInBatches($count, $type, $difficulty, $details, true, $fileData, '', 1, 1, $candidateModels, $apiKey, $subjectPrompt);
         }
     } else {
         if (trim($fileData) === '') {
@@ -383,7 +405,7 @@ try {
                     $lvlQs = [];
                     for ($i = 0; $i < $numChunks; $i++) {
                         if ($dist[$i] === 0) continue;
-                        $qs = generateQuestionsInBatches($dist[$i], $type, $lvl, $details, false, null, $chunks[$i], $i + 1, $numChunks, $candidateModels, $apiKey);
+                        $qs = generateQuestionsInBatches($dist[$i], $type, $lvl, $details, false, null, $chunks[$i], $i + 1, $numChunks, $candidateModels, $apiKey, $subjectPrompt);
                         $lvlQs = array_merge($lvlQs, $qs);
                         if ($i < $numChunks - 1) sleep(1);
                     }
@@ -395,7 +417,7 @@ try {
             $dist = distributeQuestionCount($count, $numChunks);
             for ($i = 0; $i < $numChunks; $i++) {
                 if ($dist[$i] === 0 && $type !== 'copy') continue;
-                $qs = generateQuestionsInBatches($dist[$i], $type, $difficulty, $details, false, null, $chunks[$i], $i + 1, $numChunks, $candidateModels, $apiKey);
+                $qs = generateQuestionsInBatches($dist[$i], $type, $difficulty, $details, false, null, $chunks[$i], $i + 1, $numChunks, $candidateModels, $apiKey, $subjectPrompt);
                 $finalQuestions = array_merge($finalQuestions, $qs);
                 if ($i < $numChunks - 1) sleep(1);
             }

@@ -230,6 +230,7 @@ async function handleGenerate(e) {
                 counts:       countsObj,
                 details:      details,
                 shuffle:      shuffle,
+                subject:      subject,
                 useServerKey: true,   // ← ใช้ key จาก server DB
             }),
         });
@@ -428,3 +429,132 @@ function downloadPDF() {
     _serverKeyConfigured = status.configured;
     updateSettingsBadge(status.configured);
 })();
+
+// --- AI Prompts Management ---
+let aiPrompts = [];
+const esc = (v) => String(v ?? "").replace(/[&<>'"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"}[c]));
+
+async function apiRequest(url, options = {}) {
+    const response = await fetch(url, options);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "ดำเนินการไม่สำเร็จ");
+    return data;
+}
+
+window.openPromptListModal = function() {
+    document.getElementById('ai-prompt-list-modal').classList.remove('hidden');
+    document.getElementById('ai-prompt-list-modal').classList.add('flex');
+    loadAiPrompts();
+};
+
+window.closePromptListModal = function() {
+    document.getElementById('ai-prompt-list-modal').classList.add('hidden');
+    document.getElementById('ai-prompt-list-modal').classList.remove('flex');
+};
+
+async function loadAiPrompts() {
+  try {
+    const data = await apiRequest('../admin/ai-prompts-api.php');
+    aiPrompts = data.subjects || [];
+    renderAiPrompts();
+  } catch(e) {
+    document.getElementById('ai-prompts-tbody').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500 font-bold">${esc(e.message)}</td></tr>`;
+  }
+}
+
+function renderAiPrompts() {
+  const tbody = document.getElementById('ai-prompts-tbody');
+  if(aiPrompts.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-[#65738a]">ยังไม่มีรายวิชา</td></tr>';
+    return;
+  }
+  tbody.innerHTML = aiPrompts.map((p, index) => `
+    <tr class="border-b border-[#e8ecf2] hover:bg-[#f8fafc]">
+      <td class="px-6 py-4 text-center text-[13px]">${index + 1}</td>
+      <td class="px-6 py-4 text-[13px] font-bold text-navy-950">${esc(p.subject_name)}</td>
+      <td class="px-6 py-4 text-center">
+        ${p.is_active ? '<span class="px-2 py-1 bg-green-100 text-green-700 text-[11px] font-bold rounded-full">เปิดใช้งาน</span>' : '<span class="px-2 py-1 bg-gray-100 text-gray-500 text-[11px] font-bold rounded-full">ปิด</span>'}
+      </td>
+      <td class="px-6 py-4 text-right space-x-2">
+        <button type="button" onclick="editPrompt(${p.id})" class="text-[13px] font-bold text-[#2369dd] hover:underline">แก้ไข</button>
+        <button type="button" onclick="deletePrompt(${p.id})" class="text-[13px] font-bold text-red-500 hover:underline">ลบ</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+window.openPromptModal = function() {
+  document.getElementById('prompt-modal-title').textContent = 'เพิ่มวิชาใหม่';
+  document.getElementById('prompt-id').value = '';
+  document.getElementById('prompt-name').value = '';
+  document.getElementById('prompt-content').value = '';
+  document.getElementById('prompt-active').checked = true;
+  document.getElementById('md-file-name').textContent = '';
+  document.getElementById('md-file-input').value = '';
+  document.getElementById('ai-prompt-modal').classList.remove('hidden');
+  document.getElementById('ai-prompt-modal').classList.add('flex');
+};
+
+window.closePromptModal = function() {
+  document.getElementById('ai-prompt-modal').classList.add('hidden');
+  document.getElementById('ai-prompt-modal').classList.remove('flex');
+};
+
+window.editPrompt = function(id) {
+  const p = aiPrompts.find(x => x.id === id);
+  if(!p) return;
+  document.getElementById('prompt-modal-title').textContent = 'แก้ไข: ' + p.subject_name;
+  document.getElementById('prompt-id').value = p.id;
+  document.getElementById('prompt-name').value = p.subject_name;
+  document.getElementById('prompt-content').value = p.prompt_md || '';
+  document.getElementById('prompt-active').checked = !!p.is_active;
+  
+  document.getElementById('md-file-name').textContent = '';
+  document.getElementById('md-file-input').value = '';
+
+  document.getElementById('ai-prompt-modal').classList.remove('hidden');
+  document.getElementById('ai-prompt-modal').classList.add('flex');
+};
+
+window.deletePrompt = async function(id) {
+  if(!confirm('ยืนยันลบวิชานี้?')) return;
+  try {
+    await apiRequest('../admin/ai-prompts-api.php?id='+id, { method: 'DELETE' });
+    alert('ลบวิชาแล้ว');
+    location.reload();
+  } catch(e) { alert(e.message); }
+};
+
+window.savePrompt = async function() {
+  const payload = {
+    id: document.getElementById('prompt-id').value,
+    subject_name: document.getElementById('prompt-name').value,
+    prompt_md: document.getElementById('prompt-content').value,
+    is_active: document.getElementById('prompt-active').checked ? 1 : 0
+  };
+
+  try {
+    const res = await apiRequest('../admin/ai-prompts-api.php', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    alert('บันทึกสำเร็จ!');
+    location.reload();
+  } catch(e) {
+    alert(e.message);
+  }
+};
+
+window.handleMdUpload = function() {
+  const input = document.getElementById('md-file-input');
+  if(!input.files || input.files.length === 0) return;
+  const file = input.files[0];
+  document.getElementById('md-file-name').textContent = file.name;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('prompt-content').value = e.target.result;
+  };
+  reader.readAsText(file);
+};
