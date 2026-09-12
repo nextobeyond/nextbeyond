@@ -40,6 +40,7 @@
   }
   async function openExam(id,push=true){
     examId=String(id); questions=(await api(`exams-api?view=questions&exam=${encodeURIComponent(id)}`)).questions||[];
+    questions.sort((a,b)=>Number(a.sortOrder)-Number(b.sortOrder)||Number(a.id)-Number(b.id));
     $("sets-view").classList.add("hidden"); $("questions-view").classList.remove("hidden");
     $("bank-back").classList.remove("hidden"); $("bank-back").classList.add("flex"); subject.classList.add("hidden");
     search.placeholder="ค้นหาคำถามในชุดนี้..."; search.value="";

@@ -84,17 +84,17 @@ try {
         <div id="levels-ui" class="hidden bg-pink-50/50 p-5 rounded-xl border border-pink-100 animate-fade-in space-y-4">
             <h3 class="font-bold text-navy-950 text-[14px]">กำหนดจำนวนข้อในแต่ละระดับความยาก</h3>
             <div class="grid grid-cols-2 gap-4 max-[480px]:grid-cols-1">
-                <div class="flex items-center space-x-3"><label class="text-[13px] font-medium text-[#65738a] w-20">ง่าย:</label><input type="number" min="0" value="0" id="lvl-easy" oninput="updateTotal()" class="w-full p-2.5 border border-[#e8ecf2] rounded-lg focus:border-pink-500 outline-none text-navy-950 font-medium" /></div>
-                <div class="flex items-center space-x-3"><label class="text-[13px] font-medium text-[#65738a] w-20">ปานกลาง:</label><input type="number" min="0" value="0" id="lvl-medium" oninput="updateTotal()" class="w-full p-2.5 border border-[#e8ecf2] rounded-lg focus:border-pink-500 outline-none text-navy-950 font-medium" /></div>
-                <div class="flex items-center space-x-3"><label class="text-[13px] font-medium text-[#65738a] w-20">ยาก:</label><input type="number" min="0" value="0" id="lvl-hard" oninput="updateTotal()" class="w-full p-2.5 border border-[#e8ecf2] rounded-lg focus:border-pink-500 outline-none text-navy-950 font-medium" /></div>
-                <div class="flex items-center space-x-3"><label class="text-[13px] font-medium text-[#65738a] w-20">ยากมาก:</label><input type="number" min="0" value="0" id="lvl-expert" oninput="updateTotal()" class="w-full p-2.5 border border-[#e8ecf2] rounded-lg focus:border-pink-500 outline-none text-navy-950 font-medium" /></div>
+                <div class="flex items-center space-x-3"><label class="text-[13px] font-medium text-[#65738a] w-20">ง่าย:</label><input type="number" min="0" max="100" value="0" id="lvl-easy" oninput="updateTotal()" class="w-full p-2.5 border border-[#e8ecf2] rounded-lg focus:border-pink-500 outline-none text-navy-950 font-medium" /></div>
+                <div class="flex items-center space-x-3"><label class="text-[13px] font-medium text-[#65738a] w-20">ปานกลาง:</label><input type="number" min="0" max="100" value="0" id="lvl-medium" oninput="updateTotal()" class="w-full p-2.5 border border-[#e8ecf2] rounded-lg focus:border-pink-500 outline-none text-navy-950 font-medium" /></div>
+                <div class="flex items-center space-x-3"><label class="text-[13px] font-medium text-[#65738a] w-20">ยาก:</label><input type="number" min="0" max="100" value="0" id="lvl-hard" oninput="updateTotal()" class="w-full p-2.5 border border-[#e8ecf2] rounded-lg focus:border-pink-500 outline-none text-navy-950 font-medium" /></div>
+                <div class="flex items-center space-x-3"><label class="text-[13px] font-medium text-[#65738a] w-20">ยากมาก:</label><input type="number" min="0" max="100" value="0" id="lvl-expert" oninput="updateTotal()" class="w-full p-2.5 border border-[#e8ecf2] rounded-lg focus:border-pink-500 outline-none text-navy-950 font-medium" /></div>
             </div>
             <div class="text-right text-[13px] font-bold text-pink-600 pt-3 border-t border-pink-100 mt-2">รวมทั้งหมด: <span id="total-levels">0</span> ข้อ</div>
         </div>
 
         <!-- Normal Count UI -->
         <div id="normal-count-ui">
-            <input type="number" id="qCount" placeholder="จำนวนข้อ (เช่น 10)" value="10" class="w-full p-3 bg-white border-2 border-[#e8ecf2] rounded-xl outline-none focus:border-pink-500 text-navy-950 font-medium transition-colors" />
+            <input type="number" id="qCount" min="1" max="100" placeholder="จำนวนข้อ (1-100 ข้อ)" value="10" class="w-full p-3 bg-white border-2 border-[#e8ecf2] rounded-xl outline-none focus:border-pink-500 text-navy-950 font-medium transition-colors" />
         </div>
 
         <!-- Shuffle -->

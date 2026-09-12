@@ -87,7 +87,7 @@ try {
                  FROM exam_questions q
                  INNER JOIN exams e ON e.id = q.exam_id
                  {$whereSql}
-                 ORDER BY q.created_at DESC, q.id DESC"
+                 ORDER BY q.exam_id DESC, q.sort_order ASC, q.id ASC"
             );
             $stmt->execute($params);
             $questions = array_map(static function (array $row): array {

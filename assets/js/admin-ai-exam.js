@@ -204,6 +204,11 @@ async function handleGenerate(e) {
         }
     }
 
+    if (finalCount < 1 || finalCount > 100) {
+        alert('จำนวนข้อสอบต้องอยู่ระหว่าง 1 ถึง 100 ข้อ');
+        return;
+    }
+
     const details = document.getElementById('details').value;
     const shuffle = document.getElementById('shuffle').checked;
 
@@ -233,6 +238,7 @@ async function handleGenerate(e) {
         if (!res.ok) throw new Error(data.error || 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์');
         if (!data.questions || data.questions.length === 0)
             throw new Error('AI ไม่สามารถสร้างข้อสอบได้ โปรดตรวจสอบเอกสารต้นฉบับ');
+        if (data.warning) alert(data.warning);
 
         currentExam = data.questions;
         answers     = {};
