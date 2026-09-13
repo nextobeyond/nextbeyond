@@ -5,11 +5,11 @@
 $apiPath = 'api.php';
 $defaultExamSubjects = [];
 try {
+    require_once __DIR__ . '/subject-prompts.php';
+    ensureSubjectPrompts($pdo);
     $subjectRows = $pdo->query("SELECT subject_name FROM ai_subjects WHERE is_active = 1 ORDER BY sort_order ASC, id ASC")->fetchAll(PDO::FETCH_COLUMN);
     $examSubjects = array_filter(array_map('trim', $subjectRows));
-    if (empty($examSubjects)) {
-        $examSubjects = ['คณิตศาสตร์', 'วิทยาศาสตร์', 'ภาษาอังกฤษ', 'ภาษาไทย', 'สังคมศึกษา'];
-    }
+
 } catch (Throwable $error) {
     error_log('AI exam subjects: ' . $error->getMessage());
     $examSubjects = ['คณิตศาสตร์', 'วิทยาศาสตร์', 'ภาษาอังกฤษ', 'ภาษาไทย', 'สังคมศึกษา'];
@@ -44,7 +44,7 @@ try {
         </div>
         <h3 class="text-xl font-bold text-navy-950 mb-2">กำลังให้ AI สร้างข้อสอบ...</h3>
         <p class="text-pink-500 font-medium mb-1">กำลังรวบรวมข้อสอบคุณภาพสูงตามระดับความยาก</p>
-        <p class="text-xs text-[#65738a]">อาจใช้เวลา 10-40 วินาที ขึ้นอยู่กับจำนวนข้อที่กำหนด</p>
+        <p class="text-xs text-[#65738a]">อาจใช้เวลาหลายนาทีตามจำนวนข้อ เมื่อสร้างเสร็จระบบจะบันทึกเป็นฉบับร่างให้อัตโนมัติ</p>
     </div>
 
     <form id="generate-form" class="space-y-5" onsubmit="handleGenerate(event)">
@@ -60,6 +60,11 @@ try {
             <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-[#65738a]">
                 <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
             </div>
+        </div>
+
+        <div>
+            <label for="examGrade" class="text-xs font-bold">ระดับชั้น (ไม่ระบุจะอิงตามต้นฉบับ)</label>
+            <input id="examGrade" maxlength="50" placeholder="เช่น ป.6 หรือ ม.3" class="w-full p-3 border-2 rounded-xl" />
         </div>
 
         <!-- Exam Type -->
@@ -132,6 +137,7 @@ try {
         <h2 class="text-2xl font-bold text-navy-950 mb-3">แบบทดสอบจาก AI</h2>
         <div class="flex flex-wrap gap-2" id="exam-meta"></div>
         <div id="exam-saved-notice" class="hidden mt-4 p-3 rounded-xl bg-[#eff6ff] border border-[#bfdbfe] text-[#1d4ed8] text-[13px] font-bold"></div>
+        <div id="exam-generation-warning" role="status" class="hidden mt-4 p-3"></div>
     </div>
 
     <!-- Results Banner -->
@@ -228,8 +234,8 @@ try {
           <tr class="bg-[#f8fafc] border-b border-[#e8ecf2]">
             <th class="px-6 py-4 font-bold text-[#65738a] w-16 text-center">ลำดับ</th>
             <th class="px-6 py-4 font-bold text-[#65738a]">ชื่อวิชา</th>
-            <th class="px-6 py-4 font-bold text-[#65738a] text-center w-24">สถานะ</th>
-            <th class="px-6 py-4 font-bold text-[#65738a] text-right w-24">จัดการ</th>
+            <th class="px-6 py-4 font-bold text-[#65738a] text-center w-32">สถานะ</th>
+            <th class="px-6 py-4 font-bold text-[#65738a] text-right w-40">จัดการ</th>
           </tr>
         </thead>
         <tbody id="ai-prompts-tbody">

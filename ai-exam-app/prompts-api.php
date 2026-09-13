@@ -6,6 +6,8 @@ header('Cache-Control: no-store');
 require_once __DIR__.'/../includes/db.php';
 require_once __DIR__.'/../admin/includes/access.php';
 
+require_once __DIR__ . '/subject-prompts.php';
+
 function out(array $data, int $status = 200): never {
     http_response_code($status);
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -22,6 +24,7 @@ function body(): array {
 // which allows teachers in ai-exam-app/ folder.
 
 try {
+    ensureSubjectPrompts($pdo);
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $data = [];
     if ($method === 'POST' || $method === 'PUT' || $method === 'PATCH') {
@@ -29,28 +32,6 @@ try {
     }
     
     if ($method === 'GET' || ($method === 'POST' && ($data['action'] ?? '') === 'list')) {
-        $pdo->exec("CREATE TABLE IF NOT EXISTS `ai_subjects` (
-          `id` INT AUTO_INCREMENT PRIMARY KEY,
-          `subject_name` VARCHAR(255) NOT NULL,
-          `prompt_md` TEXT NULL,
-          `is_active` TINYINT(1) DEFAULT 1,
-          `sort_order` INT DEFAULT 0
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-        
-        $stmt = $pdo->query("SELECT COUNT(*) FROM ai_subjects");
-        if ((int)$stmt->fetchColumn() === 0) {
-            $defaults = [
-                [1, 'คณิตศาสตร์ (Math)'],
-                [2, 'วิทยาศาสตร์ (Science)'],
-                [3, 'ภาษาอังกฤษ (English)'],
-                [4, 'ภาษาไทย (Thai)'],
-                [5, 'สังคมศึกษา (Social Studies)']
-            ];
-            $insert = $pdo->prepare("INSERT INTO ai_subjects (id, subject_name, prompt_md, is_active, sort_order) VALUES (?, ?, '', 1, ?)");
-            foreach ($defaults as $i => $d) {
-                $insert->execute([$d[0], $d[1], $d[0]]);
-            }
-        }
         $stmt = $pdo->query("SELECT id, subject_name, prompt_md, is_active FROM ai_subjects ORDER BY sort_order ASC, id ASC");
         out(['subjects' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
     }

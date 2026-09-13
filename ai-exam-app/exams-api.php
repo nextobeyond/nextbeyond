@@ -7,6 +7,8 @@ header('Cache-Control: no-store');
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../admin/includes/access.php';
 
+require_once __DIR__ . '/question-validation.php';
+
 function respond(array $payload, int $status = 200): never
 {
     http_response_code($status);
@@ -36,6 +38,7 @@ function ensureExamSchema(PDO $pdo): void
 {
     $examColumns = tableColumns($pdo, 'exams');
     $examAdditions = [
+        'generation_request_id' => "ADD COLUMN `generation_request_id` VARCHAR(36) NULL UNIQUE",
         'source_url' => "ADD COLUMN `source_url` VARCHAR(1000) NULL AFTER `is_ai_generated`",
         'generation_mode' => "ADD COLUMN `generation_mode` ENUM('copy','similar','levels') NULL AFTER `source_url`",
         'is_published' => "ADD COLUMN `is_published` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`",
@@ -153,6 +156,22 @@ try {
             respond(['error' => 'ข้อสอบต้องมีคำถามอย่างน้อย 1 ข้อ'], 422);
         }
 
+        try {
+            $questions = validateExamQuestions($questions);
+        } catch (InvalidArgumentException $error) {
+            respond(['error' => $error->getMessage()], 422);
+        }
+
+        $requestId = $body['requestId'] ?? null;
+        if ($requestId !== null && (!is_string($requestId) || !preg_match('/^[a-f0-9-]{36}$/i', $requestId))) {
+            respond(['error' => 'รหัสการบันทึกไม่ถูกต้อง'], 422);
+        }
+        if ($requestId !== null) {
+            $existing = $pdo->prepare('SELECT id FROM exams WHERE generation_request_id = ? AND created_by = ?');
+            $existing->execute([$requestId, $consoleUser['id']]);
+            if ($id = $existing->fetchColumn()) respond(['success' => true, 'examId' => (int) $id]);
+        }
+
         $title = trim((string) ($body['title'] ?? ''));
         if ($title === '') {
             $title = 'แบบทดสอบจาก AI ' . date('d/m/Y H:i');
@@ -161,13 +180,15 @@ try {
         $pdo->beginTransaction();
         $examStmt = $pdo->prepare(
             "INSERT INTO exams
-                (title, subject, grade, topic, difficulty, type, time_limit_minutes,
+                (generation_request_id, title, subject, grade, topic, difficulty, type, time_limit_minutes,
                  is_ai_generated, source_url, generation_mode, created_by, status, is_published, requires_login)
              VALUES
-                (:title, :subject, :grade, :topic, :difficulty, :type, :time_limit,
-                 1, :source_url, :generation_mode, NULL, 'draft', 0, 1)"
+                (:request_id, :title, :subject, :grade, :topic, :difficulty, :type, :time_limit,
+                 1, :source_url, :generation_mode, :created_by, 'draft', 0, 1)"
         );
         $examStmt->execute([
+            ':request_id' => $requestId,
+            ':created_by' => (int) $consoleUser['id'],
             ':title' => $title,
             ':subject' => trim((string) ($body['subject'] ?? 'ทั่วไป')),
             ':grade' => trim((string) ($body['grade'] ?? 'ทุกระดับ')),

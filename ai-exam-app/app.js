@@ -7,6 +7,8 @@
 
 // ---------- State ----------
 let currentExam  = null;
+let pendingExamSave = null;
+let savingExam = false;
 let answers      = {};
 let isRevealed   = false;
 let _serverKeyConfigured = false;   // true หากมี key ใน DB แล้ว
@@ -135,6 +137,8 @@ function updateSettingsBadge(configured) {
 
 // ---------- View Routing ----------
 function goHome() {
+    if (pendingExamSave && !confirm("ข้อสอบยังไม่บันทึก ต้องการกลับและทิ้งข้อสอบชุดนี้หรือไม่?")) return;
+    pendingExamSave = null;
     document.getElementById('view-form').classList.remove('hidden');
     document.getElementById('view-exam').classList.add('hidden');
     currentExam = null;
@@ -144,6 +148,9 @@ function goHome() {
 
 function toggleType() {
     const type = document.getElementById('examType').value;
+    const shuffle = document.getElementById('shuffle');
+    shuffle.disabled = type === 'copy';
+    if (type === 'copy') shuffle.checked = false;
     if (type === 'levels') {
         document.getElementById('levels-ui').classList.remove('hidden');
         document.getElementById('normal-count-ui').classList.add('hidden');
@@ -160,6 +167,34 @@ function updateTotal() {
     const ex = parseInt(document.getElementById('lvl-expert').value) || 0;
     document.getElementById('total-levels').innerText = e + m + h + ex;
 }
+
+async function saveGeneratedExam() {
+    if (!pendingExamSave || savingExam) return;
+    savingExam = true;
+    const notice = document.getElementById('exam-saved-notice');
+    notice.classList.remove('hidden');
+    notice.textContent = 'กำลังบันทึกข้อสอบ...';
+    try {
+        const data = await apiRequest('exams-api.php', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(pendingExamSave),
+        });
+        if (!data.examId) throw new Error('เซิร์ฟเวอร์ไม่ยืนยันรหัสข้อสอบ');
+        pendingExamSave = null;
+        const id = encodeURIComponent(data.examId);
+        notice.innerHTML = `บันทึกข้อสอบ #${escapeHtml(data.examId)} เป็นฉบับร่างแล้ว ·
+            <a class="underline" href="../admin/tests?created=${id}" target="_blank" rel="noopener">เปิดแบบทดสอบ</a> ·
+            <a class="underline" href="../admin/question-bank?exam=${id}" target="_blank" rel="noopener">เปิดและแก้ไขคลังข้อสอบ</a>`;
+    } catch (error) {
+        notice.innerHTML = `ยังไม่ได้ยืนยันการบันทึก ข้อสอบยังอยู่ในหน้านี้: ${escapeHtml(error.message)}
+            <button type="button" class="underline" onclick="saveGeneratedExam()">ลองบันทึกใหม่</button>`;
+    } finally {
+        savingExam = false;
+    }
+}
+window.addEventListener('beforeunload', event => {
+    if (pendingExamSave) { event.preventDefault(); event.returnValue = ''; }
+});
 
 // ---------- Form Submit — Generate ----------
 async function handleGenerate(e) {
@@ -210,6 +245,7 @@ async function handleGenerate(e) {
     }
 
     const details = document.getElementById('details').value;
+    const grade = document.getElementById('examGrade').value.trim() || 'อิงตามต้นฉบับ';
     const shuffle = document.getElementById('shuffle').checked;
 
     const overlay  = document.getElementById('loading-overlay');
@@ -231,6 +267,7 @@ async function handleGenerate(e) {
                 details:      details,
                 shuffle:      shuffle,
                 subject:      subject,
+                grade:        grade,
                 useServerKey: true,   // ← ใช้ key จาก server DB
             }),
         });
@@ -245,32 +282,18 @@ async function handleGenerate(e) {
         answers     = {};
         isRevealed  = false;
 
-        // ── บันทึกลง Database อัตโนมัติ ──
-        try {
-            const saveRes = await fetch('exams-api.php', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({
-                    questions:      currentExam,
-                    title:          `แบบทดสอบ${subject}จาก AI ${new Date().toLocaleDateString('th-TH')}`,
-                    subject:        subject,
-                    grade:          'ทุกระดับ',
-                    generationMode: type,
-                    sourceUrl:      driveUrl,
-                }),
-            });
-            const saveData = await saveRes.json();
-            if (saveRes.ok && saveData.examId) {
-                const notice = document.getElementById('exam-saved-notice');
-                notice.textContent = `บันทึกข้อสอบ #${saveData.examId} ลงคลังข้อสอบเรียบร้อยแล้ว`;
-                notice.classList.remove('hidden');
-            }
-        } catch (_) {
-            // ถ้าบันทึก DB ไม่สำเร็จ ยังให้ดูข้อสอบได้ใน session
-            console.warn('ไม่สามารถบันทึกลงฐานข้อมูลได้ แสดงผลแบบ session เท่านั้น');
-        }
+        const warning = document.getElementById('exam-generation-warning');
+        warning.textContent = data.warning || '';
+        warning.classList.toggle('hidden', !data.warning);
+        pendingExamSave = {
+            requestId: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(18)), b => b.toString(16).padStart(2, '0')).join(''),
+            questions: currentExam,
+            title: `แบบทดสอบ${subject}จาก AI ${new Date().toLocaleDateString('th-TH')}`,
+            subject, grade, topic: details.slice(0, 300), generationMode: type, sourceUrl: driveUrl,
+            difficulty: type === 'levels' ? 'mixed' : null,
+        };
+        await saveGeneratedExam();
 
-        // fallback: แสดงผลใน session (กรณีบันทึก DB ไม่สำเร็จ)
         document.getElementById('exam-meta').innerHTML = `
             <span class="bg-pink-50 text-pink-600 font-bold text-[11px] px-2.5 py-1 rounded-md tracking-wide uppercase">ประเภท: ${type}</span>
             <span class="bg-blue-50 text-blue-700 font-bold text-[11px] px-2.5 py-1 rounded-md tracking-wide">วิชา: ${escapeHtml(subject)}</span>
@@ -469,7 +492,7 @@ async function loadAiPrompts() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({action: 'list'})
     });
-    aiPrompts = data.subjects || [];
+    aiPrompts = (data.subjects || []).map(p => ({...p, id: Number(p.id), is_active: Number(p.is_active) === 1}));
     renderAiPrompts();
   } catch(e) {
     document.getElementById('ai-prompts-tbody').innerHTML = `<tr><td colspan="4" class="py-10 text-center text-red-500 font-bold">${esc(e.message)}</td></tr>`;
@@ -487,10 +510,10 @@ function renderAiPrompts() {
       <td class="px-6 py-4 text-center text-[13px]">${index + 1}</td>
       <td class="px-6 py-4 text-[13px] font-bold text-navy-950">${esc(p.subject_name)}</td>
       <td class="px-6 py-4 text-center">
-        ${p.is_active ? '<span class="px-2 py-1 bg-green-100 text-green-700 text-[11px] font-bold rounded-full">เปิดใช้งาน</span>' : '<span class="px-2 py-1 bg-gray-100 text-gray-500 text-[11px] font-bold rounded-full">ปิด</span>'}
+        ${p.is_active ? '<span class="whitespace-nowrap px-2 py-1 bg-green-100 text-green-700 text-[11px] font-bold rounded-full">เปิดใช้งาน</span>' : '<span class="whitespace-nowrap px-2 py-1 bg-gray-100 text-gray-500 text-[11px] font-bold rounded-full">ปิด</span>'}
       </td>
       <td class="px-6 py-4 text-right space-x-2">
-        <button type="button" onclick="editPrompt(${p.id})" class="text-[13px] font-bold text-[#2369dd] hover:underline">แก้ไข (ใส่ Prompt)</button>
+        <button type="button" onclick="editPrompt(${p.id})" class="whitespace-nowrap text-[13px] font-bold text-[#2369dd] hover:underline">แก้ไข (ใส่ Prompt)</button>
       </td>
     </tr>
   `).join('');
@@ -575,3 +598,5 @@ window.handleMdUpload = function() {
   };
   reader.readAsText(file);
 };
+// Initialize copy mode without shuffling the source.
+toggleType();
