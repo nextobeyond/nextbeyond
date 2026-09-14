@@ -91,17 +91,43 @@ function ensureSubjectPrompts(PDO $pdo): void
     // Keep this identifier within the 32-character limit used by older installations.
     $upgradeVersion = 'subject-prompts-v3-science';
     $check->execute([$upgradeVersion]);
+    if (!$check->fetchColumn()) {
+        $pdo->beginTransaction();
+        try {
+            $lock = $pdo->prepare('INSERT IGNORE INTO ai_exam_migrations (version) VALUES (?)');
+            $lock->execute([$upgradeVersion]);
+            if ($lock->rowCount() === 1) {
+                $newPrompt = file_get_contents(__DIR__ . '/prompts/science.md');
+                if ($newPrompt === false) throw new RuntimeException('ไม่พบ Prompt วิทยาศาสตร์');
+                $oldHash = 'b76a5e543ba7dba896aff47b88e3bba764ba8b932eeb2670bc8b96dbcb437193';
+                $update = $pdo->prepare('UPDATE ai_subjects SET prompt_md = ? WHERE subject_name IN (?, ?) AND (TRIM(COALESCE(prompt_md, \'\')) = \'\' OR SHA2(prompt_md, 256) = ?)');
+                $update->execute([$newPrompt, 'วิทยาศาสตร์ (Science)', 'วิทยาศาสตร์', $oldHash]);
+            }
+            $pdo->commit();
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $error;
+        }
+    }
+
+    // Apply the output-format rule to every saved subject prompt, including
+    // prompts that administrators have customized.
+    $upgradeVersion = 'subject-prompts-v4-options';
+    $check->execute([$upgradeVersion]);
     if ($check->fetchColumn()) return;
     $pdo->beginTransaction();
     try {
         $lock = $pdo->prepare('INSERT IGNORE INTO ai_exam_migrations (version) VALUES (?)');
         $lock->execute([$upgradeVersion]);
         if ($lock->rowCount() === 1) {
-            $newPrompt = file_get_contents(__DIR__ . '/prompts/science.md');
-            if ($newPrompt === false) throw new RuntimeException('ไม่พบ Prompt วิทยาศาสตร์');
-            $oldHash = 'b76a5e543ba7dba896aff47b88e3bba764ba8b932eeb2670bc8b96dbcb437193';
-            $update = $pdo->prepare('UPDATE ai_subjects SET prompt_md = ? WHERE subject_name IN (?, ?) AND (TRIM(COALESCE(prompt_md, \'\')) = \'\' OR SHA2(prompt_md, 256) = ?)');
-            $update->execute([$newPrompt, 'วิทยาศาสตร์ (Science)', 'วิทยาศาสตร์', $oldHash]);
+            $rule = "\n\nรูปแบบคำตอบปรนัย: questionText ต้องมีเฉพาะโจทย์หรือบริบท ห้ามใส่หมายเลขข้อ ตัวเลือก A, B, C, D หรือเฉลยซ้ำใน questionText ให้ส่งตัวเลือกแต่ละข้อแยกใน options เท่านั้น และข้อความใน options ไม่ต้องขึ้นต้นด้วย A., B., C., D.";
+            $subjects = $pdo->query('SELECT id, prompt_md FROM ai_subjects')->fetchAll(PDO::FETCH_ASSOC);
+            $update = $pdo->prepare('UPDATE ai_subjects SET prompt_md = ? WHERE id = ?');
+            foreach ($subjects as $subject) {
+                $prompt = rtrim((string) ($subject['prompt_md'] ?? ''));
+                if (str_contains($prompt, 'รูปแบบคำตอบปรนัย:')) continue;
+                $update->execute([$prompt . $rule, (int) $subject['id']]);
+            }
         }
         $pdo->commit();
     } catch (Throwable $error) {
