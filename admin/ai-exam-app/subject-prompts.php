@@ -57,17 +57,39 @@ function ensureSubjectPrompts(PDO $pdo): void
     // Upgrade only the original Math prompt; keep any prompt an administrator has edited.
     $upgradeVersion = 'subject-prompts-v2-math-examples';
     $check->execute([$upgradeVersion]);
+    if (!$check->fetchColumn()) {
+        $pdo->beginTransaction();
+        try {
+            $lock = $pdo->prepare('INSERT IGNORE INTO ai_exam_migrations (version) VALUES (?)');
+            $lock->execute([$upgradeVersion]);
+            if ($lock->rowCount() === 1) {
+                $newPrompt = file_get_contents(__DIR__ . '/prompts/math.md');
+                if ($newPrompt === false) throw new RuntimeException('ไม่พบ Prompt คณิตศาสตร์');
+                $oldHash = 'e9da771a8fcd4fbd047a7442907acbcdb7e93c839e6cf95fe07fccaca1114172';
+                $update = $pdo->prepare('UPDATE ai_subjects SET prompt_md = ? WHERE subject_name IN (?, ?) AND (TRIM(COALESCE(prompt_md, \'\')) = \'\' OR SHA2(prompt_md, 256) = ?)');
+                $update->execute([$newPrompt, 'คณิตศาสตร์ (Math)', 'คณิตศาสตร์', $oldHash]);
+            }
+            $pdo->commit();
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $error;
+        }
+    }
+
+    // Upgrade only the original Science prompt; keep any prompt an administrator has edited.
+    $upgradeVersion = 'subject-prompts-v3-science-examples';
+    $check->execute([$upgradeVersion]);
     if ($check->fetchColumn()) return;
     $pdo->beginTransaction();
     try {
         $lock = $pdo->prepare('INSERT IGNORE INTO ai_exam_migrations (version) VALUES (?)');
         $lock->execute([$upgradeVersion]);
         if ($lock->rowCount() === 1) {
-            $newPrompt = file_get_contents(__DIR__ . '/prompts/math.md');
-            if ($newPrompt === false) throw new RuntimeException('ไม่พบ Prompt คณิตศาสตร์');
-            $oldHash = 'e9da771a8fcd4fbd047a7442907acbcdb7e93c839e6cf95fe07fccaca1114172';
+            $newPrompt = file_get_contents(__DIR__ . '/prompts/science.md');
+            if ($newPrompt === false) throw new RuntimeException('ไม่พบ Prompt วิทยาศาสตร์');
+            $oldHash = 'b76a5e543ba7dba896aff47b88e3bba764ba8b932eeb2670bc8b96dbcb437193';
             $update = $pdo->prepare('UPDATE ai_subjects SET prompt_md = ? WHERE subject_name IN (?, ?) AND (TRIM(COALESCE(prompt_md, \'\')) = \'\' OR SHA2(prompt_md, 256) = ?)');
-            $update->execute([$newPrompt, 'คณิตศาสตร์ (Math)', 'คณิตศาสตร์', $oldHash]);
+            $update->execute([$newPrompt, 'วิทยาศาสตร์ (Science)', 'วิทยาศาสตร์', $oldHash]);
         }
         $pdo->commit();
     } catch (Throwable $error) {
