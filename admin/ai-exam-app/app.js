@@ -20,7 +20,7 @@ function escapeHtml(value) {
 }
 
 // ---------- Settings API (server-side) ----------
-const SETTINGS_API = 'settings-api.php';
+const SETTINGS_API = 'settings-api';
 
 async function loadSettingsStatus() {
     try {
@@ -209,7 +209,7 @@ async function saveGeneratedExam() {
     notice.classList.remove('hidden');
     notice.textContent = 'กำลังบันทึกข้อสอบ...';
     try {
-        const data = await apiRequest('exams-api.php', {
+        const data = await apiRequest('exams-api', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(pendingExamSave),
         });

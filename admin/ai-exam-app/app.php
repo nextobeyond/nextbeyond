@@ -2,7 +2,7 @@
 /**
  * admin/ai-exam-app/app.php — หน้าสร้างข้อสอบสำหรับระบบ Admin
  */
-$apiPath = 'api.php';
+$apiPath = 'api';
 $defaultExamSubjects = [];
 try {
     require_once __DIR__ . '/subject-prompts.php';
