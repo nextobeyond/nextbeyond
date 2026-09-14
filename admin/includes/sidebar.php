@@ -1,4 +1,5 @@
 <?php
+$adminLinkPrefix = $adminLinkPrefix ?? '';
 $adminMenu = [
   "OVERVIEW" => [
     ["index.php", "ภาพรวม"],
@@ -32,7 +33,7 @@ foreach ($adminMenu as $group => $items) {
 ?>
 <aside class="fixed inset-y-0 left-0 w-[240px] bg-navy-950 text-white overflow-y-auto flex flex-col z-40 max-[1024px]:-translate-x-full transition-transform duration-300 shadow-[4px_0_24px_rgba(15,42,83,0.1)]" id="adminSidebar">
   <div class="p-6 border-b border-white/10 shrink-0">
-    <a href="index.php" class="inline-flex items-center gap-3 w-full" aria-label="Next Beyond Admin">
+    <a href="<?= htmlspecialchars($adminLinkPrefix, ENT_QUOTES, 'UTF-8') ?>index.php" class="inline-flex items-center gap-3 w-full" aria-label="Next Beyond Admin">
       <svg class="w-[32px] h-[32px] shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round" />
         <clipPath id="logo-clip-admin">
@@ -56,7 +57,7 @@ foreach ($adminMenu as $group => $items) {
           <?php foreach ($items as $item): 
             $isActive = $currentPage === $item[0];
           ?>
-            <a href="<?= $item[0] ?>" class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[14px] font-medium transition-colors <?= $isActive ? 'bg-pink-500 text-white shadow-[0_4px_12px_rgba(231,45,130,0.3)]' : 'text-[#aebbd0] hover:bg-white/10 hover:text-white' ?>">
+            <a href="<?= htmlspecialchars($adminLinkPrefix . $item[0], ENT_QUOTES, 'UTF-8') ?>" class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[14px] font-medium transition-colors <?= $isActive ? 'bg-pink-500 text-white shadow-[0_4px_12px_rgba(231,45,130,0.3)]' : 'text-[#aebbd0] hover:bg-white/10 hover:text-white' ?>">
               <?= $item[1] ?>
             </a>
           <?php endforeach; ?>
@@ -65,7 +66,7 @@ foreach ($adminMenu as $group => $items) {
     <?php endforeach; ?>
   </div>
   <div class="p-4 border-t border-white/10 shrink-0">
-    <a href="../index.php" class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[14px] font-medium text-[#aebbd0] hover:bg-white/10 hover:text-white transition-colors">
+    <a href="<?= htmlspecialchars($adminLinkPrefix, ENT_QUOTES, 'UTF-8') ?>../index.php" class="flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[14px] font-medium text-[#aebbd0] hover:bg-white/10 hover:text-white transition-colors">
       ออกจากระบบ
     </a>
   </div>
