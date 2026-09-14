@@ -112,12 +112,17 @@ CREATE TABLE IF NOT EXISTS `exams` (
     `type` ENUM('draft','pretest','posttest','quiz','placement') DEFAULT 'draft',
     `time_limit_minutes` INT,
     `is_ai_generated` TINYINT(1) DEFAULT 0,
+    `generation_request_id` VARCHAR(36),
+    `source_url` VARCHAR(1000),
+    `source_mode` VARCHAR(20) NOT NULL DEFAULT 'document',
+    `generation_mode` ENUM('copy','similar','levels'),
     `created_by` INT,
     `status` ENUM('draft','active','closed','archived') DEFAULT 'draft',
     `is_published` TINYINT(1) DEFAULT 0,
     `requires_login` TINYINT(1) DEFAULT 1,
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uq_exams_generation_request` (`generation_request_id`),
     FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

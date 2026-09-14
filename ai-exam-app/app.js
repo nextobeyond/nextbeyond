@@ -146,8 +146,27 @@ function goHome() {
     isRevealed  = false;
 }
 
+function toggleSourceMode() {
+    const brief = document.getElementById('sourceMode').value === 'brief';
+    document.getElementById('document-source-ui').classList.toggle('hidden', brief);
+    document.getElementById('driveUrl').required = !brief;
+    document.getElementById('driveUrl').disabled = brief;
+    document.getElementById('examTopic').required = brief;
+    document.getElementById('examGrade').required = brief;
+    const type = document.getElementById('examType');
+    type.querySelector('[value="copy"]').disabled = brief;
+    type.querySelector('[value="copy"]').hidden = brief;
+    type.querySelector('[value="similar"]').textContent = brief ? 'สร้างใหม่ตามหัวข้อ' : 'similar (คล้ายคลึงต้นฉบับ)';
+    if (brief && type.value === 'copy') type.value = 'similar';
+    document.getElementById('source-mode-help').textContent = brief
+        ? 'ระบุหัวข้อและชั้นเรียนได้เลย ระบบมีตัวอย่างรายวิชาประกอบการสร้าง พร้อมตรวจทานโจทย์และเฉลย'
+        : 'คัดลอกหรือสร้างตามแนวเอกสาร โดยเปิดแชร์ Google Drive ให้ทุกคนที่มีลิงก์';
+    toggleType();
+}
+
 function toggleType() {
     const type = document.getElementById('examType').value;
+    document.getElementById('difficulty-ui').classList.toggle('hidden', type === 'levels' || document.getElementById('sourceMode').value !== 'brief');
     const shuffle = document.getElementById('shuffle');
     shuffle.disabled = type === 'copy';
     if (type === 'copy') shuffle.checked = false;
@@ -216,7 +235,13 @@ async function handleGenerate(e) {
     }
 
     const driveUrl = document.getElementById('driveUrl').value.trim();
-    if (!driveUrl) {
+    const sourceMode = document.getElementById('sourceMode').value;
+    const topic = document.getElementById('examTopic').value.trim();
+    if (sourceMode === 'brief' && (!topic || !document.getElementById('examGrade').value.trim())) {
+        alert('กรุณาระบุหัวข้อและระดับชั้น');
+        return;
+    }
+    if (sourceMode === 'document' && !driveUrl) {
         alert('กรุณาใส่ลิงก์ Google Drive (ต้องตั้งค่าการแชร์เป็น Anyone with the link)');
         return;
     }
@@ -246,6 +271,7 @@ async function handleGenerate(e) {
 
     const details = document.getElementById('details').value;
     const grade = document.getElementById('examGrade').value.trim() || 'อิงตามต้นฉบับ';
+    const difficulty = sourceMode === 'brief' ? document.getElementById('examDifficulty').value : '';
     const shuffle = document.getElementById('shuffle').checked;
 
     const overlay  = document.getElementById('loading-overlay');
@@ -260,7 +286,8 @@ async function handleGenerate(e) {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({
-                url:          driveUrl,
+                url:          sourceMode === 'document' ? driveUrl : '',
+                sourceMode, topic, difficulty,
                 type:         type,
                 count:        finalCount,
                 counts:       countsObj,
@@ -275,7 +302,9 @@ async function handleGenerate(e) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์');
         if (!data.questions || data.questions.length === 0)
-            throw new Error('AI ไม่สามารถสร้างข้อสอบได้ โปรดตรวจสอบเอกสารต้นฉบับ');
+            throw new Error(sourceMode === 'brief'
+                ? 'AI ไม่สามารถสร้างข้อสอบจากหัวข้อนี้ได้ กรุณาเพิ่มคำอธิบายหรือลองใหม่'
+                : 'AI ไม่สามารถสร้างข้อสอบได้ โปรดตรวจสอบเอกสารต้นฉบับ');
         if (data.warning) alert(data.warning);
 
         currentExam = data.questions;
@@ -288,14 +317,14 @@ async function handleGenerate(e) {
         pendingExamSave = {
             requestId: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(18)), b => b.toString(16).padStart(2, '0')).join(''),
             questions: currentExam,
-            title: `แบบทดสอบ${subject}จาก AI ${new Date().toLocaleDateString('th-TH')}`,
-            subject, grade, topic: details.slice(0, 300), generationMode: type, sourceUrl: driveUrl,
-            difficulty: type === 'levels' ? 'mixed' : null,
+            title: (topic ? `${topic} — ${grade}` : `แบบทดสอบ${subject}จาก AI ${new Date().toLocaleDateString('th-TH')}`).slice(0, 300),
+            subject, grade, topic: topic || details.slice(0, 300), sourceMode, generationMode: type, sourceUrl: sourceMode === 'document' ? driveUrl : '',
+            difficulty: type === 'levels' ? 'mixed' : difficulty || null,
         };
         await saveGeneratedExam();
 
         document.getElementById('exam-meta').innerHTML = `
-            <span class="bg-pink-50 text-pink-600 font-bold text-[11px] px-2.5 py-1 rounded-md tracking-wide uppercase">ประเภท: ${type}</span>
+            <span class="bg-pink-50 text-pink-600 font-bold text-[11px] px-2.5 py-1 rounded-md tracking-wide uppercase">ประเภท: ${sourceMode === 'brief' ? (type === 'levels' ? 'จากหัวข้อ · แยกระดับ' : 'จากหัวข้อ') : type}</span>
             <span class="bg-blue-50 text-blue-700 font-bold text-[11px] px-2.5 py-1 rounded-md tracking-wide">วิชา: ${escapeHtml(subject)}</span>
             <span class="bg-[#f4f7fb] text-[#65738a] font-bold text-[11px] px-2.5 py-1 rounded-md tracking-wide">จำนวน: ${currentExam.length} ข้อ</span>
         `;
@@ -326,7 +355,7 @@ function renderExam() {
         const qDiv      = document.createElement('div');
         qDiv.className  = 'bg-white rounded-[20px] shadow-[0_4px_24px_rgba(15,42,83,0.03)] border border-[#e8ecf2] p-6';
 
-        let html = `<div class="text-[16px] font-bold text-navy-950 mb-5 whitespace-pre-wrap leading-relaxed"><span class="font-black mr-2 text-pink-500">ข้อ ${qIndex + 1}.</span>${q.questionText}</div><div class="space-y-3">`;
+        let html = `<div class="text-[16px] font-bold text-navy-950 mb-5 whitespace-pre-wrap leading-relaxed"><span class="font-black mr-2 text-pink-500">ข้อ ${qIndex + 1}.</span>${escapeHtml(q.questionText)}</div><div class="space-y-3">`;
 
         q.options.forEach((opt, oIndex) => {
             const isSelected     = answers[qIndex] === oIndex;
@@ -356,7 +385,7 @@ function renderExam() {
                 }
             }
 
-            html += `<div class="${optClass}" onclick="selectOption(${qIndex}, ${oIndex})"><div class="${markerClass}">${markerInner}</div><span class="flex-1 text-[14px] font-medium leading-snug ${isRevealed && isActualAnswer ? 'text-[#166534]' : 'text-navy-950'}">${opt}</span></div>`;
+            html += `<div class="${optClass}" onclick="selectOption(${qIndex}, ${oIndex})"><div class="${markerClass}">${markerInner}</div><span class="flex-1 text-[14px] font-medium leading-snug ${isRevealed && isActualAnswer ? 'text-[#166534]' : 'text-navy-950'}">${escapeHtml(opt)}</span></div>`;
         });
 
         html += '</div>';
@@ -368,7 +397,7 @@ function renderExam() {
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1.5 text-[#65738a]" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
                 คำอธิบายเฉลย
               </h4>
-              <p class="text-[#65738a] text-[13px] font-medium whitespace-pre-wrap leading-relaxed ml-[26px]">${q.explanation}</p>
+              <p class="text-[#65738a] text-[13px] font-medium whitespace-pre-wrap leading-relaxed ml-[26px]">${escapeHtml(q.explanation)}</p>
             </div>`;
         }
 
@@ -598,5 +627,5 @@ window.handleMdUpload = function() {
   };
   reader.readAsText(file);
 };
-// Initialize copy mode without shuffling the source.
-toggleType();
+// Initialize source requirements and available generation modes.
+toggleSourceMode();

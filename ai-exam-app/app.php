@@ -48,6 +48,18 @@ try {
     </div>
 
     <form id="generate-form" class="space-y-5" onsubmit="handleGenerate(event)">
+        <div>
+            <label for="sourceMode" class="text-xs font-bold">สร้างข้อสอบจาก</label>
+            <select id="sourceMode" onchange="toggleSourceMode()" class="w-full p-3 border-2 rounded-xl bg-white">
+                <option value="brief">หัวข้อและคำอธิบาย — ไม่ต้องมีไฟล์</option>
+                <option value="document">เอกสาร / แนวข้อสอบจาก Google Drive</option>
+            </select>
+            <p id="source-mode-help" class="text-xs text-[#65738a] mt-2">เลือกวิชา ระบุหัวข้อและระดับชั้น แล้วอธิบายสิ่งที่ต้องการวัด ระบบจะสร้างข้อสอบพร้อมเฉลยให้</p>
+        </div>
+        <div>
+            <label for="examTopic" class="text-xs font-bold">หัวข้อ / บทเรียน</label>
+            <input id="examTopic" maxlength="300" placeholder="เช่น เศษส่วน, Present Simple, ระบบสุริยะ" class="w-full p-3 border-2 rounded-xl" />
+        </div>
         <!-- Subject -->
         <div class="relative">
             <label for="examSubject" class="absolute -top-2 left-3 bg-white px-1 text-xs text-pink-500 font-bold z-10">วิชาเรียน *</label>
@@ -63,14 +75,14 @@ try {
         </div>
 
         <div>
-            <label for="examGrade" class="text-xs font-bold">ระดับชั้น (ไม่ระบุจะอิงตามต้นฉบับ)</label>
+            <label for="examGrade" class="text-xs font-bold">ระดับชั้น (จำเป็นเมื่อสร้างจากหัวข้อ)</label>
             <input id="examGrade" maxlength="50" placeholder="เช่น ป.6 หรือ ม.3" class="w-full p-3 border-2 rounded-xl" />
         </div>
 
         <!-- Exam Type -->
         <div class="relative">
             <label class="absolute -top-2 left-3 bg-white px-1 text-xs text-pink-500 font-bold z-10">ประเภทการสร้าง</label>
-            <select id="examType" onchange="toggleType()" class="w-full p-3 border-2 border-[#e8ecf2] focus:border-pink-500 rounded-xl outline-none appearance-none bg-transparent relative z-0 text-navy-950 font-medium transition-colors cursor-pointer">
+            <select aria-label="ประเภทการสร้าง" id="examType" onchange="toggleType()" class="w-full p-3 border-2 border-[#e8ecf2] focus:border-pink-500 rounded-xl outline-none appearance-none bg-transparent relative z-0 text-navy-950 font-medium transition-colors cursor-pointer">
                 <option value="copy">copy (คัดลอกต้นฉบับ)</option>
                 <option value="similar">similar (คล้ายคลึงต้นฉบับ)</option>
                 <option value="levels">levels (กำหนดจำนวนข้อในแต่ละระดับ)</option>
@@ -103,13 +115,21 @@ try {
             <span class="text-navy-950 font-bold text-[14px]">สลับข้อสอบ (Shuffle) <span class="text-[12px] font-medium text-[#65738a] ml-1 block sm:inline">สุ่มลำดับข้อหลังจากสร้างเสร็จ</span></span>
         </label>
 
+        <div id="difficulty-ui">
+            <label for="examDifficulty" class="text-xs font-bold">ระดับความยาก</label>
+            <select id="examDifficulty" class="w-full p-3 border-2 rounded-xl bg-white">
+                <option value="easy">ง่าย</option><option value="medium" selected>ปานกลาง</option>
+                <option value="hard">ยาก</option><option value="expert">ยากมาก</option>
+            </select>
+        </div>
         <!-- Details -->
         <div>
-            <textarea id="details" placeholder="รายละเอียดเพิ่มเติม (เช่น เน้นคำนวณ 50%, หรือเน้นทฤษฎีบทที่ 2)" rows="3" class="w-full p-3 bg-white border-2 border-[#e8ecf2] rounded-xl outline-none focus:border-pink-500 resize-none text-navy-950 font-medium transition-colors"></textarea>
+            <label for="details" class="text-xs font-bold">อธิบายข้อสอบที่ต้องการ (ถ้ามี)</label>
+            <textarea id="details" maxlength="6000" placeholder="เช่น เน้นโจทย์สถานการณ์ใกล้ตัว ใช้ตัวเลขไม่เกิน 100 มีโจทย์วิเคราะห์ 2 ข้อ พร้อมอธิบายวิธีคิด" rows="3" class="w-full p-3 bg-white border-2 border-[#e8ecf2] rounded-xl outline-none focus:border-pink-500 resize-none text-navy-950 font-medium transition-colors"></textarea>
         </div>
 
         <!-- Google Drive URL -->
-        <div class="pt-2">
+        <div id="document-source-ui" class="pt-2">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="font-bold text-navy-950 text-[14px]">ลิงก์ไฟล์ Google Drive (Docs / PDF)</h3>
                 <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md uppercase tracking-wider">แชร์สิทธิ์: Anyone with the link</span>

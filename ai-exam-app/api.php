@@ -11,6 +11,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
+require_once __DIR__ . '/generation-context.php';
+try {
+    if (!is_array($input)) throw new InvalidArgumentException('ข้อมูล JSON ไม่ถูกต้อง');
+    $context = examGenerationContext($input);
+} catch (InvalidArgumentException $error) {
+    http_response_code(422);
+    echo json_encode(['error' => $error->getMessage()], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+$sourceMode = $context['sourceMode'];
+
 
 // ── ดึง API Key: จาก Server DB หรือจาก request body (legacy) ──
 $useServerKey = !empty($input['useServerKey']);
@@ -51,8 +62,8 @@ if (is_array($counts)) {
     $counts = $normalizedCounts;
     if (array_sum($counts) > 0) $count = array_sum($counts);
 }
-$details = $input['details'] ?? '';
-$difficulty = $input['difficulty'] ?? '';
+$details = $context['details'];
+$difficulty = $input['difficulty'] ?? ($sourceMode === 'brief' ? 'medium' : '');
 $shuffle = $input['shuffle'] ?? false;
 $subject = $input['subject'] ?? '';
 
@@ -64,7 +75,9 @@ try {
     $stmt->execute([$subject]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) throw new InvalidArgumentException('กรุณาเลือกวิชาที่เปิดใช้งาน');
-    $subjectPrompt = "วิชา: {$subject}\nระดับชั้น: " . trim((string) ($input['grade'] ?? 'อิงตามต้นฉบับ')) . "\n" . $row['prompt_md'];
+    $subjectPrompt = "วิชา: {$subject}\nระดับชั้น: " . ($context['grade'] ?: 'อิงตามต้นฉบับ')
+        . "\nหัวข้อที่ครูกำหนด: " . ($context['topic'] ?: 'อิงตามต้นฉบับ') . "\n" . $row['prompt_md'];
+    if ($sourceMode === 'brief') $subjectPrompt .= examStyleExamples($subject, $context['grade']);
     if (!in_array($type, ['copy', 'similar', 'levels'], true)) throw new InvalidArgumentException('ประเภทการสร้างไม่ถูกต้อง');
 } catch (Throwable $error) {
     http_response_code(422);
@@ -88,7 +101,9 @@ function extractFileId($url) {
 $fileType = 'text';
 $fileData = null;
 
-if ($storedFile !== '') {
+if ($sourceMode === 'brief') {
+    $fileData = "หัวข้อ: {$context['topic']}\nระดับชั้น: {$context['grade']}";
+} elseif ($storedFile !== '') {
     if (!preg_match('/^source-[a-zA-Z0-9-]+\.(pdf|txt|docx)$/', $storedFile)) {
         http_response_code(400);
         echo json_encode(["error" => "ข้อมูลไฟล์บน Server ไม่ถูกต้อง"]);
@@ -271,9 +286,12 @@ function callGemini($modelName, $apiKey, $payload, $temperature) {
     throw new Exception("รูปแบบการตอบกลับจาก API ไม่ถูกต้อง");
 }
 
-function buildPrompt($qCount, $type, $difficulty, $details, $isPdf = false, $chunkText = "", $partIndex = 1, $totalParts = 1, $subjectPrompt = "") {
+function buildPrompt($qCount, $type, $difficulty, $details, $isPdf = false, $chunkText = "", $partIndex = 1, $totalParts = 1, $subjectPrompt = "", $sourceMode = "document") {
     $prompt = "";
-    if ($isPdf) {
+    $scope = $sourceMode === 'brief' ? 'หัวข้อและคำอธิบายของครู' : 'ต้นฉบับ';
+    if ($sourceMode === 'brief') {
+        $prompt = examBriefPrompt($qCount, $difficulty, $chunkText, $details);
+    } elseif ($isPdf) {
         if ($type === 'copy') {
             $prompt = "จงอ่านเอกสาร PDF ที่แนบมานี้ สกัดข้อสอบออกมาจำนวน {$qCount} ข้อ คัดลอกให้เหมือนเดิม 100% ห้ามสลับข้อเด็ดขาด";
         } else if ($type === 'similar') {
@@ -311,7 +329,7 @@ function buildPrompt($qCount, $type, $difficulty, $details, $isPdf = false, $chu
     if ($type === 'copy') {
         $prompt .= "โหมดคัดลอกมีลำดับความสำคัญเหนือกฎสร้างใหม่: รักษาคำถาม ตัวเลือก และลำดับเดิม ไม่ดัดแปลงเพื่อให้ยากขึ้น ห้ามแต่งส่วนที่อ่านไม่ออก หากข้อมูลไม่เพียงพอให้ข้ามข้อนั้น หากเฉลยต้นฉบับผิดหรือโจทย์กำกวม ให้ข้ามแทนการเดา เมื่อไม่มีเฉลยให้แก้โจทย์จากข้อมูลที่ครบถ้วนเท่านั้น\n";
     } else {
-        $prompt .= "สร้างโจทย์ใหม่ที่วัดทักษะตามต้นฉบับ ไม่เพียงเปลี่ยนคำ เพิ่มความยากด้วยกระบวนการคิด ไม่ใช่ความยาว ตัวเลือก 4 ตัวมีคำตอบเดียว ตัวลวงสะท้อนความเข้าใจผิด ไม่ซ้ำ ไม่บอกใบ้ ไม่ใช้ถูกทุกข้อหรือไม่มีข้อใดถูกเว้นแต่ผู้ใช้กำหนด ตรวจคำตอบและความกำกวมก่อนส่ง\n";
+        $prompt .= "สร้างโจทย์ใหม่ที่วัดทักษะตาม {$scope} ไม่เพียงเปลี่ยนคำ เพิ่มความยากด้วยกระบวนการคิด ไม่ใช่ความยาว ตัวเลือก 4 ตัวมีคำตอบเดียว ตัวลวงสะท้อนความเข้าใจผิด ไม่ซ้ำ ไม่บอกใบ้ ไม่ใช้ถูกทุกข้อหรือไม่มีข้อใดถูกเว้นแต่ผู้ใช้กำหนด ตรวจคำตอบและความกำกวมก่อนส่ง\n";
     }
     $prompt .= "ใช้ภาษาไทยสำหรับวิชาที่ไม่ใช่ภาษาอังกฤษ ยกเว้นศัพท์เฉพาะที่จำเป็น ห้ามมีคำต่างภาษาที่ไม่เกี่ยวข้อง ใช้คำศัพท์และความซับซ้อนเหมาะกับระดับชั้นแม้เป็นระดับยากมาก\n";
     $prompt .= "questionText ต้องไม่มีรายการตัวเลือกหรือเฉลยซ้ำอยู่ในข้อความ ตัวเลือกอยู่ใน options เท่านั้น\n";
@@ -344,7 +362,7 @@ function generateQuestions($payload, $candidateModels, $apiKey, $temperature) {
     throw new Exception("สร้างข้อสอบล้มเหลว: " . $lastErr);
 }
 
-function generateQuestionsInBatches($targetCount, $type, $difficulty, $details, $isPdf, $fileData, $chunkText, $partIndex, $totalParts, $candidateModels, $apiKey, $subjectPrompt = "") {
+function generateQuestionsInBatches($targetCount, $type, $difficulty, $details, $isPdf, $fileData, $chunkText, $partIndex, $totalParts, $candidateModels, $apiKey, $subjectPrompt = "", $sourceMode = "document") {
     $batchSize = 20;
     $batchCount = (int) ceil($targetCount / $batchSize);
     $questions = [];
@@ -354,7 +372,10 @@ function generateQuestionsInBatches($targetCount, $type, $difficulty, $details, 
         $currentCount = min($batchSize, $targetCount - count($questions));
         if ($currentCount < 1) break;
 
-        $prompt = buildPrompt($currentCount, $type, $difficulty, $details, $isPdf, $chunkText, $partIndex, $totalParts, $subjectPrompt);
+        $prompt = buildPrompt($currentCount, $type, $difficulty, $details, $isPdf, $chunkText, $partIndex, $totalParts, $subjectPrompt, $sourceMode);
+        if ($questions && $type !== 'copy') {
+            $prompt .= "\nคำถามที่สร้างไปแล้วในชุดนี้ ห้ามสร้างซ้ำ:\n" . json_encode(array_column($questions, 'questionText'), JSON_UNESCAPED_UNICODE);
+        }
         if ($batchCount > 1) {
             $endNumber = $startNumber + $currentCount - 1;
             if ($type === 'copy') {
@@ -376,6 +397,7 @@ function generateQuestionsInBatches($targetCount, $type, $difficulty, $details, 
             $reviewPayload['contents'][0]['parts'][] = ['text' =>
                 "ตรวจทานร่างข้อสอบต่อไปนี้ก่อนนำไปใช้จริง ให้คืน JSON Array ฉบับแก้ไขจำนวนเท่าเดิมตามรูปแบบเดิมเท่านั้น\n"
                 . "ตรวจคำตอบโดยแก้โจทย์อีกครั้ง ตรวจว่ามีคำตอบเดียว ตัวลวงไม่ซ้ำ ไม่มีข้อมูลหรือคำแปลกปลอม ไม่สรุปเกินหลักฐาน และภาษาเหมาะกับชั้นเรียน\n"
+                . "ตรวจว่าทำตามคำอธิบายของครูครบ เช่น รูปเศษส่วนต้องเป็นอย่างต่ำเมื่อครูกำหนด และคำตอบคำนวณต้องถูกต้องทั้งค่าและรูปแบบ\n"
                 . "ตรวจสถานการณ์และข้อจำกัดว่าบังคับให้เลือกจริง เช่น ค่าเสียโอกาสต้องระบุทางเลือกที่ดีที่สุดที่สละไป และงบประมาณต้องไม่พอซื้อทุกทางเลือก ห้ามกำหนดคำตอบจากสมมติฐานที่โจทย์ไม่ได้ระบุ\n"
                 . "ถ้าโจทย์ผิดหรือกำกวมให้แก้หรือแทนที่ทั้งข้อพร้อมตัวเลือกและเฉลย รักษาทักษะ ระดับความยาก และขอบเขตต้นฉบับ\nร่างข้อสอบ:\n"
                 . json_encode($batchQuestions, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
@@ -395,7 +417,14 @@ function generateQuestionsInBatches($targetCount, $type, $difficulty, $details, 
 }
 
 try {
-    if ($fileType === 'pdf') {
+    if ($sourceMode === 'brief') {
+        $plan = $type === 'levels' ? $counts : [$difficulty ?: 'medium' => $count];
+        foreach ($plan as $level => $amount) {
+            if ($amount < 1) continue;
+            $generated = generateQuestionsInBatches($amount, $type, $level, $details, false, null, $fileData, 1, 1, $candidateModels, $apiKey, $subjectPrompt, 'brief');
+            $finalQuestions = array_merge($finalQuestions, $generated);
+        }
+    } elseif ($fileType === 'pdf') {
         if ($type === 'levels' && !empty($counts)) {
             foreach ($counts as $lvl => $cText) {
                 $c = (int)$cText;
@@ -496,9 +525,10 @@ try {
     if ($generatedCount === 0) throw new RuntimeException("ไม่พบข้อสอบที่สมบูรณ์ในผลลัพธ์ AI กรุณาตรวจต้นฉบับหรือลองใหม่");
     echo json_encode([
         "questions" => $finalQuestions,
+        "sourceMode" => $sourceMode,
         "requestedCount" => $count,
         "generatedCount" => $generatedCount,
-        "warning" => $generatedCount < $count ? "AI สร้างได้ {$generatedCount} จาก {$count} ข้อ กรุณาตรวจสอบจำนวนข้อในเอกสารต้นฉบับ" : null,
+        "warning" => $generatedCount < $count ? "AI สร้างได้ {$generatedCount} จาก {$count} ข้อ กรุณาตรวจสอบชุดข้อสอบและลองสร้างส่วนที่ขาดเพิ่มเติม" : null,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 } catch (Exception $e) {

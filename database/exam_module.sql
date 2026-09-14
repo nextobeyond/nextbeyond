@@ -31,7 +31,9 @@ CREATE TABLE IF NOT EXISTS `exams` (
     `type` ENUM('pretest','posttest','quiz','placement') NOT NULL DEFAULT 'quiz',
     `time_limit_minutes` SMALLINT UNSIGNED NULL,
     `is_ai_generated` TINYINT(1) NOT NULL DEFAULT 0,
+    `generation_request_id` VARCHAR(36) NULL,
     `source_url` VARCHAR(1000) NULL,
+    `source_mode` VARCHAR(20) NOT NULL DEFAULT 'document',
     `generation_mode` ENUM('copy','similar','levels') NULL,
     `created_by` INT NULL,
     `status` ENUM('draft','active','closed','archived') NOT NULL DEFAULT 'draft',
@@ -40,6 +42,7 @@ CREATE TABLE IF NOT EXISTS `exams` (
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_exams_generation_request` (`generation_request_id`),
     KEY `idx_exams_public_list` (`is_published`, `status`, `type`),
     KEY `idx_exams_created_by` (`created_by`),
     CONSTRAINT `fk_exams_created_by`

@@ -38,6 +38,7 @@ function ensureExamSchema(PDO $pdo): void
 {
     $examColumns = tableColumns($pdo, 'exams');
     $examAdditions = [
+        'source_mode' => "ADD COLUMN `source_mode` VARCHAR(20) NOT NULL DEFAULT 'document'",
         'generation_request_id' => "ADD COLUMN `generation_request_id` VARCHAR(36) NULL UNIQUE",
         'source_url' => "ADD COLUMN `source_url` VARCHAR(1000) NULL AFTER `is_ai_generated`",
         'generation_mode' => "ADD COLUMN `generation_mode` ENUM('copy','similar','levels') NULL AFTER `source_url`",
@@ -116,7 +117,7 @@ try {
             respond(['questions' => $questions]);
         }
         $sql = "SELECT e.id, e.title, e.subject, e.grade, e.topic, e.difficulty,
-                       e.type, e.time_limit_minutes, e.is_ai_generated, e.status,
+                       e.type, e.time_limit_minutes, e.is_ai_generated, e.status, e.source_mode,
                        e.is_published, e.requires_login, e.created_at, e.updated_at,
                        COUNT(DISTINCT q.id) AS question_count,
                        COUNT(DISTINCT a.id) AS attempt_count
@@ -135,6 +136,7 @@ try {
                 'topic' => $row['topic'],
                 'difficulty' => $row['difficulty'],
                 'type' => $row['type'],
+                'sourceMode' => $row['source_mode'],
                 'timeLimitMinutes' => $row['time_limit_minutes'] === null ? null : (int) $row['time_limit_minutes'],
                 'isAiGenerated' => (bool) $row['is_ai_generated'],
                 'status' => $row['status'],
@@ -181,10 +183,10 @@ try {
         $examStmt = $pdo->prepare(
             "INSERT INTO exams
                 (generation_request_id, title, subject, grade, topic, difficulty, type, time_limit_minutes,
-                 is_ai_generated, source_url, generation_mode, created_by, status, is_published, requires_login)
+                 is_ai_generated, source_url, source_mode, generation_mode, created_by, status, is_published, requires_login)
              VALUES
                 (:request_id, :title, :subject, :grade, :topic, :difficulty, :type, :time_limit,
-                 1, :source_url, :generation_mode, :created_by, 'draft', 0, 1)"
+                 1, :source_url, :source_mode, :generation_mode, :created_by, 'draft', 0, 1)"
         );
         $examStmt->execute([
             ':request_id' => $requestId,
@@ -196,6 +198,7 @@ try {
             ':difficulty' => trim((string) ($body['difficulty'] ?? '')) ?: null,
             ':type' => 'quiz',
             ':time_limit' => isset($body['timeLimitMinutes']) ? (int) $body['timeLimitMinutes'] : null,
+            ':source_mode' => ($body['sourceMode'] ?? 'document') === 'brief' ? 'brief' : 'document',
             ':source_url' => trim((string) ($body['sourceUrl'] ?? '')) ?: null,
             ':generation_mode' => in_array(($body['generationMode'] ?? null), ['copy', 'similar', 'levels'], true)
                 ? $body['generationMode'] : null,
