@@ -77,7 +77,8 @@ function ensureSubjectPrompts(PDO $pdo): void
     }
 
     // Upgrade only the original Science prompt; keep any prompt an administrator has edited.
-    $upgradeVersion = 'subject-prompts-v3-science-examples';
+    // Keep this identifier within the 32-character limit used by older installations.
+    $upgradeVersion = 'subject-prompts-v3-science';
     $check->execute([$upgradeVersion]);
     if ($check->fetchColumn()) return;
     $pdo->beginTransaction();
