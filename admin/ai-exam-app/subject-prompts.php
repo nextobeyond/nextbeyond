@@ -15,13 +15,19 @@ function examSubjectDefaults(): array
 // One-time migration: preserve custom prompts, disabled subjects and later edits.
 function ensureSubjectPrompts(PDO $pdo): void
 {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS ai_subjects (
-        id INT AUTO_INCREMENT PRIMARY KEY, subject_name VARCHAR(255) NOT NULL,
-        prompt_md TEXT NULL, is_active TINYINT(1) DEFAULT 1, sort_order INT DEFAULT 0
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS ai_exam_migrations (
-        version VARCHAR(100) PRIMARY KEY, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    // Hosted database users may update existing tables without CREATE permission.
+    // Do not issue CREATE TABLE on every API request when the tables are present.
+    if (!$pdo->query("SHOW TABLES LIKE 'ai_subjects'")->fetchColumn()) {
+        $pdo->exec("CREATE TABLE ai_subjects (
+            id INT AUTO_INCREMENT PRIMARY KEY, subject_name VARCHAR(255) NOT NULL,
+            prompt_md TEXT NULL, is_active TINYINT(1) DEFAULT 1, sort_order INT DEFAULT 0
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }
+    if (!$pdo->query("SHOW TABLES LIKE 'ai_exam_migrations'")->fetchColumn()) {
+        $pdo->exec("CREATE TABLE ai_exam_migrations (
+            version VARCHAR(100) PRIMARY KEY, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }
     $version = 'subject-prompts-v1';
     $check = $pdo->prepare('SELECT version FROM ai_exam_migrations WHERE version = ?');
     $check->execute([$version]);
