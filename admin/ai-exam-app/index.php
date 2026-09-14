@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../admin/includes/access.php';
+require_once __DIR__ . '/../includes/access.php';
 
 $pageTitle = 'AI Exam Generator';
 $pageDesc = 'สร้าง ตรวจ และบันทึกข้อสอบด้วย AI';
@@ -12,7 +12,7 @@ $pageDesc = 'สร้าง ตรวจ และบันทึกข้อ�
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?> - Next Beyond</title>
-  <link rel="stylesheet" href="../assets/css/output.css?v=<?= rawurlencode((string) filemtime(__DIR__ . '/../assets/css/output.css')) ?>">
+  <link rel="stylesheet" href="../../assets/css/output.css?v=<?= rawurlencode((string) filemtime(__DIR__ . '/../../assets/css/output.css')) ?>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Thai:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -31,8 +31,8 @@ $pageDesc = 'สร้าง ตรวจ และบันทึกข้อ�
         </span>
       </a>
       <div class="ml-auto flex items-center gap-2">
-        <a href="../admin/tests.php" class="rounded-xl border border-[#dce4ef] px-4 py-2 text-[13px] font-bold text-[#4b5e7a] hover:bg-[#f8fafc]">คลังข้อสอบ</a>
-        <a href="../admin/ai-exam.php" class="rounded-xl bg-pink-500 px-4 py-2 text-[13px] font-bold text-white">กลับ Admin</a>
+        <a href="../tests" class="rounded-xl border border-[#dce4ef] px-4 py-2 text-[13px] font-bold text-[#4b5e7a] hover:bg-[#f8fafc]">คลังข้อสอบ</a>
+        <a href="../" class="rounded-xl bg-pink-500 px-4 py-2 text-[13px] font-bold text-white">กลับ Admin</a>
       </div>
     </div>
   </header>

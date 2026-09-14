@@ -1,6 +1,6 @@
 <?php
 /**
- * ai-exam-app/app.php — หน้าสร้างข้อสอบสำหรับโปรแกรมแยก
+ * admin/ai-exam-app/app.php — หน้าสร้างข้อสอบสำหรับระบบ Admin
  */
 $apiPath = 'api.php';
 $defaultExamSubjects = [];

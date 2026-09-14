@@ -27,6 +27,9 @@ RewriteRule ^admin-dashboard/?$ %1/admin/ [R=301,L]
 RewriteCond %{REQUEST_URI} ^(.*?)/admin-([^/]+)/?$ [NC]
 RewriteRule ^admin-([^/]+)/?$ %1/admin/$1 [R=301,L]
 
+# Redirect the previous standalone AI Exam URL to its Admin location.
+RewriteRule ^ai-exam-app/?$ admin/ai-exam-app/ [R=302,L]
+
 # 1. เปลี่ยนเส้นทาง (Redirect) index.php หรือ index ไปที่หน้าแรก (ไม่มีคำว่า index)
 RewriteCond %{THE_REQUEST} \s/+(.*?/)?index(\.php)?[\s?] [NC]
 RewriteRule ^ /%1 [R=301,L,NE]

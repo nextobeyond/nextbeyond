@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
-require_once __DIR__.'/../includes/db.php';require_once __DIR__.'/../includes/ai-settings.php';
-require_once __DIR__.'/../admin/includes/access.php';
+require_once __DIR__.'/../../includes/db.php';require_once __DIR__.'/../../includes/ai-settings.php';
+require_once __DIR__.'/../includes/access.php';
 try{
  if(($_SERVER['REQUEST_METHOD']??'GET')==='GET'){
   $savedKey=aiSettingsGetKey($pdo);

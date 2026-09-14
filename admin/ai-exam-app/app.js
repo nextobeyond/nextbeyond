@@ -1,5 +1,5 @@
 // ============================================================
-//  ai-exam-app/app.js — โปรแกรมสร้างข้อสอบ AI แบบแยกโฟลเดอร์
+//  admin/ai-exam-app/app.js — โปรแกรมสร้างข้อสอบ AI ในระบบ Admin
 //  Key ถูกเข้ารหัส AES-256 และเก็บในฐานข้อมูลฝั่ง Server
 // ============================================================
 
@@ -202,8 +202,8 @@ async function saveGeneratedExam() {
         pendingExamSave = null;
         const id = encodeURIComponent(data.examId);
         notice.innerHTML = `บันทึกข้อสอบ #${escapeHtml(data.examId)} เป็นฉบับร่างแล้ว ·
-            <a class="underline" href="../admin/tests?created=${id}" target="_blank" rel="noopener">เปิดแบบทดสอบ</a> ·
-            <a class="underline" href="../admin/question-bank?exam=${id}" target="_blank" rel="noopener">เปิดและแก้ไขคลังข้อสอบ</a>`;
+            <a class="underline" href="../tests?created=${id}" target="_blank" rel="noopener">เปิดแบบทดสอบ</a> ·
+            <a class="underline" href="../question-bank?exam=${id}" target="_blank" rel="noopener">เปิดและแก้ไขคลังข้อสอบ</a>`;
     } catch (error) {
         notice.innerHTML = `ยังไม่ได้ยืนยันการบันทึก ข้อสอบยังอยู่ในหน้านี้: ${escapeHtml(error.message)}
             <button type="button" class="underline" onclick="saveGeneratedExam()">ลองบันทึกใหม่</button>`;

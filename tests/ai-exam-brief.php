@@ -1,6 +1,6 @@
 <?php
-require __DIR__ . '/../ai-exam-app/generation-context.php';
-require __DIR__ . '/../ai-exam-app/question-validation.php';
+require __DIR__ . '/../admin/ai-exam-app/generation-context.php';
+require __DIR__ . '/../admin/ai-exam-app/question-validation.php';
 function check($condition, $message) { if (!$condition) throw new RuntimeException($message); }
 $valid = ['sourceMode'=>'brief','type'=>'similar','topic'=>'เศษส่วน','grade'=>'ป.4'];
 check(examGenerationContext($valid)['topic']==='เศษส่วน','Brief context');
@@ -10,7 +10,7 @@ foreach ([['topic'=>''],['grade'=>''],['type'=>'copy'],['sourceMode'=>'bad'],['d
     throw new RuntimeException('Invalid brief accepted');
 }
 examGenerationContext(array_replace($valid,['type'=>'levels','counts'=>['easy'=>1,'hard'=>2]]));
-$examples=json_decode(file_get_contents(__DIR__.'/../ai-exam-app/prompts/examples.json'),true);
+$examples=json_decode(file_get_contents(__DIR__.'/../admin/ai-exam-app/prompts/examples.json'),true);
 check(count($examples)===10,'Ten examples');
 foreach ($examples as $q) validateExamQuestions([$q],true,true);
 $primary=examStyleExamples('คณิตศาสตร์ (Math)','ป.4');

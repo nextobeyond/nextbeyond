@@ -3,8 +3,8 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-require_once __DIR__.'/../includes/db.php';
-require_once __DIR__.'/../admin/includes/access.php';
+require_once __DIR__.'/../../includes/db.php';
+require_once __DIR__.'/../includes/access.php';
 
 require_once __DIR__ . '/subject-prompts.php';
 
@@ -20,8 +20,7 @@ function body(): array {
     return $data;
 }
 
-// Access control is handled by admin/includes/access.php
-// which allows teachers in ai-exam-app/ folder.
+// Access control is handled by admin/includes/access.php.
 
 try {
     ensureSubjectPrompts($pdo);

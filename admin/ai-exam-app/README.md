@@ -1,10 +1,10 @@
-# AI Exam Standalone
+# AI Exam Admin App
 
-โปรแกรมสร้างข้อสอบ AI ที่แยกจากหน้า Admin Console เดิม
+โปรแกรมสร้างข้อสอบ AI ตัวหลักของ Admin Console
 
 ## เข้าใช้งาน
 
-เปิด `/ai-exam-app/` และเข้าสู่ระบบด้วยบัญชี Admin หรือ Teacher ที่มีสิทธิ์ AI Exam
+เปิด `/admin/ai-exam-app/` และเข้าสู่ระบบด้วยบัญชี Admin หรือ Teacher ที่มีสิทธิ์ AI Exam
 
 ## ส่วนประกอบ
 

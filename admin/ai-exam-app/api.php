@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../admin/includes/access.php';
+require_once __DIR__ . '/../includes/access.php';
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
@@ -28,8 +28,8 @@ $useServerKey = !empty($input['useServerKey']);
 
 if ($useServerKey) {
     // โหลด key จากฐานข้อมูล (เข้ารหัส AES-256 ใน system_settings)
-    require_once __DIR__ . '/../includes/db.php';
-    require_once __DIR__ . '/../includes/ai-settings.php';
+    require_once __DIR__ . '/../../includes/db.php';
+    require_once __DIR__ . '/../../includes/ai-settings.php';
     $apiKey = aiSettingsGetKey($pdo);
     if (empty($apiKey)) {
         http_response_code(400);
@@ -109,7 +109,7 @@ if ($sourceMode === 'brief') {
         echo json_encode(["error" => "ข้อมูลไฟล์บน Server ไม่ถูกต้อง"]);
         exit();
     }
-    $uploadRoot = realpath(__DIR__ . '/../assets/uploads/ai-exam');
+    $uploadRoot = realpath(__DIR__ . '/../../assets/uploads/ai-exam');
     $serverPath = $uploadRoot ? realpath($uploadRoot . '/' . $storedFile) : false;
     if (!$serverPath || !$uploadRoot || !str_starts_with($serverPath, $uploadRoot . DIRECTORY_SEPARATOR) || !is_file($serverPath)) {
         http_response_code(404);

@@ -136,6 +136,6 @@ UPDATE ai_subjects SET prompt_md=@ai_prompt WHERE @ai_seed=1 AND subject_name IN
 
 COMMIT;
 
--- Examples are versioned in ai-exam-app/prompts/examples.json; no exam records are seeded.
+-- Examples are versioned in admin/ai-exam-app/prompts/examples.json; no exam records are seeded.
 
 SET @ai_sql = NULL; SET @ai_prompt = NULL; SET @ai_seed = NULL;
