@@ -9,4 +9,9 @@ foreach ($invalid as $question) {
 }
 $copy = array_replace($q, ['options' => ['4', '5', '6', '7', '8']]);
 validateExamQuestions([$copy], false, true);
+$duplicatedOptions = array_replace($q, [
+    'questionText' => "เลือกคำตอบที่ถูกต้อง\n1. A. 4\nB. 5\nC. 6\nD. 7",
+]);
+$cleaned = validateExamQuestions([$duplicatedOptions], true, true);
+if ($cleaned[0]['questionText'] !== 'เลือกคำตอบที่ถูกต้อง') throw new Exception('Duplicated options were not removed from question text');
 echo "Passed: numeric prefix, invalid answers, duplicate/empty options, explanation, copy option count\n";
