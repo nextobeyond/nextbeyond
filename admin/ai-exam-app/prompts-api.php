@@ -24,6 +24,13 @@ function body(): array {
 
 try {
     ensureSubjectPrompts($pdo);
+} catch (Throwable $setupError) {
+    // Existing installations can still manage saved prompts if an optional
+    // schema/prompt upgrade cannot run on the hosting database.
+    error_log("AI Prompts setup warning: " . $setupError->getMessage());
+}
+
+try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $data = [];
     if ($method === 'POST' || $method === 'PUT' || $method === 'PATCH') {
