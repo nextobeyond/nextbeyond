@@ -95,7 +95,8 @@ function renderQuestion() {
   document.getElementById('options').innerHTML = q.options.map((option, index) => {
     let state = answers[current] === index ? ' selected' : '';
     if (checked[current]) { if (index === checked[current].correctAnswer) state = ' correct'; else if (answers[current] === index) state = ' wrong'; }
-    return `<button type="button" class="option${state}" onclick="selectAnswer(${index})" ${checked[current] ? 'disabled' : ''}><span style="margin-right:12px">○</span>${escapeHTML(option)}</button>`;
+    const label = String.fromCharCode(65 + index);
+    return `<button type="button" class="option${state}" onclick="selectAnswer(${index})" ${checked[current] ? 'disabled' : ''}><span class="option-label">${label}</span><span>${escapeHTML(option)}</span></button>`;
   }).join('');
   const result = document.getElementById('check-result');
   if (checked[current]) { result.classList.add('show'); result.textContent = (checked[current].isCorrect ? '✓ ถูกต้อง' : '✕ ยังไม่ถูกต้อง') + (checked[current].explanation ? ' — ' + checked[current].explanation : ''); }

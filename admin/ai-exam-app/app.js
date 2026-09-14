@@ -432,29 +432,26 @@ function renderExam() {
 
             let optClass    = 'flex items-center p-3.5 rounded-xl border-2 transition-all cursor-pointer ';
             let markerClass = 'w-5 h-5 rounded-full border-2 mr-3.5 flex items-center justify-center shrink-0 transition-colors ';
-            let markerInner = '';
 
             if (!isRevealed) {
                 optClass    += isSelected ? 'border-pink-500 bg-pink-50/50' : 'border-[#e8ecf2] hover:border-pink-300 hover:bg-[#f8fafc]';
-                markerClass += isSelected ? 'border-pink-500' : 'border-[#cbd5e1]';
-                if (isSelected) markerInner = '<div class="w-2.5 h-2.5 bg-pink-500 rounded-full"></div>';
+                markerClass += isSelected ? 'border-pink-500 bg-pink-500 text-white' : 'border-[#cbd5e1]';
             } else {
                 optClass += ' cursor-default ';
                 if (isActualAnswer) {
                     optClass    += 'border-[#22c55e] bg-[#f0fdf4] text-[#166534] font-bold';
                     markerClass += 'border-[#22c55e] bg-[#22c55e] text-white';
-                    markerInner  = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
                 } else if (isSelected && !isCorrect) {
                     optClass    += 'border-[#ef4444] bg-[#fef2f2] text-[#b91c1c]';
                     markerClass += 'border-[#ef4444] bg-[#ef4444] text-white';
-                    markerInner  = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>';
                 } else {
                     optClass    += 'border-[#e8ecf2] opacity-50';
                     markerClass += 'border-[#cbd5e1]';
                 }
             }
 
-            html += `<div class="${optClass}" onclick="selectOption(${qIndex}, ${oIndex})"><div class="${markerClass}">${markerInner}</div><span class="flex-1 text-[14px] font-medium leading-snug ${isRevealed && isActualAnswer ? 'text-[#166534]' : 'text-navy-950'}">${escapeHtml(opt)}</span></div>`;
+            const optionLabel = String.fromCharCode(65 + oIndex);
+            html += `<div class="${optClass}" onclick="selectOption(${qIndex}, ${oIndex})"><div class="${markerClass}">${optionLabel}</div><span class="flex-1 text-[14px] font-medium leading-snug ${isRevealed && isActualAnswer ? 'text-[#166534]' : 'text-navy-950'}">${escapeHtml(opt)}</span></div>`;
         });
 
         html += '</div>';

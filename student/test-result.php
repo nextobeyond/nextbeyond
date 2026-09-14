@@ -81,7 +81,7 @@ $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
       <?php foreach ($options as $optionIndex => $option):
         $class = $optionIndex === $answer ? 'answer' : (($optionIndex === $selected && !$isCorrect) ? 'chosen-wrong' : '');
       ?>
-        <div class="review-option <?= $class ?>"><strong>○</strong><span><?= htmlspecialchars((string)$option) ?></span><?php if ($optionIndex === $answer): ?><strong style="margin-left:auto">คำตอบที่ถูกต้อง</strong><?php elseif ($optionIndex === $selected): ?><strong style="margin-left:auto">คำตอบของคุณ</strong><?php endif; ?></div>
+        <div class="review-option <?= $class ?>"><strong class="option-label"><?= chr(65 + $optionIndex) ?></strong><span><?= htmlspecialchars((string)$option) ?></span><?php if ($optionIndex === $answer): ?><strong style="margin-left:auto">คำตอบที่ถูกต้อง</strong><?php elseif ($optionIndex === $selected): ?><strong style="margin-left:auto">คำตอบของคุณ</strong><?php endif; ?></div>
       <?php endforeach; ?>
       <?php if ($selected < 0): ?><div class="review-option chosen-wrong">ไม่ได้ตอบข้อนี้</div><?php endif; ?>
       <?php if ($question['explanation']): ?><div class="explanation"><strong style="color:#8b85ff">คำอธิบาย</strong><br><?= nl2br(htmlspecialchars($question['explanation'])) ?></div><?php endif; ?>

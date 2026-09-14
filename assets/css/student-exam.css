@@ -76,7 +76,13 @@
 .question-score { float: right; padding: 5px 9px; border-radius: 6px; background: #f1f5f9; color: var(--exam-muted); font: 11px monospace; }
 .question-text { margin: 26px 0; color: var(--exam-navy); font-size: 17px; font-weight: 700; line-height: 1.75; }
 .passage { margin-top: 20px; padding: 16px; border: 1px solid var(--exam-line); border-radius: 10px; background: var(--exam-soft); color: #4b5e7a; white-space: pre-wrap; }
-.option { width: 100%; margin-top: 11px; padding: 15px 18px; border: 1px solid #dce4ef; border-radius: 10px; background: #fff; color: var(--exam-ink); text-align: left; font-size: 14px; cursor: pointer; }
+.option { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 11px; padding: 15px 18px; border: 1px solid #dce4ef; border-radius: 10px; background: #fff; color: var(--exam-ink); text-align: left; font-size: 14px; cursor: pointer; }
+.option-label { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; height: 28px; border: 1px solid #cbd5e1; border-radius: 50%; color: #53647d; font-size: 12px; font-weight: 900; }
+.option.selected .option-label { border-color: var(--exam-pink); background: var(--exam-pink); color: #fff; }
+.option.correct .option-label { border-color: #20a77c; background: #20a77c; color: #fff; }
+.option.wrong .option-label { border-color: #e6536f; background: #e6536f; color: #fff; }
+.review-option.answer .option-label { border-color: #20a77c; background: #20a77c; color: #fff; }
+.review-option.chosen-wrong .option-label { border-color: #e6536f; background: #e6536f; color: #fff; }
 .option:hover { border-color: #f4a9cc; background: #fff9fc; }
 .option.selected { border-color: var(--exam-pink); background: #fff0f7; }
 .option.correct { border-color: #20a77c; background: #ecfdf5; color: #087052; }
