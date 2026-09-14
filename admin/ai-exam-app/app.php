@@ -43,7 +43,7 @@ try {
             <div class="animate-spin rounded-full h-16 w-16 border-4 border-pink-100 border-t-pink-500"></div>
         </div>
         <h3 class="text-xl font-bold text-navy-950 mb-2">กำลังให้ AI สร้างข้อสอบ...</h3>
-        <p class="text-pink-500 font-medium mb-1">กำลังรวบรวมข้อสอบคุณภาพสูงตามระดับความยาก</p>
+        <p id="generation-progress" class="text-pink-500 font-medium mb-1">กำลังรวบรวมข้อสอบคุณภาพสูงตามระดับความยาก</p>
         <p class="text-xs text-[#65738a]">อาจใช้เวลาหลายนาทีตามจำนวนข้อ เมื่อสร้างเสร็จระบบจะบันทึกเป็นฉบับร่างให้อัตโนมัติ</p>
     </div>
 

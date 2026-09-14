@@ -66,6 +66,16 @@ $details = $context['details'];
 $difficulty = $input['difficulty'] ?? ($sourceMode === 'brief' ? 'medium' : '');
 $shuffle = $input['shuffle'] ?? false;
 $subject = $input['subject'] ?? '';
+$batchOffset = max(0, min(100, (int) ($input['batchOffset'] ?? 0)));
+$totalRequested = max($count, min(100, (int) ($input['totalRequested'] ?? $count)));
+$priorQuestionTexts = [];
+if (isset($input['priorQuestionTexts']) && is_array($input['priorQuestionTexts'])) {
+    foreach (array_slice($input['priorQuestionTexts'], -30) as $priorText) {
+        if (is_string($priorText) && trim($priorText) !== '') {
+            $priorQuestionTexts[] = mb_substr(trim($priorText), 0, 500);
+        }
+    }
+}
 
 require_once __DIR__ . '/subject-prompts.php';
 require_once __DIR__ . '/question-validation.php';
@@ -362,7 +372,7 @@ function generateQuestions($payload, $candidateModels, $apiKey, $temperature) {
     throw new Exception("สร้างข้อสอบล้มเหลว: " . $lastErr);
 }
 
-function generateQuestionsInBatches($targetCount, $type, $difficulty, $details, $isPdf, $fileData, $chunkText, $partIndex, $totalParts, $candidateModels, $apiKey, $subjectPrompt = "", $sourceMode = "document") {
+function generateQuestionsInBatches($targetCount, $type, $difficulty, $details, $isPdf, $fileData, $chunkText, $partIndex, $totalParts, $candidateModels, $apiKey, $subjectPrompt = "", $sourceMode = "document", $priorQuestionTexts = [], $questionOffset = 0, $totalRequested = null) {
     $batchSize = 20;
     $batchCount = (int) ceil($targetCount / $batchSize);
     $questions = [];
@@ -373,13 +383,18 @@ function generateQuestionsInBatches($targetCount, $type, $difficulty, $details, 
         if ($currentCount < 1) break;
 
         $prompt = buildPrompt($currentCount, $type, $difficulty, $details, $isPdf, $chunkText, $partIndex, $totalParts, $subjectPrompt, $sourceMode);
-        if ($questions && $type !== 'copy') {
-            $prompt .= "\nคำถามที่สร้างไปแล้วในชุดนี้ ห้ามสร้างซ้ำ:\n" . json_encode(array_column($questions, 'questionText'), JSON_UNESCAPED_UNICODE);
+        $knownQuestions = array_merge($priorQuestionTexts, array_column($questions, 'questionText'));
+        if ($knownQuestions && $type !== 'copy') {
+            $prompt .= "\nคำถามที่สร้างไปแล้ว ห้ามสร้างซ้ำ:\n" . json_encode($knownQuestions, JSON_UNESCAPED_UNICODE);
         }
-        if ($batchCount > 1) {
-            $endNumber = $startNumber + $currentCount - 1;
+        $hasMultipleRequests = $totalRequested !== null && $totalRequested > $targetCount;
+        if ($batchCount > 1 || $hasMultipleRequests) {
+            $absoluteStart = $questionOffset + $startNumber;
+            $endNumber = $absoluteStart + $currentCount - 1;
             if ($type === 'copy') {
-                $prompt .= "\n\nคำสั่งสำหรับการแบ่งชุด: ส่งเฉพาะข้อสอบต้นฉบับลำดับที่ {$startNumber} ถึง {$endNumber} ของเอกสารหรือส่วนนี้ ห้ามส่งข้อก่อนหน้าและห้ามเริ่มจากข้อ 1 ใหม่";
+                $prompt .= "\n\nคำสั่งสำหรับการแบ่งชุด: ส่งเฉพาะข้อสอบต้นฉบับลำดับที่ {$absoluteStart} ถึง {$endNumber} ของเอกสารหรือส่วนนี้ ห้ามส่งข้อก่อนหน้าและห้ามเริ่มจากข้อ 1 ใหม่";
+            } elseif ($batchCount === 1) {
+                $prompt .= "\n\nคำสั่งสำหรับการแบ่งชุด: สร้างข้อสอบใหม่อีก {$currentCount} ข้อสำหรับชุดรวม {$totalRequested} ข้อ และห้ามซ้ำกับรายการคำถามที่ส่งมา";
             } else {
                 $prompt .= "\n\nคำสั่งสำหรับการแบ่งชุด: นี่คือชุดที่ {$batchIndex} จาก {$batchCount} ต้องสร้าง {$currentCount} ข้อใหม่ที่ไม่ซ้ำกับชุดก่อนหน้า";
             }
@@ -421,7 +436,7 @@ try {
         $plan = $type === 'levels' ? $counts : [$difficulty ?: 'medium' => $count];
         foreach ($plan as $level => $amount) {
             if ($amount < 1) continue;
-            $generated = generateQuestionsInBatches($amount, $type, $level, $details, false, null, $fileData, 1, 1, $candidateModels, $apiKey, $subjectPrompt, 'brief');
+            $generated = generateQuestionsInBatches($amount, $type, $level, $details, false, null, $fileData, 1, 1, $candidateModels, $apiKey, $subjectPrompt, 'brief', $priorQuestionTexts, $batchOffset, $totalRequested);
             $finalQuestions = array_merge($finalQuestions, $generated);
         }
     } elseif ($fileType === 'pdf') {
@@ -429,12 +444,12 @@ try {
             foreach ($counts as $lvl => $cText) {
                 $c = (int)$cText;
                 if ($c > 0) {
-                    $qs = generateQuestionsInBatches($c, $type, $lvl, $details, true, $fileData, '', 1, 1, $candidateModels, $apiKey, $subjectPrompt);
+                    $qs = generateQuestionsInBatches($c, $type, $lvl, $details, true, $fileData, '', 1, 1, $candidateModels, $apiKey, $subjectPrompt, 'document', $priorQuestionTexts, $batchOffset, $totalRequested);
                     $finalQuestions = array_merge($finalQuestions, $qs);
                 }
             }
         } else {
-            $finalQuestions = generateQuestionsInBatches($count, $type, $difficulty, $details, true, $fileData, '', 1, 1, $candidateModels, $apiKey, $subjectPrompt);
+            $finalQuestions = generateQuestionsInBatches($count, $type, $difficulty, $details, true, $fileData, '', 1, 1, $candidateModels, $apiKey, $subjectPrompt, 'document', $priorQuestionTexts, $batchOffset, $totalRequested);
         }
     } else {
         if (trim($fileData) === '') {
@@ -480,7 +495,7 @@ try {
                     $lvlQs = [];
                     for ($i = 0; $i < $numChunks; $i++) {
                         if ($dist[$i] === 0) continue;
-                        $qs = generateQuestionsInBatches($dist[$i], $type, $lvl, $details, false, null, $chunks[$i], $i + 1, $numChunks, $candidateModels, $apiKey, $subjectPrompt);
+                        $qs = generateQuestionsInBatches($dist[$i], $type, $lvl, $details, false, null, $chunks[$i], $i + 1, $numChunks, $candidateModels, $apiKey, $subjectPrompt, 'document', $priorQuestionTexts, $batchOffset, $totalRequested);
                         $lvlQs = array_merge($lvlQs, $qs);
                         if ($i < $numChunks - 1) sleep(1);
                     }
@@ -492,7 +507,7 @@ try {
             $dist = distributeQuestionCount($count, $numChunks);
             for ($i = 0; $i < $numChunks; $i++) {
                 if ($dist[$i] === 0 && $type !== 'copy') continue;
-                $qs = generateQuestionsInBatches($dist[$i], $type, $difficulty, $details, false, null, $chunks[$i], $i + 1, $numChunks, $candidateModels, $apiKey, $subjectPrompt);
+                $qs = generateQuestionsInBatches($dist[$i], $type, $difficulty, $details, false, null, $chunks[$i], $i + 1, $numChunks, $candidateModels, $apiKey, $subjectPrompt, 'document', $priorQuestionTexts, $batchOffset, $totalRequested);
                 $finalQuestions = array_merge($finalQuestions, $qs);
                 if ($i < $numChunks - 1) sleep(1);
             }

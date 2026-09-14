@@ -230,6 +230,49 @@ window.addEventListener('beforeunload', event => {
     if (pendingExamSave) { event.preventDefault(); event.returnValue = ''; }
 });
 
+const GENERATION_REQUEST_SIZE = 10;
+
+function planGenerationRequests(type, total, counts) {
+    const requests = [];
+    if (type === 'levels') {
+        for (const level of ['easy', 'medium', 'hard', 'expert']) {
+            let remaining = Number(counts?.[level] || 0);
+            while (remaining > 0) {
+                const count = Math.min(GENERATION_REQUEST_SIZE, remaining);
+                requests.push({count, counts: {[level]: count}});
+                remaining -= count;
+            }
+        }
+        return requests;
+    }
+    for (let offset = 0; offset < total; offset += GENERATION_REQUEST_SIZE) {
+        requests.push({count: Math.min(GENERATION_REQUEST_SIZE, total - offset), counts: null});
+    }
+    return requests;
+}
+
+async function requestQuestionBatch(payload) {
+    const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+    });
+    const responseText = await response.text();
+    let data;
+    try {
+        data = JSON.parse(responseText);
+    } catch (error) {
+        throw new Error(response.ok
+            ? 'เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง กรุณาลองสร้างใหม่'
+            : `เซิร์ฟเวอร์หยุดการสร้างชุดนี้ (HTTP ${response.status}) กรุณาลองอีกครั้ง`);
+    }
+    if (!response.ok) throw new Error(data.error || `เกิดข้อผิดพลาดจากเซิร์ฟเวอร์ (HTTP ${response.status})`);
+    if (!Array.isArray(data.questions) || data.questions.length === 0) {
+        throw new Error('AI ไม่สามารถสร้างข้อสอบในชุดนี้ได้');
+    }
+    return data;
+}
+
 // ---------- Form Submit — Generate ----------
 async function handleGenerate(e) {
     e.preventDefault();
@@ -291,44 +334,54 @@ async function handleGenerate(e) {
 
     const overlay  = document.getElementById('loading-overlay');
     const submitBtn = document.getElementById('btn-submit');
+    const progress = document.getElementById('generation-progress');
     overlay.classList.remove('hidden');
     overlay.classList.add('flex');
     submitBtn.disabled = true;
 
     try {
-        // ส่ง useServerKey: true → API จะดึง key จาก DB เอง
-        const res = await fetch(API_URL, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({
-                url:          sourceMode === 'document' ? driveUrl : '',
-                sourceMode, topic, difficulty,
-                type:         type,
-                count:        finalCount,
-                counts:       countsObj,
-                details:      details,
-                shuffle:      shuffle,
-                subject:      subject,
-                grade:        grade,
-                useServerKey: true,   // ← ใช้ key จาก server DB
-            }),
-        });
+        const basePayload = {
+            url: sourceMode === 'document' ? driveUrl : '',
+            sourceMode, topic, difficulty, type, details, shuffle, subject, grade,
+            useServerKey: true,
+        };
+        const requests = planGenerationRequests(type, finalCount, countsObj);
+        const generatedQuestions = [];
+        const warnings = [];
+        let requestedOffset = 0;
+        for (let index = 0; index < requests.length; index++) {
+            const request = requests[index];
+            progress.textContent = `กำลังสร้างชุดที่ ${index + 1} จาก ${requests.length} (${generatedQuestions.length}/${finalCount} ข้อ)`;
+            const data = await requestQuestionBatch({
+                ...basePayload,
+                count: request.count,
+                counts: request.counts,
+                batchOffset: requestedOffset,
+                totalRequested: finalCount,
+                priorQuestionTexts: generatedQuestions.map(question => question.questionText).slice(-30),
+            });
+            generatedQuestions.push(...data.questions);
+            if (data.warning) warnings.push(data.warning);
+            requestedOffset += request.count;
+        }
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์');
-        if (!data.questions || data.questions.length === 0)
-            throw new Error(sourceMode === 'brief'
-                ? 'AI ไม่สามารถสร้างข้อสอบจากหัวข้อนี้ได้ กรุณาเพิ่มคำอธิบายหรือลองใหม่'
-                : 'AI ไม่สามารถสร้างข้อสอบได้ โปรดตรวจสอบเอกสารต้นฉบับ');
-        if (data.warning) alert(data.warning);
-
-        currentExam = data.questions;
+        const seen = new Set();
+        currentExam = generatedQuestions.filter(question => {
+            const signature = JSON.stringify([question.questionText, question.options]);
+            if (seen.has(signature)) return false;
+            seen.add(signature);
+            return true;
+        }).slice(0, finalCount);
+        if (currentExam.length === 0) throw new Error('AI ไม่สามารถสร้างข้อสอบได้ โปรดตรวจสอบข้อมูลและลองใหม่');
         answers     = {};
         isRevealed  = false;
 
         const warning = document.getElementById('exam-generation-warning');
-        warning.textContent = data.warning || '';
-        warning.classList.toggle('hidden', !data.warning);
+        const warningText = currentExam.length < finalCount
+            ? `AI สร้างได้ ${currentExam.length} จาก ${finalCount} ข้อ กรุณาตรวจสอบชุดข้อสอบ`
+            : warnings.filter(Boolean).join(' · ');
+        warning.textContent = warningText;
+        warning.classList.toggle('hidden', !warningText);
         pendingExamSave = {
             requestId: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(18)), b => b.toString(16).padStart(2, '0')).join(''),
             questions: currentExam,
@@ -354,6 +407,7 @@ async function handleGenerate(e) {
     } catch (error) {
         alert('Error: ' + error.message);
     } finally {
+        progress.textContent = 'กำลังรวบรวมข้อสอบคุณภาพสูงตามระดับความยาก';
         overlay.classList.add('hidden');
         overlay.classList.remove('flex');
         submitBtn.disabled = false;
