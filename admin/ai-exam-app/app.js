@@ -156,7 +156,9 @@ function toggleSourceMode() {
     const type = document.getElementById('examType');
     type.querySelector('[value="copy"]').disabled = brief;
     type.querySelector('[value="copy"]').hidden = brief;
-    type.querySelector('[value="similar"]').textContent = brief ? 'สร้างใหม่ตามหัวข้อ' : 'similar (คล้ายคลึงต้นฉบับ)';
+    type.querySelector('[value="similar"]').textContent = brief
+        ? '2. สร้างข้อสอบใหม่ตามหัวข้อ'
+        : '2. สร้างข้อสอบใหม่จากข้อมูลเดิม';
     if (brief && type.value === 'copy') type.value = 'similar';
     document.getElementById('source-mode-help').textContent = brief
         ? 'ระบุหัวข้อและชั้นเรียนได้เลย ระบบมีตัวอย่างรายวิชาประกอบการสร้าง พร้อมตรวจทานโจทย์และเฉลย'
@@ -166,6 +168,19 @@ function toggleSourceMode() {
 
 function toggleType() {
     const type = document.getElementById('examType').value;
+    const sourceMode = document.getElementById('sourceMode').value;
+    const typeHelp = document.getElementById('generation-type-help');
+    const helpText = sourceMode === 'brief'
+        ? {
+            similar: 'สร้างข้อสอบใหม่จากวิชา หัวข้อ และระดับชั้นที่เลือก โดยไม่ต้องมีเอกสารเดิม',
+            levels: 'สร้างข้อสอบใหม่จากหัวข้อ แล้วกำหนดจำนวนข้อเป็น ง่าย ปานกลาง ยาก และยากมาก',
+        }
+        : {
+            copy: 'ใช้ข้อมูลเก่า: คัดลอกคำถาม ตัวเลือก เฉลย และลำดับจากเอกสารต้นฉบับ',
+            similar: 'ใช้ข้อมูลเก่าเป็นแนว: AI วิเคราะห์เอกสารเดิมแล้วสร้างข้อสอบชุดใหม่ที่ใกล้เคียง',
+            levels: 'ใช้เอกสารเดิมเป็นข้อมูลอ้างอิง แล้วสร้างข้อสอบใหม่โดยกระจายตามระดับความยาก',
+        };
+    typeHelp.textContent = helpText[type] || '';
     document.getElementById('difficulty-ui').classList.toggle('hidden', type === 'levels' || document.getElementById('sourceMode').value !== 'brief');
     const shuffle = document.getElementById('shuffle');
     shuffle.disabled = type === 'copy';

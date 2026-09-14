@@ -104,14 +104,15 @@ try {
         <div class="relative">
             <label class="absolute -top-2 left-3 bg-white px-1 text-xs text-pink-500 font-bold z-10">ประเภทการสร้าง</label>
             <select aria-label="ประเภทการสร้าง" id="examType" onchange="toggleType()" class="w-full p-3 border-2 border-[#e8ecf2] focus:border-pink-500 rounded-xl outline-none appearance-none bg-transparent relative z-0 text-navy-950 font-medium transition-colors cursor-pointer">
-                <option value="copy">copy (คัดลอกต้นฉบับ)</option>
-                <option value="similar">similar (คล้ายคลึงต้นฉบับ)</option>
-                <option value="levels">levels (กำหนดจำนวนข้อในแต่ละระดับ)</option>
+                <option value="copy">1. ใช้ข้อสอบเดิมจากเอกสาร</option>
+                <option value="similar">2. สร้างข้อสอบใหม่จากข้อมูลเดิม</option>
+                <option value="levels">3. สร้างข้อสอบใหม่ตามระดับความยาก</option>
             </select>
             <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-[#65738a]">
                 <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
             </div>
         </div>
+        <p id="generation-type-help" class="-mt-3 text-xs leading-relaxed text-[#65738a]"></p>
 
         <!-- Levels UI -->
         <div id="levels-ui" class="hidden bg-pink-50/50 p-5 rounded-xl border border-pink-100 animate-fade-in space-y-4">
