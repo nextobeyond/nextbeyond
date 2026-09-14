@@ -485,6 +485,8 @@ function downloadPDF() {
 // --- AI Prompts Management ---
 let aiPrompts = [];
 const esc = (v) => String(v ?? "").replace(/[&<>'"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"}[c]));
+// Hostinger redirects the .php URL and drops POST data, so use the canonical route.
+const PROMPTS_API = 'prompts-api';
 
 async function apiRequest(url, options = {}) {
     const response = await fetch(url, options);
@@ -516,7 +518,7 @@ window.closePromptListModal = function() {
 
 async function loadAiPrompts() {
   try {
-    const data = await apiRequest('prompts-api.php', {
+    const data = await apiRequest(PROMPTS_API, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({action: 'list'})
@@ -584,7 +586,7 @@ window.editPrompt = function(id) {
 window.deletePrompt = async function(id) {
   if(!confirm('ยืนยันลบวิชานี้?')) return;
   try {
-    await apiRequest('prompts-api.php', {
+    await apiRequest(PROMPTS_API, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ action: 'delete', id: id })
@@ -603,7 +605,7 @@ window.savePrompt = async function() {
   };
 
   try {
-    const res = await apiRequest('prompts-api.php', {
+    const res = await apiRequest(PROMPTS_API, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload)
