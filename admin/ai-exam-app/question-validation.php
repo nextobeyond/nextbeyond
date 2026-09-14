@@ -1,28 +1,6 @@
 <?php
 declare(strict_types=1);
 
-function removeDuplicatedOptionBlock(string $questionText, array $options): string
-{
-    if (count($options) < 2 || count($options) > 10) return trim($questionText);
-
-    $labels = range('A', 'J');
-    $parts = [];
-    foreach ($options as $index => $option) {
-        $option = preg_replace('/^(?:[A-J]|[0-9]+)[.)]\s*/iu', '', trim((string) $option));
-        if ($option === '') return trim($questionText);
-        $quotedOption = preg_quote($option, '/');
-        $quotedOption = preg_replace('/\s+/u', '\\s+', $quotedOption);
-        $parts[] = $labels[$index] . '\\s*[.)]\\s*' . $quotedOption;
-    }
-
-    // Only remove a complete A–J block at the end of the question. This keeps
-    // labels that legitimately occur in a passage or in the question itself.
-    $pattern = '/(?:^|\\R)\\h*(?:[0-9]+\\h*[.)]\\h*)?' . implode('\\s*', $parts) . '\\s*$/isu';
-    $cleaned = preg_replace($pattern, '', $questionText);
-
-    return trim($cleaned ?? $questionText);
-}
-
 function validateExamQuestions(array $questions, bool $fourOptions = false, bool $requireExplanation = false): array
 {
     if (!$questions || count($questions) > 100 || array_keys($questions) !== range(0, count($questions) - 1)) {
@@ -57,7 +35,7 @@ function validateExamQuestions(array $questions, bool $fourOptions = false, bool
         if ($requireExplanation && trim($question['explanation'] ?? '') === '') throw new InvalidArgumentException($error . 'ไม่มีคำอธิบายเฉลย');
         if (isset($question['skill'])) $question['skill'] = mb_substr($question['skill'], 0, 100);
         if (isset($question['difficulty'])) $question['difficulty'] = mb_substr($question['difficulty'], 0, 50);
-        $question['questionText'] = removeDuplicatedOptionBlock($text, $options);
+        $question['questionText'] = trim($text);
         $question['options'] = $options;
         $question['correctAnswerIndex'] = $answer;
     }
