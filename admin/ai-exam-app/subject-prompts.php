@@ -15,6 +15,11 @@ function examSubjectDefaults(): array
 // One-time migration: preserve custom prompts, disabled subjects and later edits.
 function ensureSubjectPrompts(PDO $pdo): void
 {
+    // Production uses utf8mb4_unicode_ci for ai_subjects while some older
+    // connections default to utf8mb4_general_ci. Keep bound Thai text and
+    // the subject_name column in the same collation before comparing them.
+    $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
+
     // Hosted database users may update existing tables without CREATE permission.
     // Do not issue CREATE TABLE on every API request when the tables are present.
     if (!$pdo->query("SHOW TABLES LIKE 'ai_subjects'")->fetchColumn()) {
