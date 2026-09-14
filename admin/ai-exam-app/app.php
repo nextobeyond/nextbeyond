@@ -74,9 +74,30 @@ try {
             </div>
         </div>
 
-        <div>
-            <label for="examGrade" class="text-xs font-bold">ระดับชั้น (จำเป็นเมื่อสร้างจากหัวข้อ)</label>
-            <input id="examGrade" maxlength="50" placeholder="เช่น ป.6 หรือ ม.3" class="w-full p-3 border-2 rounded-xl" />
+        <div class="relative">
+            <label for="examGrade" class="absolute -top-2 left-3 bg-white px-1 text-xs text-pink-500 font-bold z-10">ระดับชั้น (จำเป็นเมื่อสร้างจากหัวข้อ)</label>
+            <select id="examGrade" class="w-full p-3 border-2 border-[#e8ecf2] focus:border-pink-500 rounded-xl outline-none appearance-none bg-white text-navy-950 font-medium transition-colors cursor-pointer">
+                <option value="">เลือกระดับชั้น</option>
+                <optgroup label="ประถมศึกษา">
+                    <option value="ป.1">ประถมศึกษาปีที่ 1 (ป.1)</option>
+                    <option value="ป.2">ประถมศึกษาปีที่ 2 (ป.2)</option>
+                    <option value="ป.3">ประถมศึกษาปีที่ 3 (ป.3)</option>
+                    <option value="ป.4">ประถมศึกษาปีที่ 4 (ป.4)</option>
+                    <option value="ป.5">ประถมศึกษาปีที่ 5 (ป.5)</option>
+                    <option value="ป.6">ประถมศึกษาปีที่ 6 (ป.6)</option>
+                </optgroup>
+                <optgroup label="มัธยมศึกษา">
+                    <option value="ม.1">มัธยมศึกษาปีที่ 1 (ม.1)</option>
+                    <option value="ม.2">มัธยมศึกษาปีที่ 2 (ม.2)</option>
+                    <option value="ม.3">มัธยมศึกษาปีที่ 3 (ม.3)</option>
+                    <option value="ม.4">มัธยมศึกษาปีที่ 4 (ม.4)</option>
+                    <option value="ม.5">มัธยมศึกษาปีที่ 5 (ม.5)</option>
+                    <option value="ม.6">มัธยมศึกษาปีที่ 6 (ม.6)</option>
+                </optgroup>
+            </select>
+            <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-[#65738a]">
+                <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20" aria-hidden="true"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+            </div>
         </div>
 
         <!-- Exam Type -->
