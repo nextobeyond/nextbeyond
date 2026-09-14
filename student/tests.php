@@ -161,7 +161,7 @@ $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
       <article class="student-exam-card"
         data-search="<?= htmlspecialchars(mb_strtolower($exam['title'].' '.$subject.' '.$grade)) ?>"
         data-subject="<?= htmlspecialchars(mb_strtolower($subject)) ?>" data-type="<?= htmlspecialchars((string)$exam['type']) ?>">
-        <div class="exam-card-head"><span class="exam-subject"><?= htmlspecialchars($subject) ?></span><span class="exam-time">◷ <?= (int)$exam['time_limit_minutes'] ?> นาที</span></div>
+        <div class="exam-card-head"><span class="exam-subject"><?= htmlspecialchars($subject) ?></span><span class="exam-time">◷ <?= $exam['time_limit_minutes'] ? (int)$exam['time_limit_minutes'] . ' นาที' : 'ไม่จำกัดเวลา' ?></span></div>
         <h3><?= htmlspecialchars($exam['title']) ?></h3>
         <p><?= htmlspecialchars($grade) ?> · <?= htmlspecialchars($typeLabel) ?><?= $exam['is_ai_generated'] ? ' · สร้างด้วย AI' : '' ?></p>
         <div class="exam-card-meta">

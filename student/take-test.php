@@ -17,21 +17,26 @@ $questions = $stmtQ->fetchAll();
 if (!$questions) { header('Location: tests.php?error=no_questions'); exit; }
 
 // ใช้ attempt ที่ยังทำไม่เสร็จต่อ เพื่อไม่ให้เวลาเริ่มใหม่เมื่อ refresh
-$stmtAttempt = $pdo->prepare('SELECT id, started_at FROM test_attempts WHERE user_id = :uid AND exam_id = :eid AND completed_at IS NULL ORDER BY started_at DESC LIMIT 1');
+$stmtAttempt = $pdo->prepare(
+    'SELECT id, started_at, GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())) AS elapsed_seconds
+     FROM test_attempts
+     WHERE user_id = :uid AND exam_id = :eid AND completed_at IS NULL
+     ORDER BY started_at DESC LIMIT 1'
+);
 $stmtAttempt->execute([':uid' => $currentUser['id'], ':eid' => $examId]);
 $attempt = $stmtAttempt->fetch();
 if (!$attempt) {
     $stmtIns = $pdo->prepare('INSERT INTO test_attempts (user_id, exam_id, total_questions, started_at) VALUES (:uid, :eid, :total, NOW())');
     $stmtIns->execute([':uid' => $currentUser['id'], ':eid' => $examId, ':total' => count($questions)]);
     $attemptId = (int)$pdo->lastInsertId();
-    $startedAt = time();
+    $elapsedSeconds = 0;
 } else {
     $attemptId = (int)$attempt['id'];
-    $startedAt = strtotime((string)$attempt['started_at']) ?: time();
+    $elapsedSeconds = (int)$attempt['elapsed_seconds'];
 }
 
 $limitSeconds = max(0, (int)$exam['time_limit_minutes'] * 60);
-$remainingSeconds = $limitSeconds > 0 ? max(0, $limitSeconds - max(0, time() - $startedAt)) : 0;
+$remainingSeconds = $limitSeconds > 0 ? max(0, $limitSeconds - $elapsedSeconds) : 0;
 $questionsForJS = array_map(static fn(array $q): array => [
     'id' => (int)$q['id'], 'questionText' => (string)$q['question_text'], 'passage' => $q['passage'],
     'options' => json_decode((string)$q['options'], true) ?: [], 'skill' => $q['skill'] ?: 'ทั่วไป',
@@ -112,14 +117,22 @@ document.getElementById('check-btn').addEventListener('click', async () => {
   } catch (error) { alert(error.message); button.disabled = false; }
 });
 function submitExam(force) {
+  if (submitExam.submitting) return;
   const missing = QUESTIONS.length - Object.keys(answers).length;
   if (!force && missing > 0 && !confirm(`ยังไม่ได้ตอบ ${missing} ข้อ ต้องการส่งข้อสอบตอนนี้หรือไม่?`)) return;
+  submitExam.submitting = true;
   document.getElementById('answers-json').value = JSON.stringify(answers); localStorage.removeItem(STORAGE_KEY); document.getElementById('submit-form').submit();
 }
 const timer = document.getElementById('timer');
 if (timer) {
-  let seconds = Number(timer.dataset.seconds); const draw = () => { timer.textContent = `${String(Math.floor(seconds / 60)).padStart(2,'0')}:${String(seconds % 60).padStart(2,'0')}`; }; draw();
-  if (seconds <= 0) submitExam(true); else { const timerInterval = setInterval(() => { seconds--; draw(); if (seconds <= 0) { clearInterval(timerInterval); submitExam(true); } }, 1000); }
+  const deadline = Date.now() + (Number(timer.dataset.seconds) * 1000);
+  const draw = () => {
+    const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    timer.textContent = `${String(Math.floor(seconds / 60)).padStart(2,'0')}:${String(seconds % 60).padStart(2,'0')}`;
+    timer.classList.toggle('urgent', seconds <= 60);
+    if (seconds <= 0) { clearInterval(timerInterval); submitExam(true); }
+  };
+  const timerInterval = setInterval(draw, 250); draw();
 }
 renderQuestion();
 </script>

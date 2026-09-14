@@ -22,7 +22,11 @@ if ($attemptId < 1 || $examId < 1) {
 }
 
 // ตรวจว่า attempt นี้เป็นของ user นี้จริง
-$stmtCheck = $pdo->prepare('SELECT id, started_at FROM test_attempts WHERE id = :id AND exam_id = :exam_id AND user_id = :uid AND completed_at IS NULL');
+$stmtCheck = $pdo->prepare(
+    'SELECT id, started_at, GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())) AS elapsed_seconds
+     FROM test_attempts
+     WHERE id = :id AND exam_id = :exam_id AND user_id = :uid AND completed_at IS NULL'
+);
 $stmtCheck->execute([':id' => $attemptId, ':exam_id' => $examId, ':uid' => $currentUser['id']]);
 $attempt = $stmtCheck->fetch();
 if (!$attempt) {
@@ -61,7 +65,7 @@ foreach ($questions as $i => $q) {
 
 $totalQ  = count($questions);
 $score   = $totalQ > 0 ? round(($correctCount / $totalQ) * 100, 2) : 0;
-$seconds = max(0, time() - strtotime((string) $attempt['started_at']));
+$seconds = (int)$attempt['elapsed_seconds'];
 
 // อัปเดต attempt
 $stmtUpdate = $pdo->prepare(

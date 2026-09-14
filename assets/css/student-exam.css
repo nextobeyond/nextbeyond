@@ -60,6 +60,7 @@
 .test-tag { color: #d72c7a; font-size: 11px; font-weight: 800; }
 .test-head h1 { margin-top: 7px; color: var(--exam-navy); font-size: 19px; font-weight: 800; }
 .test-clock { padding: 11px 18px; border: 1px solid #dce4ef; border-radius: 10px; background: var(--exam-soft); color: var(--exam-navy); font: 900 23px monospace; }
+.test-clock.urgent { border-color: #f3a2b2; background: #fff1f3; color: #b42342; }
 .submit-test { background: var(--exam-green); box-shadow: 0 4px 12px rgba(12,166,120,.2); }
 .submit-test:hover { background: #07966b; }
 .test-layout { display: grid; grid-template-columns: 230px minmax(0,1fr); gap: 22px; margin-top: 22px; }

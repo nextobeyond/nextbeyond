@@ -273,6 +273,7 @@ try {
             'title' => 'title',
             'type' => 'type',
             'status' => 'status',
+            'timeLimitMinutes' => 'time_limit_minutes',
             'isPublished' => 'is_published',
             'requiresLogin' => 'requires_login',
         ];
@@ -285,6 +286,15 @@ try {
             $value = trim((string) $value);
             if ($value === '' || mb_strlen($value) > 300) {
                 respond(['error' => 'ชื่อแบบทดสอบต้องมี 1-300 ตัวอักษร'], 422);
+            }
+        }
+        if ($field === 'timeLimitMinutes') {
+            if ($value === '' || $value === null) {
+                $value = null;
+            } elseif (filter_var($value, FILTER_VALIDATE_INT) === false || (int) $value < 1 || (int) $value > 600) {
+                respond(['error' => 'เวลาทำข้อสอบต้องอยู่ระหว่าง 1-600 นาที หรือเว้นว่างหากไม่จำกัดเวลา'], 422);
+            } else {
+                $value = (int) $value;
             }
         }
         $allowedValues = [
