@@ -64,7 +64,7 @@ $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><?= htmlspecialchars($pageTitle) ?> - Next Beyond Academy</title>
+  <title><?= htmlspecialchars($pageTitle) ?> - Nextbeyond Compass</title>
   <link rel="stylesheet" href="../assets/css/output.css?v=<?= filemtime(__DIR__ . '/../assets/css/output.css') ?>">
   <link rel="stylesheet" href="../assets/css/student-portal.css?v=<?= filemtime(__DIR__ . '/../assets/css/student-portal.css') ?>">
   <link rel="stylesheet" href="../assets/css/student-exam.css?v=<?= $cssVersion ?>">

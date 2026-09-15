@@ -1,7 +1,7 @@
 {
   "name": "nextbeyond",
   "version": "1.0.0",
-  "description": "Next Beyond Academy",
+  "description": "Nextbeyond Compass",
   "scripts": {
     "build:css": "tailwindcss -i ./assets/css/input.css -o ./assets/css/output.css --minify",
     "watch:css": "tailwindcss -i ./assets/css/input.css -o ./assets/css/output.css --watch"

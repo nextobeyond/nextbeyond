@@ -1,5 +1,5 @@
 <?php
-$pageTitle = "รายละเอียดคอร์ส | Next Beyond Academy";
+$pageTitle = "รายละเอียดคอร์ส | Nextbeyond Compass";
 $pageDesc = "รายละเอียดคอร์ส English Communication Starter";
 $currentPage = 'courses.php'; // Keep active menu on courses
 include 'includes/head.php';

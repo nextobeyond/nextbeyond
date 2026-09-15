@@ -1,6 +1,6 @@
 <?php
-$pageTitle = "แบบวัดระดับ | Next Beyond Academy";
-$pageDesc = "แบบวัดระดับออนไลน์ Next Beyond Academy";
+$pageTitle = "แบบวัดระดับ | Nextbeyond Compass";
+$pageDesc = "แบบวัดระดับออนไลน์ Nextbeyond Compass";
 $currentPage = 'placement-test.php';
 $placementScriptVersion = (string) filemtime(__DIR__ . '/assets/js/placement-test.js');
 $extraHead = '<script defer src="assets/js/placement-test.js?v=' . rawurlencode($placementScriptVersion) . '"></script>';

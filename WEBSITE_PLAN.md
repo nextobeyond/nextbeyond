@@ -1,4 +1,4 @@
-# แผนสร้างเว็บไซต์ Next Beyond Academy
+# แผนสร้างเว็บไซต์ Nextbeyond Compass
 
 ## 1. เป้าหมายของเว็บไซต์
 

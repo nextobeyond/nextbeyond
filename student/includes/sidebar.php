@@ -36,7 +36,7 @@ $initials = mb_strtoupper(mb_substr($u['first_name'] ?? 'N', 0, 1) . mb_substr($
 
   <!-- Logo -->
   <div class="p-5 border-b border-[#e8ecf2] shrink-0">
-    <a href="/index.php" class="inline-flex items-center gap-3 w-full" aria-label="Next Beyond Academy">
+    <a href="/index.php" class="inline-flex items-center gap-3 w-full" aria-label="Nextbeyond Compass">
       <svg class="w-8 h-8 shrink-0" viewBox="0 0 40 40" fill="none">
         <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round"/>
         <clipPath id="logo-clip-student"><rect x="0" y="9" width="40" height="22"/></clipPath>

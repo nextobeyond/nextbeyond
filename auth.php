@@ -1,6 +1,6 @@
 <?php
-$pageTitle = "เข้าสู่ระบบ / สมัครสมาชิก | Next Beyond Academy";
-$pageDesc = "เข้าสู่ระบบหรือสมัครบัญชีนักเรียนใหม่กับ Next Beyond Academy";
+$pageTitle = "เข้าสู่ระบบ / สมัครสมาชิก | Nextbeyond Compass";
+$pageDesc = "เข้าสู่ระบบหรือสมัครบัญชีนักเรียนใหม่กับ Nextbeyond Compass";
 $currentPage = 'auth.php';
 $authScriptVersion = (string) filemtime(__DIR__ . '/assets/js/auth.js');
 $extraHead = '<script defer src="assets/js/auth.js?v=' . $authScriptVersion . '"></script>';
@@ -18,7 +18,7 @@ include 'includes/header.php';
 
       <!-- Logo -->
       <div class="text-center mb-8 flex flex-col items-center">
-        <a href="index.php" class="inline-flex items-center gap-3 mb-6" aria-label="Next Beyond Academy">
+        <a href="index.php" class="inline-flex items-center gap-3 mb-6" aria-label="Nextbeyond Compass">
           <svg class="w-[46px] h-[46px] shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round" />
             <clipPath id="logo-clip-auth">
@@ -29,8 +29,8 @@ include 'includes/header.php';
             </g>
           </svg>
           <span class="grid leading-[1.15] text-left">
-            <strong class="text-navy-950 text-[18px] tracking-[0.04em]">NEXT BEYOND</strong>
-            <small class="text-[#65738a] text-[11px] font-bold tracking-[0.18em]">ACADEMY</small>
+            <strong class="text-navy-950 text-[18px] tracking-[0.04em]">NEXTBEYOND</strong>
+            <small class="text-[#65738a] text-[11px] font-bold tracking-[0.18em]">COMPASS</small>
           </span>
         </a>
         <h1 class="text-[26px] font-bold text-navy-950 tracking-tight">ยินดีต้อนรับกลับ</h1>
@@ -77,7 +77,7 @@ include 'includes/header.php';
               <svg class="w-8 h-8 text-pink-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM3 20a6 6 0 0 1 12 0v1H3v-1Z"/></svg>
             </div>
             <h3 class="text-[20px] font-bold text-navy-950 mb-2">สร้างบัญชีนักเรียนใหม่</h3>
-            <p class="text-[#65738a] text-[14px] mb-6 max-w-[320px] mx-auto">กรอกข้อมูลเพียง 4 ขั้นตอน เพื่อเริ่มเรียนกับ Next Beyond Academy</p>
+            <p class="text-[#65738a] text-[14px] mb-6 max-w-[320px] mx-auto">กรอกข้อมูลเพียง 4 ขั้นตอน เพื่อเริ่มเรียนกับ Nextbeyond Compass</p>
             <button class="w-full h-12 rounded-xl bg-pink-500 text-white font-bold text-[15px] shadow-[0_8px_20px_rgba(231,45,130,.2)] transition-transform hover:-translate-y-0.5" data-goto="student">เริ่มสมัครสมาชิก →</button>
             <p class="text-[12px] text-[#94a3b8] mt-4">ผู้ปกครองสามารถช่วยสมัครและดูแลบัญชีให้นักเรียนได้</p>
           </div>

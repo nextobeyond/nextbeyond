@@ -1,5 +1,5 @@
 <?php
-$pageTitle = "ติดต่อเรา | Next Beyond Academy";
+$pageTitle = "ติดต่อเรา | Nextbeyond Compass";
 $pageDesc = "ติดต่อสอบถามข้อมูลคอร์สเรียน ขอคำปรึกษา หรือแจ้งปัญหาการใช้งาน";
 $currentPage = 'contact-us.php';
 include 'includes/head.php';

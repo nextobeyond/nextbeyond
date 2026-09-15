@@ -1,4 +1,4 @@
--- Next Beyond Academy: AI Exam + Test Results module
+-- Nextbeyond Compass: AI Exam + Test Results module
 -- Import this file after selecting the database you want to use.
 -- Compatible with the existing database/schema.sql (`users.id` is INT).
 

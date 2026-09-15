@@ -1,5 +1,5 @@
 <?php
-$pageTitle = "บทความและเทคนิคการเรียน | Next Beyond Academy";
+$pageTitle = "บทความและเทคนิคการเรียน | Nextbeyond Compass";
 $pageDesc = "คลังความรู้ เทคนิคการเรียน การเตรียมสอบ และข่าวสารสำหรับนักเรียนและผู้ปกครอง";
 $currentPage = 'articles.php';
 include 'includes/head.php';

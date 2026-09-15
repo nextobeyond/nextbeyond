@@ -23,7 +23,7 @@ function ensureSettingsTable(PDO $pdo): void
 }
 
 $defaults = [
-    'school_name' => 'Next Beyond Academy',
+    'school_name' => 'Nextbeyond Compass',
     'school_phone' => '',
     'school_email' => '',
     'school_address' => '',

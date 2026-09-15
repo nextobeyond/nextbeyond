@@ -1,5 +1,5 @@
 <?php
-$pageTitle = "แนวข้อสอบ | Next Beyond Academy";
+$pageTitle = "แนวข้อสอบ | Nextbeyond Compass";
 $pageDesc = "แนวข้อสอบและกลยุทธ์การสอบ";
 $currentPage = 'exam-guides.php';
 $extraHead = '<script defer src="assets/js/exam-guides.js"></script>';

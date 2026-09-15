@@ -1,6 +1,6 @@
 <?php
-$pageTitle = "เรียนฟรี | Next Beyond Academy";
-$pageDesc = "บทเรียนฟรี Next Beyond Academy";
+$pageTitle = "เรียนฟรี | Nextbeyond Compass";
+$pageDesc = "บทเรียนฟรี Nextbeyond Compass";
 $currentPage = 'free-learning.php';
 include 'includes/head.php';
 include 'includes/header.php';

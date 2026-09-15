@@ -1,6 +1,6 @@
 <?php
-$pageTitle = "คอร์สเรียน | Next Beyond Academy";
-$pageDesc = "รวมคอร์ส Next Beyond Academy";
+$pageTitle = "คอร์สเรียน | Nextbeyond Compass";
+$pageDesc = "รวมคอร์ส Nextbeyond Compass";
 $currentPage = 'courses.php';
 include 'includes/head.php';
 include 'includes/header.php';
@@ -10,7 +10,7 @@ include 'includes/header.php';
   <section class="relative pt-[60px] pb-[20px] text-center overflow-hidden bg-[#f6f8fc]">
     <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-gradient-to-b from-gray-200/50 to-transparent blur-[80px] rounded-full pointer-events-none"></div>
     <div class="container relative z-10 flex flex-col items-center">
-      <p class="text-[11px] font-black tracking-[0.2em] text-[#65738a] mb-4 uppercase">NEXT BEYOND ACADEMY</p>
+      <p class="text-[11px] font-black tracking-[0.2em] text-[#65738a] mb-4 uppercase">NEXTBEYOND COMPASS</p>
       <h1 class="text-navy-950 text-[clamp(36px,5vw,48px)] font-black mb-4 tracking-[-0.02em] leading-[1.1]">COURSE CATALOG</h1>
       <p class="text-[#65738a] text-[16px]">ค้นหาคอร์สที่เหมาะกับคุณ</p>
     </div>

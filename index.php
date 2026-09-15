@@ -1,5 +1,5 @@
 <?php
-$pageTitle = "Next Beyond Academy";
+$pageTitle = "Nextbeyond Compass";
 $preloadImage = 'assets/images/next-beyond-academy-hero.webp';
 include 'includes/head.php';
 include 'includes/header.php';
@@ -18,7 +18,7 @@ include 'includes/header.php';
       <!-- Left Column (Text) -->
       <div class="w-1/2 py-[100px] pr-[50px] flex flex-col justify-center max-[980px]:w-full max-[980px]:pr-0 max-[980px]:py-[80px]">
         <p class="flex items-center gap-3 text-[12px] font-black tracking-[0.15em] text-[#d6deea] mb-4">
-          <span class="w-[30px] h-[2px] rounded-full bg-pink-500"></span> NEXT BEYOND ACADEMY
+          <span class="w-[30px] h-[2px] rounded-full bg-pink-500"></span> NEXTBEYOND COMPASS
         </p>
         <h1 class="text-white text-[clamp(42px,5vw,64px)] font-bold leading-[1.2] tracking-[-0.03em] mb-[18px]">
           <span class="block">เรียนอย่างเป็น</span>

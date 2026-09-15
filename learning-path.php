@@ -1,5 +1,5 @@
 <?php
-$pageTitle = "Learning Path | Next Beyond Academy";
+$pageTitle = "Learning Path | Nextbeyond Compass";
 $pageDesc = "สร้าง Learning Path ส่วนตัว";
 $currentPage = 'learning-path.php';
 $extraHead = '<script defer src="assets/js/learning-path.js"></script>';

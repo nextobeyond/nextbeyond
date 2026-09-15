@@ -1,5 +1,5 @@
 <?php
-$pageTitle = "บทเรียน | Next Beyond Academy";
+$pageTitle = "บทเรียน | Nextbeyond Compass";
 $pageDesc = "ห้องเรียนออนไลน์";
 $isLoggedIn = true; // Simulate logged-in user
 include 'includes/head.php';

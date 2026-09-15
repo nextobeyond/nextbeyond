@@ -1,4 +1,4 @@
--- Next Beyond Academy Database Schema
+-- Nextbeyond Compass Database Schema
 -- Character Set: utf8mb4
 
 SET FOREIGN_KEY_CHECKS = 0;

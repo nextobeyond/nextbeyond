@@ -1,5 +1,5 @@
 <?php
-$pageTitle = "วางแผนอ่านหนังสืออย่างไรให้ทำได้จริง | Next Beyond Academy";
+$pageTitle = "วางแผนอ่านหนังสืออย่างไรให้ทำได้จริง | Nextbeyond Compass";
 $pageDesc = "เทคนิคการแบ่งเวลาแบบ Time Blocking สำหรับนักเรียน";
 $currentPage = 'articles.php'; // Keep articles nav active
 include 'includes/head.php';

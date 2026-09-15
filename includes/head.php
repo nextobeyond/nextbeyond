@@ -1,6 +1,6 @@
 <?php
-$pageTitle = $pageTitle ?? "Next Beyond Academy";
-$pageDesc = $pageDesc ?? "Next Beyond Academy — เรียนอย่างเป็นระบบ ไปได้ไกลกว่าเดิม";
+$pageTitle = $pageTitle ?? "Nextbeyond Compass";
+$pageDesc = $pageDesc ?? "Nextbeyond Compass — เรียนอย่างเป็นระบบ ไปได้ไกลกว่าเดิม";
 ?>
 <!doctype html>
 <html lang="th" class="scroll-smooth">

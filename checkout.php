@@ -1,6 +1,6 @@
 <?php
-$pageTitle = "ตะกร้าและชำระเงิน | Next Beyond Academy";
-$pageDesc = "ชำระเงินค่าคอร์สเรียน Next Beyond Academy";
+$pageTitle = "ตะกร้าและชำระเงิน | Nextbeyond Compass";
+$pageDesc = "ชำระเงินค่าคอร์สเรียน Nextbeyond Compass";
 $currentPage = 'checkout.php';
 $extraHead = '<script defer src="assets/js/checkout.js"></script>';
 include 'includes/head.php';
@@ -334,7 +334,7 @@ include 'includes/header.php';
         <!-- Header -->
         <div class="flex justify-between items-start mb-10 pb-10 border-b border-[#e8ecf2] max-[640px]:flex-col max-[640px]:gap-6">
           <div>
-            <div class="text-[20px] font-black text-navy-950 tracking-tight mb-2">NEXT BEYOND ACADEMY</div>
+            <div class="text-[20px] font-black text-navy-950 tracking-tight mb-2">NEXTBEYOND COMPASS</div>
             <p class="text-[13px] text-[#65738a] leading-relaxed mb-0">
               บริษัท เน็กซ์ บียอนด์ เอ็ดดูเคชั่น จำกัด<br>
               99/9 ถนนสุขุมวิท กรุงเทพมหานคร 10110<br>

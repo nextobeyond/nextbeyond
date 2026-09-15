@@ -1,4 +1,4 @@
--- Next Beyond Academy: Roadmap v2 Migration
+-- Nextbeyond Compass: Roadmap v2 Migration
 -- Import this file to upgrade the roadmap system
 
 SET NAMES utf8mb4;
