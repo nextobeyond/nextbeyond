@@ -36,7 +36,7 @@ $pageTitle = $pageTitle ?? 'Student Dashboard';
         <?php
         $u = $currentUser ?? [];
         $initials = mb_strtoupper(mb_substr($u['first_name'] ?? 'N', 0, 1) . mb_substr($u['last_name'] ?? 'B', 0, 1));
-        $displayName = !empty($u['nickname']) ? trim($u['nickname']) : trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? '')) ?: 'นักเรียน';
+        $displayName = !empty($u['nickname']) ? trim($u['nickname']) : (trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? '')) ?: 'นักเรียน');
         ?>
         <?php if (!empty($u['avatar_url'])): ?>
           <img src="<?= htmlspecialchars($u['avatar_url']) ?>" alt="Avatar" class="w-8 h-8 rounded-full object-cover shrink-0 border border-[#e8ecf2]">
