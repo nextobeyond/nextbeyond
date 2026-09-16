@@ -14,6 +14,7 @@ $adminMenu = [
   ],
   "ASSESSMENT" => [
     ["tests.php", "แบบทดสอบ"],
+    ["live-sessions.php", "⚡ ห้องเรียนสด (Live)"],
     ["question-bank.php", "Question Bank"],
     ["ai-exam-app/", "🤖 AI สร้างข้อสอบ"]
   ],

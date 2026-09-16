@@ -35,6 +35,15 @@ if (!$attempt) {
     $elapsedSeconds = (int)$attempt['elapsed_seconds'];
 }
 
+$sessionId = trim((string)($_GET['sessionId'] ?? ''));
+if ($sessionId !== '') {
+    try {
+        $stmtSP = $pdo->prepare("UPDATE session_participants SET attempt_id = :attemptId, status = 'in_progress' WHERE session_id = :sessionId AND student_id = :uid");
+        $stmtSP->execute([':attemptId' => $attemptId, ':sessionId' => $sessionId, ':uid' => $currentUser['id']]);
+    } catch (\Throwable $e) {
+        // continue if table not ready or not enrolled
+    }
+}
 $limitSeconds = max(0, (int)$exam['time_limit_minutes'] * 60);
 $remainingSeconds = $limitSeconds > 0 ? max(0, $limitSeconds - $elapsedSeconds) : 0;
 $questionsForJS = array_map(static fn(array $q): array => [
@@ -52,6 +61,26 @@ $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body class="student-portal bg-[#f4f7fb] text-navy-950 font-sans antialiased">
+<!-- Live Announcement Banner -->
+<div id="live-announcement-banner" class="hidden sticky top-0 z-40 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 text-white px-4 py-2.5 shadow-md flex items-center justify-between text-xs">
+  <div class="flex items-center gap-2">
+    <span class="text-sm">📢</span>
+    <span class="font-bold">ประกาศสดจากครู:</span>
+    <span id="live-announcement-content" class="font-medium"></span>
+  </div>
+  <button type="button" onclick="const b=document.getElementById('live-announcement-banner'); b.classList.add('hidden'); b.dataset.dismissed='1';" class="text-purple-200 hover:text-white font-bold p-1 cursor-pointer">✕</button>
+</div>
+
+<!-- Eyes On Me Fullscreen Lock Overlay -->
+<div id="eyes-on-me-overlay" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white select-none">
+  <div class="text-7xl mb-4 animate-bounce">👀</div>
+  <h2 class="text-2xl sm:text-3xl font-black text-pink-400 mb-2">ครูกำลังอธิบาย โปรดดูกระดาน</h2>
+  <p class="text-slate-300 text-xs sm:text-sm max-w-md">หน้าจอของคุณถูกหยุดไว้ชั่วคราว เพื่อร่วมรับฟังคำอธิบายจากคุณครู ข้อสอบจะเปิดให้ทำต่อทันทีที่ครูปลดล็อก</p>
+  <div class="mt-6 px-4 py-2 rounded-full bg-white/10 text-xs font-bold border border-white/20">
+    🔒 ระบบ Eyes On Me กำลังล็อกหน้าจอ
+  </div>
+</div>
+
 <div class="min-h-screen flex">
   <?php include 'includes/sidebar.php'; ?>
   <div class="flex-1 flex flex-col ml-[240px] max-[1024px]:ml-0 min-w-0">
@@ -77,8 +106,14 @@ $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
 </main>
 </div>
 </div>
-<form id="submit-form" method="POST" action="submit-test.php"><input type="hidden" name="attempt_id" value="<?= $attemptId ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" id="answers-json" name="answers"></form>
+<form id="submit-form" method="POST" action="submit-test.php">
+  <input type="hidden" name="attempt_id" value="<?= $attemptId ?>">
+  <input type="hidden" name="exam_id" value="<?= $examId ?>">
+  <input type="hidden" name="session_id" value="<?= htmlspecialchars($sessionId) ?>">
+  <input type="hidden" id="answers-json" name="answers">
+</form>
 <script>
+const LIVE_SESSION_ID = <?= json_encode($sessionId) ?>;
 const QUESTIONS = <?= json_encode($questionsForJS, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const ATTEMPT_ID = <?= $attemptId ?>, STORAGE_KEY = 'nextbeyond-attempt-' + ATTEMPT_ID;
 let answers = {};
@@ -113,8 +148,23 @@ document.getElementById('check-btn').addEventListener('click', async () => {
   if (answers[current] === undefined || checked[current]) return;
   const button = document.getElementById('check-btn'); button.disabled = true;
   try {
-    const response = await fetch('check-answer.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({attemptId:ATTEMPT_ID, questionId:QUESTIONS[current].id, selectedAnswer:answers[current]})});
-    const data = await response.json(); if (!response.ok || !data.ok) throw new Error(data.error || 'ตรวจคำตอบไม่ได้'); checked[current] = data; renderQuestion();
+    const response = await fetch('check-answer.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attemptId: ATTEMPT_ID, questionId: QUESTIONS[current].id, selectedAnswer: answers[current] })
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || 'ตรวจคำตอบไม่ได้');
+    checked[current] = data;
+    renderQuestion();
+
+    if (data.isCorrect && LIVE_SESSION_ID) {
+      fetch('live-session-api.php?action=deal_damage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: LIVE_SESSION_ID, damage: 10 })
+      }).catch(() => {});
+    }
   } catch (error) { alert(error.message); button.disabled = false; }
 });
 function submitExam(force) {
@@ -136,6 +186,60 @@ if (timer) {
   const timerInterval = setInterval(draw, 250); draw();
 }
 renderQuestion();
+
+// Live Session Polling (Every 3 seconds)
+let lastAnnouncement = '';
+async function pollLiveSession() {
+  if (!LIVE_SESSION_ID) return;
+  try {
+    const res = await fetch(`live-session-api.php?action=status&sessionId=${encodeURIComponent(LIVE_SESSION_ID)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.ok) return;
+
+    // Eyes On Me lock
+    const overlay = document.getElementById('eyes-on-me-overlay');
+    if (overlay) {
+      if (data.isEyesOnMeLocked) {
+        overlay.classList.remove('hidden');
+      } else {
+        overlay.classList.add('hidden');
+      }
+    }
+
+    // Announcement message
+    const banner = document.getElementById('live-announcement-banner');
+    const content = document.getElementById('live-announcement-content');
+    if (banner && content) {
+      const msg = (data.announcementMessage || '').trim();
+      if (msg) {
+        if (msg !== lastAnnouncement) {
+          lastAnnouncement = msg;
+          banner.dataset.dismissed = '0';
+        }
+        if (banner.dataset.dismissed !== '1') {
+          content.textContent = msg;
+          banner.classList.remove('hidden');
+        }
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+
+    // Teacher reset student attempt
+    if (data.resetAttempt) {
+      alert('ครูผู้สอนได้รีเซ็ตสิทธิ์การทำข้อสอบของคุณ ระบบจะเริ่มทำการรีเฟรชหน้าจอ');
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+      return;
+    }
+  } catch (_) {}
+}
+
+if (LIVE_SESSION_ID) {
+  setInterval(pollLiveSession, 3000);
+  pollLiveSession();
+}
 </script>
 </body>
 </html>

@@ -82,10 +82,18 @@ $stmtUpdate->execute([
 
 $pdo->commit();
 
+$sessionId = trim((string)($_POST['session_id'] ?? ''));
+if ($sessionId !== '') {
+    try {
+        $stmtSP = $pdo->prepare("UPDATE session_participants SET status = 'submitted', updated_at = NOW() WHERE session_id = :sessionId AND student_id = :uid");
+        $stmtSP->execute([':sessionId' => $sessionId, ':uid' => $currentUser['id']]);
+    } catch (\Throwable $e) {}
+}
+
 // Trigger roadmap evaluation
 require_once __DIR__ . '/../includes/roadmap-evaluator.php';
 evaluateTestTask($pdo, (int)$currentUser['id'], $examId, $attemptId);
 
 // redirect ไปดูผล
-header('Location: test-result.php?id=' . $attemptId);
+header('Location: test-result.php?id=' . $attemptId . ($sessionId !== '' ? '&sessionId=' . urlencode($sessionId) : ''));
 exit;
