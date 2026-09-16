@@ -50,14 +50,18 @@ $year = (int) $now->format('Y');
 $thaiYear = $year + 543;
 $today = $now->format('Y-m-d');
 
-$salesThisMonth = (float) dashboardValue($pdo, "SELECT COALESCE(SUM(net_amount), 0) FROM orders WHERE status = 'confirmed' AND created_at >= ?", [$monthStart->format('Y-m-d H:i:s')]);
-$salesPreviousMonth = (float) dashboardValue($pdo, "SELECT COALESCE(SUM(net_amount), 0) FROM orders WHERE status = 'confirmed' AND created_at >= ? AND created_at < ?", [$previousMonthStart->format('Y-m-d H:i:s'), $monthStart->format('Y-m-d H:i:s')]);
+$salesThisMonth = (float) dashboardValue($pdo, "SELECT COALESCE(SUM(net_amount), 0) FROM orders WHERE status = 'confirmed' AND COALESCE(confirmed_at, created_at) >= ?", [$monthStart->format('Y-m-d H:i:s')]);
+$salesPreviousMonth = (float) dashboardValue($pdo, "SELECT COALESCE(SUM(net_amount), 0) FROM orders WHERE status = 'confirmed' AND COALESCE(confirmed_at, created_at) >= ? AND COALESCE(confirmed_at, created_at) < ?", [$previousMonthStart->format('Y-m-d H:i:s'), $monthStart->format('Y-m-d H:i:s')]);
 $newStudents = (int) dashboardValue($pdo, "SELECT COUNT(*) FROM users WHERE role = 'student' AND created_at >= ?", [$monthStart->format('Y-m-d H:i:s')]);
 $previousNewStudents = (int) dashboardValue($pdo, "SELECT COUNT(*) FROM users WHERE role = 'student' AND created_at >= ? AND created_at < ?", [$previousMonthStart->format('Y-m-d H:i:s'), $monthStart->format('Y-m-d H:i:s')]);
+$totalStudents = (int) dashboardValue($pdo, "SELECT COUNT(*) FROM users WHERE role = 'student'");
 $activeCourses = (int) dashboardValue($pdo, "SELECT COUNT(*) FROM courses WHERE status = 'active'");
+$totalCourses = (int) dashboardValue($pdo, "SELECT COUNT(*) FROM courses");
+$draftCourses = (int) dashboardValue($pdo, "SELECT COUNT(*) FROM courses WHERE status = 'draft'");
 $pendingOrders = (int) dashboardValue($pdo, "SELECT COUNT(*) FROM orders WHERE status = 'pending'");
 $draftExams = (int) dashboardValue($pdo, "SELECT COUNT(*) FROM exams WHERE status = 'draft'");
-$pendingWork = $pendingOrders + $draftExams;
+$pendingWork = $pendingOrders + $draftExams + $draftCourses;
+$pendingWorkLink = $pendingOrders > 0 ? 'orders.php?status=pending' : ($draftExams > 0 ? 'tests.php?status=draft' : ($draftCourses > 0 ? 'courses.php?status=draft' : 'orders.php?status=pending'));
 
 $months = array_fill(1, 12, 0);
 foreach (dashboardRows($pdo, "SELECT MONTH(created_at) AS month_number, COUNT(*) AS total FROM users WHERE role = 'student' AND YEAR(created_at) = ? GROUP BY MONTH(created_at)", [$year]) as $row) {
@@ -113,13 +117,100 @@ $studentChange = dashboardChange($newStudents, $previousNewStudents);
       <section class="grid grid-cols-4 gap-4 mb-4 max-[1280px]:grid-cols-2 max-[640px]:grid-cols-1" aria-label="สรุปข้อมูลสำคัญ">
         <?php
         $summaryCards = [
-          ['ยอดขายเดือนนี้', '฿' . number_format($salesThisMonth, 0), 'sales', 'bg-pink-100 text-pink-500', $salesChange],
-          ['นักเรียนใหม่', number_format($newStudents) . ' คน', 'users', 'bg-primary-100 text-primary-600', $studentChange],
-          ['คอร์สที่กำลัง Active', number_format($activeCourses) . ' คอร์ส', 'book', 'bg-[#dff8eb] text-[#109e55]', ['text' => 'ข้อมูลจากคอร์สที่เปิดสอน', 'positive' => true]],
-          ['งานรอตรวจ / Feedback', number_format($pendingWork) . ' รายการ', 'clipboard', 'bg-[#fff0d8] text-[#e8870e]', ['text' => $pendingOrders . ' คำสั่งซื้อ · ' . $draftExams . ' แบบทดสอบ', 'positive' => false]],
+          [
+            'id' => 'card-sales',
+            'label' => 'ยอดขายเดือนนี้',
+            'value' => '฿' . number_format($salesThisMonth, 0),
+            'icon' => 'sales',
+            'iconClass' => 'bg-pink-100 text-pink-500',
+            'change' => $salesChange,
+            'link' => 'orders.php',
+            'actionText' => 'ดูคำสั่งซื้อและบัญชี',
+            'subPills' => null,
+          ],
+          [
+            'id' => 'card-students',
+            'label' => 'นักเรียนใหม่',
+            'value' => number_format($newStudents) . ' คน',
+            'icon' => 'users',
+            'iconClass' => 'bg-primary-100 text-primary-600',
+            'change' => [
+              'text' => ($studentChange['positive'] ? '↑ ' : '') . $studentChange['text'] . ($totalStudents > 0 ? " (รวม {$totalStudents} คน)" : ''),
+              'positive' => $studentChange['positive']
+            ],
+            'link' => 'students.php',
+            'actionText' => 'จัดการบัญชีนักเรียน',
+            'subPills' => null,
+          ],
+          [
+            'id' => 'card-courses',
+            'label' => 'คอร์สที่กำลัง Active',
+            'value' => number_format($activeCourses) . ' คอร์ส',
+            'icon' => 'book',
+            'iconClass' => 'bg-[#dff8eb] text-[#109e55]',
+            'change' => [
+              'text' => $totalCourses > 0 ? "เปิดสอนแล้ว {$activeCourses} จากทั้งหมด {$totalCourses} คอร์ส" : 'ข้อมูลจากคอร์สที่เปิดสอน',
+              'positive' => $activeCourses > 0
+            ],
+            'link' => 'courses.php?status=active',
+            'actionText' => 'ดูคอร์สที่เปิดสอน',
+            'subPills' => null,
+          ],
+          [
+            'id' => 'card-pending',
+            'label' => 'งานรอตรวจ / Feedback',
+            'value' => number_format($pendingWork) . ' รายการ',
+            'icon' => 'clipboard',
+            'iconClass' => 'bg-[#fff0d8] text-[#e8870e]',
+            'change' => [
+              'text' => $pendingWork > 0 ? ($pendingOrders . ' คำสั่งซื้อ · ' . $draftExams . ' แบบทดสอบ' . ($draftCourses > 0 ? ' · ' . $draftCourses . ' คอร์ส' : '')) : 'เรียบร้อย ไม่มีงานค้างในระบบ',
+              'positive' => $pendingWork === 0
+            ],
+            'link' => $pendingWorkLink,
+            'actionText' => 'ตรวจงานทันที',
+            'subPills' => [
+              ['label' => $pendingOrders . ' คำสั่งซื้อ', 'link' => 'orders.php?status=pending', 'count' => $pendingOrders],
+              ['label' => $draftExams . ' แบบทดสอบ', 'link' => 'tests.php?status=draft', 'count' => $draftExams],
+              ['label' => $draftCourses . ' คอร์สร่าง', 'link' => 'courses.php?status=draft', 'count' => $draftCourses],
+            ],
+          ],
         ];
-        foreach ($summaryCards as [$label, $value, $icon, $iconClass, $change]): ?>
-          <article class="min-h-[132px] bg-white rounded-[14px] border border-[#e6edf5] px-5 py-4 shadow-[0_8px_22px_rgba(15,42,83,.04)] flex gap-4"><span class="w-14 h-14 rounded-xl shrink-0 flex items-center justify-center <?= $iconClass ?>"><?= dashboardIcon($icon, 'w-7 h-7') ?></span><div class="min-w-0 flex-1"><h2 class="text-[15px] font-bold text-navy-900 leading-tight"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></h2><p class="text-[27px] font-black text-navy-950 leading-none mt-2 tracking-[-.03em] truncate"><?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?></p><p class="text-[12px] mt-2 <?= $change['positive'] ? 'text-success' : 'text-[#7d8da5]' ?>"><?= $change['positive'] ? '↑ ' : '' ?><?= htmlspecialchars($change['text'], ENT_QUOTES, 'UTF-8') ?></p></div></article>
+        foreach ($summaryCards as $card): ?>
+          <div class="group relative bg-white rounded-[14px] border border-[#e6edf5] p-5 shadow-[0_8px_22px_rgba(15,42,83,.04)] hover:shadow-[0_12px_28px_rgba(15,42,83,.08)] hover:border-pink-300 transition-all duration-200 flex flex-col justify-between">
+            <a href="<?= htmlspecialchars($card['link'], ENT_QUOTES, 'UTF-8') ?>" class="flex gap-4 items-start" title="<?= htmlspecialchars($card['label'] . ' - ' . $card['actionText'], ENT_QUOTES, 'UTF-8') ?>">
+              <span class="w-14 h-14 rounded-xl shrink-0 flex items-center justify-center <?= $card['iconClass'] ?> group-hover:scale-105 transition-transform">
+                <?= dashboardIcon($card['icon'], 'w-7 h-7') ?>
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-1">
+                  <h2 class="text-[15px] font-bold text-navy-900 leading-tight group-hover:text-pink-600 transition-colors truncate">
+                    <?= htmlspecialchars($card['label'], ENT_QUOTES, 'UTF-8') ?>
+                  </h2>
+                  <span class="text-[#b0c0d6] group-hover:text-pink-500 group-hover:translate-x-0.5 transition-all text-sm font-bold shrink-0">↗</span>
+                </div>
+                <p class="text-[27px] font-black text-navy-950 leading-none mt-2 tracking-[-.03em] truncate">
+                  <?= htmlspecialchars($card['value'], ENT_QUOTES, 'UTF-8') ?>
+                </p>
+                <p class="text-[12px] mt-2 <?= $card['change']['positive'] ? 'text-success font-medium' : 'text-[#7d8da5]' ?> truncate">
+                  <?= htmlspecialchars($card['change']['text'], ENT_QUOTES, 'UTF-8') ?>
+                </p>
+              </div>
+            </a>
+            <?php if (!empty($card['subPills'])): ?>
+              <div class="mt-3 pt-2.5 border-t border-[#f0f4f9] flex items-center gap-1.5 flex-wrap text-[11px]">
+                <?php foreach ($card['subPills'] as $pill): ?>
+                  <a href="<?= htmlspecialchars($pill['link'], ENT_QUOTES, 'UTF-8') ?>" class="inline-flex items-center px-2 py-0.5 rounded-md font-semibold transition-colors <?= $pill['count'] > 0 ? 'bg-[#fff5e6] text-[#c96f00] hover:bg-[#ffecc7]' : 'bg-[#f4f7fb] text-[#8fa2be] hover:bg-[#eaf0f8]' ?>">
+                    <?= htmlspecialchars($pill['label'], ENT_QUOTES, 'UTF-8') ?>
+                  </a>
+                <?php endforeach; ?>
+              </div>
+            <?php else: ?>
+              <a href="<?= htmlspecialchars($card['link'], ENT_QUOTES, 'UTF-8') ?>" class="mt-3 pt-2.5 border-t border-[#f0f4f9] flex items-center justify-between text-[11px] font-semibold text-[#8fa2be] group-hover:text-pink-600 transition-colors">
+                <span><?= htmlspecialchars($card['actionText'], ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="transform group-hover:translate-x-1 transition-transform">→</span>
+              </a>
+            <?php endif; ?>
+          </div>
         <?php endforeach; ?>
       </section>
       <div class="grid grid-cols-[minmax(0,1.65fr)_minmax(330px,1fr)] gap-4 mb-4 max-[1200px]:grid-cols-1">
@@ -132,8 +223,8 @@ $studentChange = dashboardChange($newStudents, $previousNewStudents);
         </section>
       </div>
       <div class="grid grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_minmax(340px,1fr)] gap-4 max-[1280px]:grid-cols-2 max-[900px]:grid-cols-1">
-        <section class="bg-white rounded-[14px] border border-[#e6edf5] shadow-[0_8px_22px_rgba(15,42,83,.035)] overflow-hidden" aria-labelledby="task-title"><div class="px-5 py-4 flex items-center justify-between border-b border-[#edf1f6]"><h2 id="task-title" class="text-[17px] font-black">Task Queue (งานที่ต้องทำ)</h2><a href="orders.php" class="text-[13px] font-bold text-pink-500">ดูทั้งหมด <?= dashboardIcon('arrow', 'inline w-4 h-4') ?></a></div>
-          <?php if ($tasks): ?><ol class="px-5 py-1 divide-y divide-[#edf1f6]"><?php foreach ($tasks as $task): $taskLink = $task['task_type'] === 'order' ? 'orders.php' : ($task['task_type'] === 'exam' ? 'tests.php' : 'courses.php'); ?><li><a href="<?= $taskLink ?>" class="py-3 flex items-center gap-3 hover:bg-[#fafcff] -mx-2 px-2 rounded-lg"><span class="w-5 h-5 shrink-0 rounded border-2 border-[#b6c5da]"></span><span class="min-w-0 flex-1"><span class="block text-[13px] font-bold truncate"><?= htmlspecialchars((string)$task['title'], ENT_QUOTES, 'UTF-8') ?></span><span class="block text-[11px] text-[#7890b4] truncate"><?= htmlspecialchars((string)$task['detail'], ENT_QUOTES, 'UTF-8') ?></span></span><time class="text-[11px] text-pink-500 font-bold whitespace-nowrap"><?= htmlspecialchars((new DateTimeImmutable((string)$task['occurred_at']))->format('d/m H:i'), ENT_QUOTES, 'UTF-8') ?></time></a></li><?php endforeach; ?></ol><?php else: ?><div class="h-[210px] flex flex-col items-center justify-center text-center px-5"><span class="w-10 h-10 rounded-full bg-[#e8f9f1] text-success flex items-center justify-center mb-3">✓</span><p class="font-bold text-[#526b72]">ไม่มีงานรอตรวจ</p><p class="text-[12px] text-[#8ba0bd] mt-1">รายการที่ต้องดำเนินการจะแสดงที่นี่</p></div><?php endif; ?>
+        <section class="bg-white rounded-[14px] border border-[#e6edf5] shadow-[0_8px_22px_rgba(15,42,83,.035)] overflow-hidden" aria-labelledby="task-title"><div class="px-5 py-4 flex items-center justify-between border-b border-[#edf1f6]"><h2 id="task-title" class="text-[17px] font-black">Task Queue (งานที่ต้องทำ)</h2><a href="orders.php?status=pending" class="text-[13px] font-bold text-pink-500 hover:text-pink-600">ดูทั้งหมด <?= dashboardIcon('arrow', 'inline w-4 h-4') ?></a></div>
+          <?php if ($tasks): ?><ol class="px-5 py-1 divide-y divide-[#edf1f6]"><?php foreach ($tasks as $task): $taskLink = $task['task_type'] === 'order' ? 'orders.php?status=pending' : ($task['task_type'] === 'exam' ? 'tests.php?status=draft' : 'courses.php?status=draft'); ?><li><a href="<?= $taskLink ?>" class="py-3 flex items-center gap-3 hover:bg-[#fafcff] -mx-2 px-2 rounded-lg"><span class="w-5 h-5 shrink-0 rounded border-2 border-[#b6c5da]"></span><span class="min-w-0 flex-1"><span class="block text-[13px] font-bold truncate"><?= htmlspecialchars((string)$task['title'], ENT_QUOTES, 'UTF-8') ?></span><span class="block text-[11px] text-[#7890b4] truncate"><?= htmlspecialchars((string)$task['detail'], ENT_QUOTES, 'UTF-8') ?></span></span><time class="text-[11px] text-pink-500 font-bold whitespace-nowrap"><?= htmlspecialchars((new DateTimeImmutable((string)$task['occurred_at']))->format('d/m H:i'), ENT_QUOTES, 'UTF-8') ?></time></a></li><?php endforeach; ?></ol><?php else: ?><div class="h-[210px] flex flex-col items-center justify-center text-center px-5"><span class="w-10 h-10 rounded-full bg-[#e8f9f1] text-success flex items-center justify-center mb-3">✓</span><p class="font-bold text-[#526b72]">ไม่มีงานรอตรวจ</p><p class="text-[12px] text-[#8ba0bd] mt-1">รายการที่ต้องดำเนินการจะแสดงที่นี่</p></div><?php endif; ?>
         </section>
         <section class="bg-white rounded-[14px] border border-[#e6edf5] shadow-[0_8px_22px_rgba(15,42,83,.035)] overflow-hidden" aria-labelledby="schedule-title"><div class="px-5 py-4 flex items-center justify-between border-b border-[#edf1f6]"><div class="flex gap-2 items-center"><span class="w-8 h-8 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center"><?= dashboardIcon('calendar', 'w-[18px] h-[18px]') ?></span><h2 id="schedule-title" class="text-[17px] font-black">ตารางสอนวันนี้</h2></div><a href="calendar.php" class="text-[13px] font-bold text-pink-500">ดูทั้งหมด <?= dashboardIcon('arrow', 'inline w-4 h-4') ?></a></div>
           <?php if ($todaySchedule): ?><ol class="px-5 py-2"><?php foreach ($todaySchedule as $event): ?><li class="py-2 flex gap-3"><span class="mt-2 w-2.5 h-2.5 rounded-full shrink-0" style="background-color: <?= htmlspecialchars((string)$event['color'], ENT_QUOTES, 'UTF-8') ?>"></span><time class="text-[12px] text-[#60799f] w-[82px] shrink-0"><?= htmlspecialchars(substr((string)$event['start_time'], 0, 5) . ' – ' . substr((string)$event['end_time'], 0, 5), ENT_QUOTES, 'UTF-8') ?></time><div class="min-w-0"><p class="text-[13px] font-bold truncate"><?= htmlspecialchars((string)$event['title'], ENT_QUOTES, 'UTF-8') ?></p><p class="text-[11px] text-[#7890b4] truncate"><?= htmlspecialchars((string)($event['course_name'] ?: $event['teacher_name']), ENT_QUOTES, 'UTF-8') ?></p></div></li><?php endforeach; ?></ol><?php else: ?><div class="h-[210px] flex flex-col items-center justify-center text-center px-5"><span class="w-10 h-10 rounded-full bg-[#f1f5fa] text-[#8ba0bd] flex items-center justify-center mb-3"><?= dashboardIcon('calendar') ?></span><p class="font-bold text-[#526b72]">วันนี้ยังไม่มีตารางสอน</p><a class="text-[12px] text-pink-500 font-bold mt-2" href="calendar.php">เพิ่มกิจกรรมในปฏิทิน</a></div><?php endif; ?>
