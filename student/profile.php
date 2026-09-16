@@ -7,12 +7,33 @@ $error = '';
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $first = trim((string) ($_POST['first_name'] ?? ''));
     $last = trim((string) ($_POST['last_name'] ?? ''));
+    $nickname = trim((string) ($_POST['nickname'] ?? ''));
     $phone = trim((string) ($_POST['phone'] ?? ''));
     try {
         if ($first === '' || $last === '') throw new RuntimeException('กรุณากรอกชื่อและนามสกุล');
         $pdo->beginTransaction();
-        $stmt = $pdo->prepare('UPDATE users SET first_name=:first,last_name=:last,phone=:phone WHERE id=:id');
-        $stmt->execute([':first'=>$first,':last'=>$last,':phone'=>$phone?:null,':id'=>$currentUser['id']]);
+        
+        $avatarUrl = $currentUser['avatar_url'] ?? null;
+        if (!empty($_FILES['avatar']) && is_uploaded_file($_FILES['avatar']['tmp_name'])) {
+            $file = $_FILES['avatar'];
+            if ((int) $file['size'] > 2 * 1024 * 1024) throw new RuntimeException('ไฟล์รูปภาพต้องมีขนาดไม่เกิน 2MB');
+            $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+            $extensions = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp'];
+            if (!isset($extensions[$mime])) throw new RuntimeException('รองรับเฉพาะไฟล์ PNG, JPG และ WEBP');
+            
+            $uploadDir = __DIR__ . '/../assets/uploads/avatars';
+            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+                throw new RuntimeException('สร้างโฟลเดอร์อัปโหลดไม่สำเร็จ');
+            }
+            $filename = 'avatar-' . $currentUser['id'] . '-' . time() . '.' . $extensions[$mime];
+            if (!move_uploaded_file($file['tmp_name'], $uploadDir . '/' . $filename)) {
+                throw new RuntimeException('บันทึกไฟล์รูปภาพไม่สำเร็จ');
+            }
+            $avatarUrl = '/assets/uploads/avatars/' . $filename;
+        }
+
+        $stmt = $pdo->prepare('UPDATE users SET first_name=:first,last_name=:last,nickname=:nickname,phone=:phone,avatar_url=:avatar WHERE id=:id');
+        $stmt->execute([':first'=>$first,':last'=>$last,':nickname'=>$nickname?:null,':phone'=>$phone?:null,':avatar'=>$avatarUrl,':id'=>$currentUser['id']]);
         $newPassword = (string) ($_POST['new_password'] ?? '');
         if ($newPassword !== '') {
             $oldPassword = (string) ($_POST['old_password'] ?? '');
@@ -25,7 +46,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
         $pdo->commit();
         $message = 'บันทึกโปรไฟล์แล้ว';
-        $currentUser['first_name']=$first; $currentUser['last_name']=$last; $currentUser['phone']=$phone;
+        $currentUser['first_name']=$first; $currentUser['last_name']=$last; $currentUser['nickname']=$nickname; $currentUser['phone']=$phone; $currentUser['avatar_url']=$avatarUrl;
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $error = $e->getMessage();
@@ -55,7 +76,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     <div class="mb-4 p-4 rounded-xl bg-red-50 text-red-700 font-bold"><?= htmlspecialchars($error) ?></div>
                 <?php endif; ?>
 
-                <form method="post" class="space-y-5">
+                <form method="post" enctype="multipart/form-data" class="space-y-5">
+                    <section class="bg-white rounded-[20px] border border-[#e8ecf2] p-6">
+                        <h2 class="font-bold text-[17px] mb-5">รูปโปรไฟล์</h2>
+                        <div class="flex items-center gap-6">
+                            <?php if (!empty($currentUser['avatar_url'])): ?>
+                                <img src="<?= htmlspecialchars($currentUser['avatar_url']) ?>" alt="Avatar" class="w-24 h-24 rounded-full object-cover border border-[#e8ecf2]">
+                            <?php else: ?>
+                                <div class="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-3xl border border-[#e8ecf2]">
+                                    <?= htmlspecialchars(mb_substr($currentUser['first_name'], 0, 1)) ?>
+                                </div>
+                            <?php endif; ?>
+                            <div>
+                                <input type="file" name="avatar" accept="image/png, image/jpeg, image/webp" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100 transition-colors">
+                                <p class="text-[13px] text-slate-500 mt-2">รองรับไฟล์ JPG, PNG, WEBP ขนาดไม่เกิน 2MB</p>
+                            </div>
+                        </div>
+                    </section>
+
                     <section class="bg-white rounded-[20px] border border-[#e8ecf2] p-6">
                         <h2 class="font-bold text-[17px] mb-5">ข้อมูลส่วนตัว</h2>
                         <div class="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
@@ -68,12 +106,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                                 <input name="last_name" value="<?= htmlspecialchars($currentUser['last_name']) ?>" autocomplete="family-name" required class="mt-2 w-full h-11 px-4 border rounded-xl">
                             </label>
                             <label class="text-[13px] font-bold">
-                                อีเมล
-                                <input type="email" value="<?= htmlspecialchars($currentUser['email']) ?>" autocomplete="email" disabled class="mt-2 w-full h-11 px-4 border rounded-xl bg-[#f8fafc]">
+                                ชื่อเล่น
+                                <input name="nickname" value="<?= htmlspecialchars($currentUser['nickname'] ?? '') ?>" autocomplete="nickname" class="mt-2 w-full h-11 px-4 border rounded-xl">
                             </label>
                             <label class="text-[13px] font-bold">
                                 เบอร์โทร
                                 <input type="tel" name="phone" value="<?= htmlspecialchars($currentUser['phone'] ?? '') ?>" autocomplete="tel" class="mt-2 w-full h-11 px-4 border rounded-xl">
+                            </label>
+                            <label class="text-[13px] font-bold col-span-2 max-[640px]:col-span-1">
+                                อีเมล
+                                <input type="email" value="<?= htmlspecialchars($currentUser['email']) ?>" autocomplete="email" disabled class="mt-2 w-full h-11 px-4 border rounded-xl bg-[#f8fafc]">
                             </label>
                         </div>
                     </section>

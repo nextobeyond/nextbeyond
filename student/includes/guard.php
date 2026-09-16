@@ -23,7 +23,7 @@ function studentGuard(): array {
 
     // ดึงข้อมูล user จาก DB
     $stmt = $pdo->prepare(
-        'SELECT id, first_name, last_name, email, phone, role, avatar_url, is_active
+        'SELECT id, first_name, last_name, nickname, email, phone, role, avatar_url, is_active
          FROM users WHERE id = :id LIMIT 1'
     );
     $stmt->execute([':id' => (int)$_SESSION['user_id']]);

@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `password_hash` VARCHAR(255) NOT NULL,
     `first_name` VARCHAR(100) NOT NULL,
     `last_name` VARCHAR(100) NOT NULL,
+    `nickname` VARCHAR(100),
     `phone` VARCHAR(20),
     `role` ENUM('student','teacher','admin') DEFAULT 'student',
     `avatar_url` VARCHAR(500),

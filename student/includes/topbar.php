@@ -36,11 +36,15 @@ $pageTitle = $pageTitle ?? 'Student Dashboard';
         <?php
         $u = $currentUser ?? [];
         $initials = mb_strtoupper(mb_substr($u['first_name'] ?? 'N', 0, 1) . mb_substr($u['last_name'] ?? 'B', 0, 1));
-        $displayName = trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? '')) ?: 'นักเรียน';
+        $displayName = !empty($u['nickname']) ? trim($u['nickname']) : trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? '')) ?: 'นักเรียน';
         ?>
-        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-pink-600 flex items-center justify-center text-white font-bold text-[12px] shrink-0">
-          <?= htmlspecialchars($initials) ?>
-        </div>
+        <?php if (!empty($u['avatar_url'])): ?>
+          <img src="<?= htmlspecialchars($u['avatar_url']) ?>" alt="Avatar" class="w-8 h-8 rounded-full object-cover shrink-0 border border-[#e8ecf2]">
+        <?php else: ?>
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-pink-600 flex items-center justify-center text-white font-bold text-[12px] shrink-0">
+            <?= htmlspecialchars($initials) ?>
+          </div>
+        <?php endif; ?>
         <span class="text-[13px] font-bold text-navy-950 max-[640px]:hidden"><?= htmlspecialchars($displayName) ?></span>
       </a>
     </div>

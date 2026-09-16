@@ -29,7 +29,7 @@ if ($stmtSidebarSettings->fetchColumn() === '0') {
 
 $currentPage = $currentPage ?? 'index.php';
 $u = $currentUser ?? [];
-$displayName = trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? '')) ?: 'นักเรียน';
+$displayName = !empty($u['nickname']) ? trim($u['nickname']) : trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? '')) ?: 'นักเรียน';
 $initials = mb_strtoupper(mb_substr($u['first_name'] ?? 'N', 0, 1) . mb_substr($u['last_name'] ?? 'B', 0, 1));
 ?>
 <aside id="studentSidebar" class="fixed inset-y-0 left-0 w-[240px] bg-white border-r border-[#e8ecf2] overflow-y-auto flex flex-col z-40 shadow-[2px_0_16px_rgba(15,42,83,0.06)] max-[1024px]:-translate-x-full transition-transform duration-300">
