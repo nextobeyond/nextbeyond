@@ -33,6 +33,7 @@ function ensureAuthSchema(PDO $pdo): void
         $columns[(string) $column['Field']] = true;
     }
     $additions = [
+        'nickname' => 'ADD COLUMN `nickname` VARCHAR(100) NULL AFTER `last_name`',
         'phone' => 'ADD COLUMN `phone` VARCHAR(20) NULL AFTER `last_name`',
         'avatar_url' => 'ADD COLUMN `avatar_url` VARCHAR(500) NULL AFTER `role`',
         'pdpa_consent' => 'ADD COLUMN `pdpa_consent` TINYINT(1) NOT NULL DEFAULT 0 AFTER `avatar_url`',

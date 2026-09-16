@@ -31,6 +31,7 @@ $currentPage = $currentPage ?? 'index.php';
 $u = $currentUser ?? [];
 $displayName = !empty($u['nickname']) ? trim($u['nickname']) : (trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? '')) ?: 'นักเรียน');
 $initials = mb_strtoupper(mb_substr($u['first_name'] ?? 'N', 0, 1) . mb_substr($u['last_name'] ?? 'B', 0, 1));
+$avatarSrc = studentAvatarUrl($u['avatar_url'] ?? null);
 ?>
 <aside id="studentSidebar" class="fixed inset-y-0 left-0 w-[240px] bg-white border-r border-[#e8ecf2] overflow-y-auto flex flex-col z-40 shadow-[2px_0_16px_rgba(15,42,83,0.06)] max-[1024px]:-translate-x-full transition-transform duration-300">
 
@@ -54,8 +55,8 @@ $initials = mb_strtoupper(mb_substr($u['first_name'] ?? 'N', 0, 1) . mb_substr($
   <!-- User Profile Chip -->
   <div class="px-4 py-4 border-b border-[#e8ecf2] shrink-0">
     <div class="flex items-center gap-3">
-      <?php if (!empty($u['avatar_url'])): ?>
-        <img src="<?= htmlspecialchars($u['avatar_url']) ?>" alt="avatar" class="w-9 h-9 rounded-full object-cover shrink-0">
+      <?php if (!empty($avatarSrc)): ?>
+        <img src="<?= htmlspecialchars($avatarSrc) ?>" alt="avatar" class="w-9 h-9 rounded-full object-cover shrink-0">
       <?php else: ?>
         <div class="w-9 h-9 rounded-full bg-gradient-to-br from-pink-400 to-pink-600 flex items-center justify-center text-white font-bold text-[13px] shrink-0">
           <?= htmlspecialchars($initials) ?>

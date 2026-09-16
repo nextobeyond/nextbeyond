@@ -14,18 +14,79 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $pdo->beginTransaction();
         
         $avatarUrl = $currentUser['avatar_url'] ?? null;
-        if (!empty($_FILES['avatar']) && is_uploaded_file($_FILES['avatar']['tmp_name'])) {
-            $file = $_FILES['avatar'];
-            if ((int) $file['size'] > 2 * 1024 * 1024) throw new RuntimeException('ไฟล์รูปภาพต้องมีขนาดไม่เกิน 2MB');
-            $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
-            $extensions = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp'];
-            if (!isset($extensions[$mime])) throw new RuntimeException('รองรับเฉพาะไฟล์ PNG, JPG และ WEBP');
-            
-            $uploadDir = __DIR__ . '/../assets/uploads/avatars';
-            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
-                throw new RuntimeException('สร้างโฟลเดอร์อัปโหลดไม่สำเร็จ');
+        $uploadDir = __DIR__ . '/../assets/uploads/avatars';
+
+        // 1. ตรวจสอบการส่งรูปผ่าน Base64 (ที่ถูกย่อและบีบอัดอัตโนมัติจากฝั่งเบราว์เซอร์)
+        $avatarBase64 = trim((string) ($_POST['avatar_base64'] ?? ''));
+        if ($avatarBase64 !== '') {
+            if (preg_match('/^data:image\/(jpeg|png|webp);base64,(.+)$/', $avatarBase64, $matches)) {
+                $ext = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
+                $decoded = base64_decode($matches[2], true);
+                if ($decoded !== false && strlen($decoded) > 0) {
+                    if (strlen($decoded) > 5 * 1024 * 1024) {
+                        throw new RuntimeException('ไฟล์รูปภาพมีขนาดใหญ่เกินไป');
+                    }
+                    if (!is_dir($uploadDir) && !@mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
+                        throw new RuntimeException('สร้างโฟลเดอร์สำหรับเก็บรูปโปรไฟล์ไม่สำเร็จ');
+                    }
+                    // ลบรูปเดิมของผู้ใช้นี้
+                    foreach (glob($uploadDir . '/avatar-' . (int) $currentUser['id'] . '-*') ?: [] as $old) {
+                        @unlink($old);
+                    }
+                    $filename = 'avatar-' . (int) $currentUser['id'] . '-' . time() . '.' . $ext;
+                    if (file_put_contents($uploadDir . '/' . $filename, $decoded) === false) {
+                        throw new RuntimeException('บันทึกรูปภาพไม่สำเร็จ กรุณาตรวจสอบสิทธิ์การเขียนโฟลเดอร์');
+                    }
+                    $avatarUrl = '/assets/uploads/avatars/' . $filename;
+                } else {
+                    throw new RuntimeException('ข้อมูลรูปภาพไม่ถูกต้อง');
+                }
+            } else {
+                throw new RuntimeException('รูปแบบรูปภาพไม่ถูกต้อง รองรับเฉพาะ JPG, PNG, WEBP');
             }
-            $filename = 'avatar-' . $currentUser['id'] . '-' . time() . '.' . $extensions[$mime];
+        }
+        // 2. ตรวจสอบการอัปโหลดผ่าน File Input ปกติ (Fallback)
+        elseif (!empty($_FILES['avatar']) && ($_FILES['avatar']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $file = $_FILES['avatar'];
+            if ($file['error'] === UPLOAD_ERR_INI_SIZE || $file['error'] === UPLOAD_ERR_FORM_SIZE) {
+                throw new RuntimeException('ไฟล์รูปภาพมีขนาดใหญ่เกินไป (กรุณาเลือกรูปขนาดไม่เกิน 5MB)');
+            }
+            if ($file['error'] !== UPLOAD_ERR_OK) {
+                throw new RuntimeException('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ (รหัส: ' . $file['error'] . ')');
+            }
+            if (!is_uploaded_file($file['tmp_name'])) {
+                throw new RuntimeException('ไม่พบไฟล์ที่อัปโหลด');
+            }
+            if ((int) $file['size'] > 5 * 1024 * 1024) {
+                throw new RuntimeException('ไฟล์รูปภาพต้องมีขนาดไม่เกิน 5MB');
+            }
+
+            $mime = '';
+            if (class_exists('finfo')) {
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mime = (string) $finfo->file($file['tmp_name']);
+            } elseif (function_exists('mime_content_type')) {
+                $mime = (string) mime_content_type($file['tmp_name']);
+            }
+            $extensions = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp'];
+            if (!isset($extensions[$mime])) {
+                $origExt = strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION));
+                if (in_array($origExt, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+                    $ext = $origExt === 'jpeg' ? 'jpg' : $origExt;
+                } else {
+                    throw new RuntimeException('รองรับเฉพาะไฟล์ PNG, JPG และ WEBP เท่านั้น');
+                }
+            } else {
+                $ext = $extensions[$mime];
+            }
+
+            if (!is_dir($uploadDir) && !@mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
+                throw new RuntimeException('สร้างโฟลเดอร์สำหรับเก็บรูปโปรไฟล์ไม่สำเร็จ');
+            }
+            foreach (glob($uploadDir . '/avatar-' . (int) $currentUser['id'] . '-*') ?: [] as $old) {
+                @unlink($old);
+            }
+            $filename = 'avatar-' . (int) $currentUser['id'] . '-' . time() . '.' . $ext;
             if (!move_uploaded_file($file['tmp_name'], $uploadDir . '/' . $filename)) {
                 throw new RuntimeException('บันทึกไฟล์รูปภาพไม่สำเร็จ');
             }
@@ -36,8 +97,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $stmt = $pdo->prepare('UPDATE users SET first_name=:first,last_name=:last,nickname=:nickname,phone=:phone,avatar_url=:avatar WHERE id=:id');
             $stmt->execute([':first'=>$first,':last'=>$last,':nickname'=>$nickname?:null,':phone'=>$phone?:null,':avatar'=>$avatarUrl,':id'=>$currentUser['id']]);
         } catch (PDOException $e) {
-            $stmt = $pdo->prepare('UPDATE users SET first_name=:first,last_name=:last,phone=:phone,avatar_url=:avatar WHERE id=:id');
-            $stmt->execute([':first'=>$first,':last'=>$last,':phone'=>$phone?:null,':avatar'=>$avatarUrl,':id'=>$currentUser['id']]);
+            try {
+                $stmt = $pdo->prepare('UPDATE users SET first_name=:first,last_name=:last,phone=:phone,avatar_url=:avatar WHERE id=:id');
+                $stmt->execute([':first'=>$first,':last'=>$last,':phone'=>$phone?:null,':avatar'=>$avatarUrl,':id'=>$currentUser['id']]);
+            } catch (PDOException $e2) {
+                $stmt = $pdo->prepare('UPDATE users SET first_name=:first,last_name=:last,phone=:phone WHERE id=:id');
+                $stmt->execute([':first'=>$first,':last'=>$last,':phone'=>$phone?:null,':id'=>$currentUser['id']]);
+            }
         }
         $newPassword = (string) ($_POST['new_password'] ?? '');
         if ($newPassword !== '') {
@@ -81,20 +147,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     <div class="mb-4 p-4 rounded-xl bg-red-50 text-red-700 font-bold"><?= htmlspecialchars($error) ?></div>
                 <?php endif; ?>
 
-                <form method="post" enctype="multipart/form-data" class="space-y-5">
+                <form id="profileForm" method="post" enctype="multipart/form-data" class="space-y-5">
+                    <input type="hidden" name="avatar_base64" id="avatarBase64" value="">
+
                     <section class="bg-white rounded-[20px] border border-[#e8ecf2] p-6">
                         <h2 class="font-bold text-[17px] mb-5">รูปโปรไฟล์</h2>
                         <div class="flex items-center gap-6">
-                            <?php if (!empty($currentUser['avatar_url'])): ?>
-                                <img src="<?= htmlspecialchars($currentUser['avatar_url']) ?>" alt="Avatar" class="w-24 h-24 rounded-full object-cover border border-[#e8ecf2]">
-                            <?php else: ?>
-                                <div class="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-3xl border border-[#e8ecf2]">
+                            <?php $avatarSrc = studentAvatarUrl($currentUser['avatar_url'] ?? null); ?>
+                            <div class="relative w-24 h-24 shrink-0">
+                                <img id="avatarPreviewImg" src="<?= htmlspecialchars($avatarSrc) ?>" alt="Avatar" class="w-24 h-24 rounded-full object-cover border border-[#e8ecf2] <?= empty($avatarSrc) ? 'hidden' : '' ?>">
+                                <div id="avatarFallback" class="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-3xl border border-[#e8ecf2] <?= !empty($avatarSrc) ? 'hidden' : '' ?>">
                                     <?= htmlspecialchars(mb_substr($currentUser['first_name'], 0, 1)) ?>
                                 </div>
-                            <?php endif; ?>
+                            </div>
                             <div>
-                                <input type="file" name="avatar" accept="image/png, image/jpeg, image/webp" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100 transition-colors">
-                                <p class="text-[13px] text-slate-500 mt-2">รองรับไฟล์ JPG, PNG, WEBP ขนาดไม่เกิน 2MB</p>
+                                <input type="file" id="avatarInput" name="avatar" accept="image/png, image/jpeg, image/webp" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-pink-50 file:text-pink-600 hover:file:bg-pink-100 file:cursor-pointer transition-colors">
+                                <p class="text-[13px] text-slate-500 mt-2">รองรับไฟล์ JPG, PNG, WEBP ขนาดไม่เกิน 5MB (ระบบปรับขนาดให้อัตโนมัติ)</p>
                             </div>
                         </div>
                     </section>
@@ -133,12 +201,74 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                         </div>
                     </section>
 
-                    <button type="submit" class="h-11 px-7 rounded-xl bg-pink-500 text-white font-bold">บันทึกการเปลี่ยนแปลง</button>
+                    <button type="submit" class="h-11 px-7 rounded-xl bg-pink-500 hover:bg-pink-600 active:scale-[0.99] text-white font-bold transition-all shadow-sm">บันทึกการเปลี่ยนแปลง</button>
                 </form>
             </div>
         </main>
         <?php include 'includes/bottom-nav.php'; ?>
     </div>
 </div>
+
+<script>
+(() => {
+    const avatarInput = document.getElementById('avatarInput');
+    const avatarPreviewImg = document.getElementById('avatarPreviewImg');
+    const avatarFallback = document.getElementById('avatarFallback');
+    const avatarBase64 = document.getElementById('avatarBase64');
+
+    if (!avatarInput) return;
+
+    avatarInput.addEventListener('change', function() {
+        const file = this.files && this.files[0];
+        if (!file) return;
+
+        // ตรวจสอบชนิดไฟล์
+        if (!file.type.match(/^image\/(jpeg|png|webp)$/i) && !file.name.match(/\.(jpe?g|png|webp)$/i)) {
+            alert('กรุณาเลือกไฟล์รูปภาพที่เป็น JPG, PNG หรือ WEBP');
+            this.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            const img = new Image();
+            img.onload = function() {
+                // Auto crop & resize to square 500x500 for crisp, lightweight upload (~60KB)
+                const maxDim = 500;
+                let width = img.width;
+                let height = img.height;
+
+                const size = Math.min(width, height);
+                const sx = (width - size) / 2;
+                const sy = (height - size) / 2;
+                const destSize = Math.min(maxDim, size);
+
+                const canvas = document.createElement('canvas');
+                canvas.width = destSize;
+                canvas.height = destSize;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, sx, sy, size, size, 0, 0, destSize, destSize);
+
+                const compressed = canvas.toDataURL('image/jpeg', 0.88);
+                if (avatarBase64) {
+                    avatarBase64.value = compressed;
+                }
+
+                // แสดง Preview ทันที
+                if (avatarPreviewImg) {
+                    avatarPreviewImg.src = compressed;
+                    avatarPreviewImg.classList.remove('hidden');
+                }
+                if (avatarFallback) {
+                    avatarFallback.classList.add('hidden');
+                }
+            };
+            img.src = evt.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+})();
+</script>
 </body>
 </html>
