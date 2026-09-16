@@ -32,8 +32,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $avatarUrl = '/assets/uploads/avatars/' . $filename;
         }
 
-        $stmt = $pdo->prepare('UPDATE users SET first_name=:first,last_name=:last,nickname=:nickname,phone=:phone,avatar_url=:avatar WHERE id=:id');
-        $stmt->execute([':first'=>$first,':last'=>$last,':nickname'=>$nickname?:null,':phone'=>$phone?:null,':avatar'=>$avatarUrl,':id'=>$currentUser['id']]);
+        try {
+            $stmt = $pdo->prepare('UPDATE users SET first_name=:first,last_name=:last,nickname=:nickname,phone=:phone,avatar_url=:avatar WHERE id=:id');
+            $stmt->execute([':first'=>$first,':last'=>$last,':nickname'=>$nickname?:null,':phone'=>$phone?:null,':avatar'=>$avatarUrl,':id'=>$currentUser['id']]);
+        } catch (PDOException $e) {
+            $stmt = $pdo->prepare('UPDATE users SET first_name=:first,last_name=:last,phone=:phone,avatar_url=:avatar WHERE id=:id');
+            $stmt->execute([':first'=>$first,':last'=>$last,':phone'=>$phone?:null,':avatar'=>$avatarUrl,':id'=>$currentUser['id']]);
+        }
         $newPassword = (string) ($_POST['new_password'] ?? '');
         if ($newPassword !== '') {
             $oldPassword = (string) ($_POST['old_password'] ?? '');
