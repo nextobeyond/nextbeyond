@@ -111,9 +111,9 @@ $exams = $pdo->query("SELECT id, title, subject, grade, time_limit_minutes FROM 
                 </strong>
               </div>
               <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <span class="text-slate-500 block">สถานะบอสไฟท์</span>
-                <strong class="text-sm font-black <?= $activeSession['boss_fight_active'] ? 'text-purple-600' : 'text-slate-600' ?>">
-                  <?= $activeSession['boss_fight_active'] ? '👾 กำลังต่อสู้' : 'ยังไม่เริ่ม' ?>
+                <span class="text-slate-500 block">เวลาสอบ</span>
+                <strong class="text-sm font-black text-slate-800">
+                  <?= !empty($activeSession['time_limit_minutes']) ? (int) $activeSession['time_limit_minutes'] . ' นาที' : 'ไม่จำกัดเวลา' ?>
                 </strong>
               </div>
               <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-end">

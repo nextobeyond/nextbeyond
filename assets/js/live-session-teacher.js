@@ -229,9 +229,6 @@
       }).join("") : '<div class="text-xs text-slate-400">รอรับสัญญาณเข้าร่วมจากนักเรียนผ่าน PIN...</div>';
     }
 
-    // Boss Fight Card
-    renderBossCard(session);
-
     // If modal is open, re-render its content
     if (activeModalKey) {
       renderModalContent(activeModalKey);
@@ -554,11 +551,6 @@
             `).join("")}
           </div>
         `;
-        break;
-      }
-
-      case "boss_fight": {
-        renderBossArenaModal(titleEl, descEl, bodyEl, session);
         break;
       }
     }

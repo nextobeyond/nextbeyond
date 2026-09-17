@@ -84,7 +84,7 @@ try {
             'sessionStatus' => (string) $session['status'],
             'isEyesOnMeLocked' => $isLocked,
             'announcementMessage' => $session['announcement_message'] ? (string) $session['announcement_message'] : null,
-            'bossFightActive' => (bool) $session['boss_fight_active'],
+            'bossFightActive' => false,
             'bossName' => (string) ($session['boss_name'] ?: 'มังกรเพลิงแห่งความรู้ ไครอส'),
             'bossTheme' => (string) ($session['boss_theme'] ?: 'dragon'),
             'bossCurrentHp' => (int) $session['boss_current_hp'],

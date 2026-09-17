@@ -240,17 +240,6 @@ $currentPage = 'live-sessions.php';
             <span class="text-xs font-bold text-slate-950">รีเซ็ตคำตอบ</span>
             <span class="text-[10px] text-slate-600">อนุญาตให้สอบใหม่</span>
           </button>
-
-          <!-- 9. บอสไฟท์ห้องเรียน -->
-          <button type="button" data-open-modal="boss_fight" class="col-span-2 md:col-span-4 p-4 rounded-2xl bg-gradient-to-r from-rose-50 via-purple-50 to-indigo-50 hover:from-rose-100 hover:to-indigo-100 border border-purple-200 flex items-center justify-center gap-3 cursor-pointer shadow-xs group transition-all">
-            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-500 to-purple-600 text-white flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            </div>
-            <div class="text-left">
-              <span class="text-xs font-black text-slate-900 block">👾 ศูนย์ควบคุมบอสไฟท์ / จอฉายใหญ่ (Boss Battle Arena)</span>
-              <span class="text-[10px] text-purple-700 font-semibold">ฉายขึ้นจอโปรเจกเตอร์ เสียงซาวด์เอฟเฟกต์ และประลองแบบทีม</span>
-            </div>
-          </button>
         </div>
 
         <!-- SECTION 6: Live Student Progress Pills -->
@@ -263,56 +252,7 @@ $currentPage = 'live-sessions.php';
             <!-- Loaded via JS -->
           </div>
         </div>
-
-        <!-- SECTION 7: Boss Fight Card -->
-        <div class="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border border-purple-500/30 shadow-xl space-y-4 relative overflow-hidden">
-          <div class="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 relative z-10">
-            <div class="flex items-center gap-3">
-              <div id="boss-card-emoji" class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-purple-600 flex items-center justify-center text-2xl shadow-lg border border-white/20">
-                🐲
-              </div>
-              <div>
-                <div class="flex items-center gap-2">
-                  <h3 id="boss-card-name" class="text-base font-black">มังกรเพลิงแห่งความรู้ ไครอส</h3>
-                  <span id="boss-live-badge" class="hidden px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[10px] font-bold animate-pulse">LIVE BATTLE</span>
-                </div>
-                <p id="boss-card-subdesc" class="text-xs text-slate-300 mt-0.5">
-                  กระตุ้นความร่วมมือด้วยเกมพิชิตบอส
-                </p>
-              </div>
-            </div>
-
-            <button type="button" data-open-modal="boss_fight" class="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 transition-transform hover:scale-102 cursor-pointer shadow-md">
-              <span>⚔️</span> เปิดศูนย์ควบคุมบอส / จอฉาย
-            </button>
-          </div>
-
-          <!-- HP Bar Section -->
-          <div id="boss-hp-section" class="space-y-2 relative z-10 pt-1">
-            <div class="flex items-center justify-between text-xs font-bold font-mono">
-              <div class="flex items-center gap-2">
-                <span class="text-purple-300">BOSS HEALTH</span>
-                <span id="boss-top-hitter"></span>
-              </div>
-              <span id="boss-hp-text">100 / 100 HP (100%)</span>
-            </div>
-            <div class="w-full h-3.5 bg-slate-950/80 rounded-full overflow-hidden p-0.5 border border-white/20">
-              <div id="boss-hp-bar" class="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500" style="width: 100%"></div>
-            </div>
-          </div>
-
-          <!-- Quick Action Buttons -->
-          <div class="flex flex-wrap items-center gap-2.5 pt-1 relative z-10">
-            <button type="button" id="btn-toggle-boss-fight" class="px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer transition-transform hover:scale-102 bg-gradient-to-r from-sky-600 to-blue-600 text-white">
-              ⚡ 🐲 เริ่มบอสไฟท์ทันที
-            </button>
-            <button type="button" data-open-modal="boss_fight" class="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-semibold border border-white/15 flex items-center gap-1.5 cursor-pointer">
-              <span>📺</span> ฉายจอใหญ่ห้องเรียน (Projector Arena)
-            </button>
-          </div>
-        </div>
+      </div>
 
       </div>
     </main>

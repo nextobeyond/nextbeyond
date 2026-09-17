@@ -102,38 +102,6 @@ $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
   </div>
 </div>
 
-<!-- Live Boss Fight Floating Widget -->
-<div id="student-boss-hud" class="hidden sticky top-0 z-30 bg-gradient-to-r from-slate-950 via-purple-950 to-slate-900 text-white px-4 py-2.5 shadow-xl border-b border-purple-500/30">
-  <div class="max-w-4xl mx-auto flex items-center justify-between gap-3 text-xs">
-    <div class="flex items-center gap-2.5 truncate">
-      <span id="boss-hud-emoji" class="text-2xl animate-bounce shrink-0">🐲</span>
-      <div class="truncate">
-        <div class="flex items-center gap-2">
-          <strong id="boss-hud-name" class="text-purple-200 text-xs sm:text-sm font-black truncate">มังกรเพลิงแห่งความรู้ ไครอส</strong>
-          <span id="boss-hud-badge" class="px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[9px] font-extrabold uppercase">BOSS FIGHT</span>
-        </div>
-        <div class="text-[10px] text-slate-300">ตอบถูกเพื่อร่วมโจมตีบอส (-10 HP ต่อข้อ)</div>
-      </div>
-    </div>
-
-    <!-- Mini HP Bar -->
-    <div class="w-36 sm:w-56 shrink-0 space-y-1">
-      <div class="flex justify-between text-[10px] font-bold font-mono">
-        <span class="text-purple-300">BOSS HP</span>
-        <span id="boss-hud-hp-text">100 / 100 HP</span>
-      </div>
-      <div class="w-full h-2.5 rounded-full bg-slate-950 p-0.5 border border-white/20 overflow-hidden">
-        <div id="boss-hud-hp-bar" class="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 transition-all duration-500" style="width: 100%"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Floating Damage Indicator Animation -->
-<div id="floating-damage" class="pointer-events-none fixed z-50 text-2xl font-black text-pink-400 drop-shadow-[0_4px_12px_rgba(231,45,130,0.8)] opacity-0 transition-all duration-700 transform scale-75">
-  💥 -10 DMG!
-</div>
-
 <div class="min-h-screen flex">
   <?php include 'includes/sidebar.php'; ?>
   <div class="flex-1 flex flex-col ml-[240px] max-[1024px]:ml-0 min-w-0">
@@ -211,30 +179,9 @@ document.getElementById('check-btn').addEventListener('click', async () => {
     checked[current] = data;
     renderQuestion();
 
-    if (data.isCorrect && LIVE_SESSION_ID) {
-      showFloatingDamage(10);
-      fetch('live-session-api.php?action=deal_damage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: LIVE_SESSION_ID, damage: 10 })
-      }).catch(() => {});
     }
   } catch (error) { alert(error.message); button.disabled = false; }
 });
-
-function showFloatingDamage(dmg = 10) {
-  const el = document.getElementById('floating-damage');
-  if (!el) return;
-  el.textContent = `💥 -${dmg} DMG!`;
-  el.style.left = '50%';
-  el.style.top = '22%';
-  el.style.transform = 'translate(-50%, -50%) scale(1.2)';
-  el.style.opacity = '1';
-  setTimeout(() => {
-    el.style.transform = 'translate(-50%, -90px) scale(0.8)';
-    el.style.opacity = '0';
-  }, 900);
-}
 
 function submitExam(force) {
   if (submitExam.submitting) return;
@@ -298,41 +245,6 @@ async function pollLiveSession() {
       }
     }
 
-    // 3. Boss Fight HUD
-    const bossHud = document.getElementById('student-boss-hud');
-    if (bossHud) {
-      if (data.bossFightActive) {
-        bossHud.classList.remove('hidden');
-        const nameEl = document.getElementById('boss-hud-name');
-        if (nameEl) nameEl.textContent = data.bossName || 'มังกรเพลิงแห่งความรู้ ไครอส';
-        const curHp = data.bossCurrentHp ?? 100;
-        const maxHp = Math.max(1, data.bossMaxHp ?? 100);
-        const hpPct = Math.max(0, Math.min(100, Math.round((curHp / maxHp) * 100)));
-        const hpText = document.getElementById('boss-hud-hp-text');
-        if (hpText) hpText.textContent = `${curHp} / ${maxHp} HP (${hpPct}%)`;
-        const hpBar = document.getElementById('boss-hud-hp-bar');
-        if (hpBar) {
-          hpBar.style.width = `${hpPct}%`;
-          hpBar.className = `h-full rounded-full transition-all duration-500 ${
-            hpPct > 50 ? 'bg-gradient-to-r from-emerald-400 to-teal-400'
-            : hpPct > 20 ? 'bg-gradient-to-r from-amber-400 to-rose-500'
-            : 'bg-gradient-to-r from-rose-600 to-pink-500 animate-pulse'
-          }`;
-        }
-        const badge = document.getElementById('boss-hud-badge');
-        if (badge) {
-          if (data.bossDefeated) {
-            badge.textContent = '🎉 DEFEATED!';
-            badge.className = 'px-2 py-0.5 rounded-full bg-emerald-500 text-white font-black text-[9px] animate-pulse';
-          } else {
-            badge.textContent = 'BOSS FIGHT';
-            badge.className = 'px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[9px] font-extrabold uppercase';
-          }
-        }
-      } else {
-        bossHud.classList.add('hidden');
-      }
-    }
 
     // 4. Session Closed by Teacher
     if (data.sessionClosed && !isSessionClosedHandled) {
