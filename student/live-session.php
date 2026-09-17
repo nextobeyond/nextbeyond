@@ -11,10 +11,12 @@ $pageTitle = 'เข้าร่วมห้องเรียนสด (Live Se
 $currentPage = 'live-session.php';
 
 $currentStudentId = (int) ($currentUser['id'] ?? 0);
+$studentName = trim($currentUser['first_name'] . ' ' . $currentUser['last_name']);
+$studentFirstName = $currentUser['first_name'] ?: 'น้องๆ';
 
 // Check if student is in an ongoing active session
 $stmtActive = $pdo->prepare("
-    SELECT s.*, sp.status AS participant_status, e.title AS exam_title
+    SELECT s.*, sp.status AS participant_status, e.title AS exam_title, e.subject AS exam_subject
     FROM session_participants sp
     JOIN classroom_sessions s ON s.id = sp.session_id
     LEFT JOIN exams e ON e.id = s.exam_id
@@ -23,6 +25,8 @@ $stmtActive = $pdo->prepare("
 ");
 $stmtActive->execute([':uid' => $currentStudentId]);
 $currentActiveSession = $stmtActive->fetch();
+
+$initialPin = preg_replace('/[^\d]/', '', (string)($_GET['pin'] ?? ''));
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -32,89 +36,202 @@ $currentActiveSession = $stmtActive->fetch();
   <title><?= htmlspecialchars($pageTitle) ?> - Next Beyond</title>
   <link rel="stylesheet" href="../assets/css/output.css">
   <link rel="stylesheet" href="../assets/css/student-portal.css">
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700;800&family=Inter:wght@600;700;800;900&display=swap" rel="stylesheet">
   <script src="../assets/js/student-guard.js"></script>
+  <style>
+    .student-live-bg {
+      background: radial-gradient(circle at 50% 10%, rgba(231, 45, 130, 0.08) 0%, rgba(99, 102, 241, 0.04) 50%, #f4f7fb 100%);
+      min-height: calc(100vh - 64px);
+    }
+    .btn-join-gamified {
+      background: linear-gradient(135deg, #e72d82 0%, #ff4b98 50%, #f43f5e 100%);
+      color: #ffffff !important;
+      box-shadow: 0 10px 24px -4px rgba(231, 45, 130, 0.5);
+      transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .btn-join-gamified:hover:not(:disabled) {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 14px 28px -4px rgba(231, 45, 130, 0.65);
+    }
+    .btn-join-gamified:active:not(:disabled) {
+      transform: translateY(0) scale(0.98);
+    }
+    .btn-reenter-active {
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+      color: #ffffff !important;
+      box-shadow: 0 8px 22px -2px rgba(16, 185, 129, 0.45);
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .btn-reenter-active:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 12px 26px -2px rgba(16, 185, 129, 0.6);
+    }
+    .pin-input-field {
+      letter-spacing: 0.35em;
+      font-feature-settings: "tnum";
+      font-variant-numeric: tabular-nums;
+      transition: all 0.25s ease;
+      background: #ffffff;
+      color: #1e1b4b;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+    }
+    .pin-input-field:focus {
+      border-color: #e72d82;
+      box-shadow: 0 0 0 4px rgba(231, 45, 130, 0.15), inset 0 1px 2px rgba(0,0,0,0.02);
+      transform: scale(1.01);
+    }
+    .card-gamified-pop {
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      box-shadow: 0 20px 45px -12px rgba(30, 27, 75, 0.09), 0 0 0 1px rgba(226, 232, 240, 0.6);
+      transition: transform 0.2s ease;
+    }
+    .active-mission-card {
+      background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+      border: 2px solid #34d399;
+      box-shadow: 0 14px 32px -6px rgba(16, 185, 129, 0.22);
+    }
+    .bouncy-icon {
+      animation: floatSlow 3.5s ease-in-out infinite;
+    }
+    @keyframes floatSlow {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-7px) rotate(3deg); }
+    }
+    .sparkle-badge {
+      background: linear-gradient(135deg, #fdf2f8 0%, #ede9fe 100%);
+      border: 1px solid rgba(231, 45, 130, 0.2);
+    }
+  </style>
 </head>
 <body class="student-portal bg-[#f4f7fb] text-navy-950 font-sans antialiased">
 <div class="min-h-screen flex">
   <?php include 'includes/sidebar.php'; ?>
   <div class="flex-1 flex flex-col min-w-0 ml-[240px] max-[1024px]:ml-0">
     <?php include 'includes/topbar.php'; ?>
-    <main class="flex-1 p-8 max-[640px]:p-4 flex items-center justify-center">
-      <div class="max-w-md w-full space-y-6">
+    <main class="flex-1 p-6 sm:p-8 flex items-center justify-center student-live-bg">
+      <div class="max-w-md w-full space-y-5">
 
+        <!-- ACTIVE ONGOING MISSION CARD -->
         <?php if ($currentActiveSession): ?>
-          <div class="p-5 rounded-3xl bg-emerald-50 border border-emerald-200 shadow-sm text-center space-y-3">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold animate-pulse">
-              🔴 คุณอยู่ในห้องเรียนสดที่กำลังเปิดอยู่
-            </span>
-            <h3 class="text-lg font-black text-slate-900"><?= htmlspecialchars($currentActiveSession['title']) ?></h3>
-            <p class="text-xs text-slate-600">
-              PIN: <strong class="font-mono text-emerald-700 text-sm">#<?= htmlspecialchars($currentActiveSession['session_pin']) ?></strong> • <?= htmlspecialchars((string) $currentActiveSession['exam_title']) ?>
-            </p>
-            <a href="take-test.php?id=<?= (int) $currentActiveSession['exam_id'] ?>&sessionId=<?= urlencode($currentActiveSession['id']) ?>" class="inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md transition-transform hover:scale-102">
-              ⚡ กลับเข้าห้องเรียนสดทันที →
-            </a>
+          <div class="active-mission-card p-6 rounded-3xl text-center space-y-4 relative overflow-hidden">
+            <div class="flex items-center justify-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-emerald-500 animate-ping"></span>
+              <span class="px-3 py-1 rounded-full bg-emerald-200/60 text-emerald-900 font-extrabold text-xs uppercase tracking-wide">
+                🔴 คุณกำลังสอบอยู่ในห้องเรียนนี้
+              </span>
+            </div>
+
+            <div class="space-y-1">
+              <h3 class="text-xl font-black text-slate-900">
+                <?= htmlspecialchars($currentActiveSession['title']) ?>
+              </h3>
+              <p class="text-xs text-emerald-900/80 font-medium">
+                <?= htmlspecialchars((string) ($currentActiveSession['exam_title'] ?: 'แบบทดสอบประจำคาบ')) ?>
+              </p>
+            </div>
+
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 border border-emerald-300 shadow-xs text-xs font-mono font-black text-emerald-800">
+              <span>PIN:</span>
+              <span class="tracking-widest text-sm">#<?= htmlspecialchars($currentActiveSession['session_pin']) ?></span>
+            </div>
+
+            <div class="pt-1">
+              <a href="take-test.php?id=<?= (int) $currentActiveSession['exam_id'] ?>&sessionId=<?= urlencode($currentActiveSession['id']) ?>" class="btn-reenter-active w-full py-3.5 px-6 rounded-2xl font-black text-sm inline-flex items-center justify-center gap-2 cursor-pointer">
+                <span>🚀 กลับเข้าทำข้อสอบต่อทันที</span>
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+              </a>
+            </div>
           </div>
         <?php endif; ?>
 
-        <div class="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-6">
-          <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-pink-500 to-rose-600 text-white flex items-center justify-center text-3xl mx-auto shadow-lg shadow-pink-500/25">
-            ⚡
+        <!-- MAIN PIN ENTRY CARD -->
+        <div class="card-gamified-pop p-6 sm:p-8 rounded-3xl text-center space-y-6 relative overflow-hidden">
+          
+          <!-- Cute Welcoming Header -->
+          <div class="space-y-2">
+            <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-pink-500 via-rose-500 to-indigo-500 text-white flex items-center justify-center text-4xl mx-auto shadow-xl shadow-pink-500/25 bouncy-icon">
+              🎮
+            </div>
+
+            <div class="pt-1">
+              <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full sparkle-badge text-pink-600 font-extrabold text-[11px] mb-1.5">
+                <span>✨</span> <span>LIVE CLASSROOM QUIZ</span> <span>✨</span>
+              </div>
+              <h1 class="text-2xl sm:text-3xl font-black text-navy-950 tracking-tight">
+                เข้าร่วมห้องเรียนสด
+              </h1>
+              <p class="text-xs sm:text-sm text-slate-500 font-medium max-w-xs mx-auto">
+                สวัสดี <strong><?= htmlspecialchars($studentFirstName) ?></strong>! 👋<br>
+                กรอกรหัส PIN 6 หลักที่คุณครูฉายหน้าห้องได้เลย
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h1 class="text-2xl font-black text-navy-950">เข้าร่วมห้องเรียนสด</h1>
-            <p class="text-xs text-slate-500 mt-1">กรอกรหัส PIN 6 หลักที่คุณครูแจ้งเพื่อเริ่มทำข้อสอบสด</p>
-          </div>
-
+          <!-- Form Area -->
           <form id="join-pin-form" class="space-y-4">
-            <div id="join-error" class="hidden p-3 rounded-xl bg-red-50 text-red-600 text-xs font-bold border border-red-200"></div>
+            <div id="join-error" class="hidden p-3.5 rounded-2xl bg-rose-50 text-rose-600 text-xs font-bold border border-rose-200 animate-shake"></div>
 
-            <div>
-              <label for="session-pin" class="block text-xs font-bold text-slate-700 mb-2">รหัส PIN 6 หลัก</label>
-              <input
-                id="session-pin"
-                name="sessionPin"
-                type="text"
-                inputmode="numeric"
-                pattern="[0-9]*"
-                maxlength="6"
-                required
-                autocomplete="off"
-                placeholder="000000"
-                value="<?= htmlspecialchars(preg_replace('/[^\d]/', '', (string)($_GET['pin'] ?? ''))) ?>"
-                class="w-full text-center text-3xl font-mono font-black tracking-widest h-16 rounded-2xl border-2 border-slate-200 outline-none focus:border-pink-500 text-navy-950 transition-colors"
-                autofocus
-              >
+            <div class="space-y-2">
+              <label for="session-pin" class="block text-xs font-black uppercase text-slate-600 tracking-wider">
+                🔑 รหัส PIN 6 หลัก (Room PIN)
+              </label>
+              
+              <div class="relative">
+                <input
+                  id="session-pin"
+                  name="sessionPin"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  maxlength="6"
+                  required
+                  autocomplete="off"
+                  placeholder="000000"
+                  value="<?= htmlspecialchars($initialPin) ?>"
+                  class="pin-input-field w-full text-center text-3xl sm:text-4xl font-mono font-black h-18 sm:h-20 rounded-2xl border-2 border-slate-300 outline-none text-navy-950"
+                  autofocus
+                >
+              </div>
+
+              <div class="flex items-center justify-center gap-1 text-[11px] text-slate-400 font-medium">
+                <span>พิมพ์ครบ 6 หลัก ระบบจะเข้าห้องสอบอัตโนมัติทันที</span>
+              </div>
             </div>
 
             <button
               type="submit"
               id="btn-join-session"
-              class="w-full h-12 rounded-2xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-sm shadow-[0_8px_20px_rgba(231,45,130,.3)] flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-102"
+              class="btn-join-gamified w-full h-14 rounded-2xl font-black text-base flex items-center justify-center gap-2.5 cursor-pointer shadow-lg"
             >
-              <span>เข้าร่วมทันที</span> →
+              <span>🚀 ลุยเลย! เข้าร่วมห้องเรียน</span>
             </button>
           </form>
 
-          <!-- Feature badges -->
-          <div class="grid grid-cols-2 gap-2 pt-4 border-t border-slate-100 text-[11px] text-slate-500">
-            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2 text-left">
-              <span class="text-base">👀</span>
+          <!-- 3 Kid-Friendly Guidance Badges -->
+          <div class="grid grid-cols-2 gap-2.5 pt-4 border-t border-slate-100 text-[11px] text-slate-600">
+            <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100/80 flex items-center gap-2.5 text-left">
+              <span class="text-xl shrink-0">👀</span>
               <div>
-                <strong class="block text-slate-800">Eyes On Me</strong>
-                <span>ครูควบคุมหน้าจอสด</span>
+                <strong class="block text-slate-800 font-bold">Eyes On Me</strong>
+                <span class="text-[10px] text-slate-500">รอฟังคุณครูอธิบายเมื่อจอล็อก</span>
               </div>
             </div>
-            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2 text-left">
-              <span class="text-base">📊</span>
+
+            <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100/80 flex items-center gap-2.5 text-left">
+              <span class="text-xl shrink-0">⚡</span>
               <div>
-                <strong class="block text-slate-800">Real-Time Quiz</strong>
-                <span>ทำข้อสอบและตรวจผลสด</span>
+                <strong class="block text-slate-800 font-bold">รู้ผลสอบสด</strong>
+                <span class="text-[10px] text-slate-500">ส่งแล้วตรวจผลคะแนนทันที</span>
               </div>
             </div>
           </div>
+
+          <!-- Bottom Friendly Tip -->
+          <p class="text-[11px] text-slate-400">
+            💡 ยังไม่ทราบรหัส PIN? สอบถามคุณครูผู้สอนประจำวิชาได้เลยครับ
+          </p>
+
         </div>
 
       </div>
@@ -129,26 +246,32 @@ $currentActiveSession = $stmtActive->fetch();
   const btn = document.getElementById("btn-join-session");
   const errBox = document.getElementById("join-error");
 
+  // Only allow digits & auto-submit on 6 digits
   input.addEventListener("input", (e) => {
     e.target.value = e.target.value.replace(/[^0-9]/g, "");
     if (e.target.value.length === 6) {
-      form.requestSubmit();
+      setTimeout(() => form.requestSubmit(), 150);
     }
   });
+
+  // Auto-submit if prefilled with valid 6-digit PIN
+  if (input.value && input.value.length === 6) {
+    setTimeout(() => form.requestSubmit(), 300);
+  }
 
   form.onsubmit = async (e) => {
     e.preventDefault();
     errBox.classList.add("hidden");
     const pin = input.value.trim();
     if (pin.length !== 6) {
-      errBox.textContent = "กรุณากรอกรหัส PIN ให้ครบ 6 หลัก";
+      errBox.textContent = "กรุณากรอกรหัส PIN ให้ครบ 6 หลักนะจ๊ะ";
       errBox.classList.remove("hidden");
       input.focus();
       return;
     }
 
     btn.disabled = true;
-    btn.textContent = "กำลังตรวจสอบ PIN...";
+    btn.innerHTML = `<span class="animate-pulse">⏳ กำลังเชื่อมต่อห้องเรียนสด...</span>`;
 
     try {
       const res = await fetch("live-session-api.php?action=join", {
@@ -158,12 +281,14 @@ $currentActiveSession = $stmtActive->fetch();
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "ไม่สามารถเข้าร่วมห้องเรียนได้");
+      
+      btn.innerHTML = `<span>🎉 สำเร็จ! กำลังพาเข้าห้องสอบ...</span>`;
       window.location.href = data.redirectUrl;
     } catch (err) {
       errBox.textContent = err.message;
       errBox.classList.remove("hidden");
       btn.disabled = false;
-      btn.innerHTML = "<span>เข้าร่วมทันที</span> →";
+      btn.innerHTML = `<span>🚀 ลุยเลย! เข้าร่วมห้องเรียน</span>`;
       input.select();
     }
   };
@@ -171,3 +296,4 @@ $currentActiveSession = $stmtActive->fetch();
 </script>
 </body>
 </html>
+
