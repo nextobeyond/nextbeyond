@@ -26,18 +26,27 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     if (strlen($decoded) > 5 * 1024 * 1024) {
                         throw new RuntimeException('ไฟล์รูปภาพมีขนาดใหญ่เกินไป');
                     }
-                    if (!is_dir($uploadDir) && !@mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
-                        throw new RuntimeException('สร้างโฟลเดอร์สำหรับเก็บรูปโปรไฟล์ไม่สำเร็จ');
+                    if (!is_dir($uploadDir)) {
+                        @mkdir($uploadDir, 0777, true);
                     }
+                    @chmod($uploadDir, 0777);
+                    if (is_dir(dirname($uploadDir))) {
+                        @chmod(dirname($uploadDir), 0777);
+                    }
+
                     // ลบรูปเดิมของผู้ใช้นี้
                     foreach (glob($uploadDir . '/avatar-' . (int) $currentUser['id'] . '-*') ?: [] as $old) {
                         @unlink($old);
                     }
                     $filename = 'avatar-' . (int) $currentUser['id'] . '-' . time() . '.' . $ext;
-                    if (file_put_contents($uploadDir . '/' . $filename, $decoded) === false) {
-                        throw new RuntimeException('บันทึกรูปภาพไม่สำเร็จ กรุณาตรวจสอบสิทธิ์การเขียนโฟลเดอร์');
+                    $targetPath = $uploadDir . '/' . $filename;
+                    if (@file_put_contents($targetPath, $decoded) !== false) {
+                        @chmod($targetPath, 0666);
+                        $avatarUrl = '/assets/uploads/avatars/' . $filename;
+                    } else {
+                        // Fallback gracefully to base64 data URI if filesystem is not writable
+                        $avatarUrl = $avatarBase64;
                     }
-                    $avatarUrl = '/assets/uploads/avatars/' . $filename;
                 } else {
                     throw new RuntimeException('ข้อมูลรูปภาพไม่ถูกต้อง');
                 }
@@ -80,17 +89,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $ext = $extensions[$mime];
             }
 
-            if (!is_dir($uploadDir) && !@mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
-                throw new RuntimeException('สร้างโฟลเดอร์สำหรับเก็บรูปโปรไฟล์ไม่สำเร็จ');
+            if (!is_dir($uploadDir)) {
+                @mkdir($uploadDir, 0777, true);
             }
+            @chmod($uploadDir, 0777);
+            if (is_dir(dirname($uploadDir))) {
+                @chmod(dirname($uploadDir), 0777);
+            }
+
             foreach (glob($uploadDir . '/avatar-' . (int) $currentUser['id'] . '-*') ?: [] as $old) {
                 @unlink($old);
             }
             $filename = 'avatar-' . (int) $currentUser['id'] . '-' . time() . '.' . $ext;
-            if (!move_uploaded_file($file['tmp_name'], $uploadDir . '/' . $filename)) {
-                throw new RuntimeException('บันทึกไฟล์รูปภาพไม่สำเร็จ');
+            $targetPath = $uploadDir . '/' . $filename;
+            if (@move_uploaded_file($file['tmp_name'], $targetPath)) {
+                @chmod($targetPath, 0666);
+                $avatarUrl = '/assets/uploads/avatars/' . $filename;
+            } else {
+                $rawContent = @file_get_contents($file['tmp_name']);
+                if ($rawContent !== false && strlen($rawContent) > 0) {
+                    $avatarUrl = 'data:' . ($mime ?: 'image/jpeg') . ';base64,' . base64_encode($rawContent);
+                } else {
+                    throw new RuntimeException('บันทึกรูปภาพไม่สำเร็จ กรุณาตรวจสอบสิทธิ์การเขียนโฟลเดอร์');
+                }
             }
-            $avatarUrl = '/assets/uploads/avatars/' . $filename;
         }
 
         try {
@@ -155,7 +177,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                         <div class="flex items-center gap-6">
                             <?php $avatarSrc = studentAvatarUrl($currentUser['avatar_url'] ?? null); ?>
                             <div class="relative w-24 h-24 shrink-0">
-                                <img id="avatarPreviewImg" src="<?= htmlspecialchars($avatarSrc) ?>" alt="Avatar" class="w-24 h-24 rounded-full object-cover border border-[#e8ecf2] <?= empty($avatarSrc) ? 'hidden' : '' ?>">
+                                <img id="avatarPreviewImg" src="<?= htmlspecialchars($avatarSrc) ?>" alt="Avatar" class="w-24 h-24 rounded-full object-cover border border-[#e8ecf2] <?= empty($avatarSrc) ? 'hidden' : '' ?>" onerror="this.classList.add('hidden');const fb=document.getElementById('avatarFallback');if(fb)fb.classList.remove('hidden');">
                                 <div id="avatarFallback" class="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-3xl border border-[#e8ecf2] <?= !empty($avatarSrc) ? 'hidden' : '' ?>">
                                     <?= htmlspecialchars(mb_substr($currentUser['first_name'], 0, 1)) ?>
                                 </div>

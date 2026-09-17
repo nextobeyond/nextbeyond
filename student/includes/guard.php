@@ -23,7 +23,7 @@ function ensureUserColumns(PDO $pdo): void {
             $pdo->exec("ALTER TABLE `users` ADD COLUMN `nickname` VARCHAR(100) NULL AFTER `last_name`");
         }
         if (!isset($cols['avatar_url'])) {
-            $pdo->exec("ALTER TABLE `users` ADD COLUMN `avatar_url` VARCHAR(500) NULL AFTER `role`");
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `avatar_url` MEDIUMTEXT NULL AFTER `role`");
         }
     } catch (Throwable $e) {
         // Silently ignore if table alters are restricted
@@ -38,6 +38,10 @@ function studentAvatarUrl(?string $url): string {
     $clean = ltrim($url, '/');
     if (str_starts_with($clean, '../')) {
         $clean = substr($clean, 3);
+    }
+    $localFile = __DIR__ . '/../../' . $clean;
+    if (!file_exists($localFile)) {
+        return '';
     }
     return '../' . $clean;
 }
