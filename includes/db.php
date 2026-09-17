@@ -14,7 +14,12 @@ if (!defined('ADMIN_DB_HOST')) {
 }
 
 try {
-    $dsn = 'mysql:host=' . ADMIN_DB_HOST . ';dbname=' . ADMIN_DB_NAME . ';charset=' . ADMIN_DB_CHARSET;
+    $dsn = 'mysql:host=' . ADMIN_DB_HOST;
+    $xamppSocket = '/Applications/XAMPP/xamppfiles/var/mysql/mysql.sock';
+    if (ADMIN_DB_HOST === 'localhost' && file_exists($xamppSocket)) {
+        $dsn .= ';unix_socket=' . $xamppSocket;
+    }
+    $dsn .= ';dbname=' . ADMIN_DB_NAME . ';charset=' . ADMIN_DB_CHARSET;
     $options = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,

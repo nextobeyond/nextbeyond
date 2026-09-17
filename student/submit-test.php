@@ -85,8 +85,44 @@ $pdo->commit();
 $sessionId = trim((string)($_POST['session_id'] ?? ''));
 if ($sessionId !== '') {
     try {
-        $stmtSP = $pdo->prepare("UPDATE session_participants SET status = 'submitted', updated_at = NOW() WHERE session_id = :sessionId AND student_id = :uid");
-        $stmtSP->execute([':sessionId' => $sessionId, ':uid' => $currentUser['id']]);
+        $stmtSP = $pdo->prepare("UPDATE session_participants SET status = 'submitted', answered_count = :tot, updated_at = NOW() WHERE session_id = :sessionId AND student_id = :uid");
+        $stmtSP->execute([':tot' => $totalQ, ':sessionId' => $sessionId, ':uid' => $currentUser['id']]);
+
+        // If boss fight active, ensure correct answers contribute to boss fight
+        if ($correctCount > 0) {
+            $stmtB = $pdo->prepare("SELECT boss_fight_active, boss_current_hp, boss_defeated, boss_reward_points, boss_combat_log FROM classroom_sessions WHERE id = :id");
+            $stmtB->execute([':id' => $sessionId]);
+            $sesB = $stmtB->fetch();
+            if ($sesB && !empty($sesB['boss_fight_active']) && empty($sesB['boss_defeated'])) {
+                $curHp = (int)$sesB['boss_current_hp'];
+                $totalDmg = $correctCount * 10;
+                $newHp = max(0, $curHp - $totalDmg);
+                $isDef = $newHp === 0;
+                $sName = trim(($currentUser['first_name'] ?? '') . ' ' . ($currentUser['last_name'] ?? '')) ?: 'นักเรียน';
+
+                $cLog = json_decode((string)($sesB['boss_combat_log'] ?? '[]'), true) ?: [];
+                array_unshift($cLog, [
+                    'id' => 'hit-' . microtime(true),
+                    'studentId' => (string)$currentUser['id'],
+                    'studentName' => $sName,
+                    'damage' => $totalDmg,
+                    'timestamp' => date('c'),
+                ]);
+                $cLog = array_slice($cLog, 0, 50);
+
+                $pdo->prepare("UPDATE classroom_sessions SET boss_current_hp = :nhp, boss_defeated = :def, boss_combat_log = :log WHERE id = :id")->execute([
+                    ':nhp' => $newHp,
+                    ':def' => $isDef ? 1 : 0,
+                    ':log' => json_encode($cLog, JSON_UNESCAPED_UNICODE),
+                    ':id' => $sessionId,
+                ]);
+
+                if ($isDef) {
+                    require_once __DIR__ . '/../includes/live-sessions-helper.php';
+                    awardBossDefeatPoints($pdo, $sessionId, (int)($sesB['boss_reward_points'] ?? 50));
+                }
+            }
+        }
     } catch (\Throwable $e) {}
 }
 

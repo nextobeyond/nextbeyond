@@ -36,15 +36,36 @@ if (!$attempt) {
 }
 
 $sessionId = trim((string)($_GET['sessionId'] ?? ''));
+$liveSession = null;
 if ($sessionId !== '') {
     try {
-        $stmtSP = $pdo->prepare("UPDATE session_participants SET attempt_id = :attemptId, status = 'in_progress' WHERE session_id = :sessionId AND student_id = :uid");
-        $stmtSP->execute([':attemptId' => $attemptId, ':sessionId' => $sessionId, ':uid' => $currentUser['id']]);
+        $stmtSes = $pdo->prepare("SELECT * FROM classroom_sessions WHERE id = :id LIMIT 1");
+        $stmtSes->execute([':id' => $sessionId]);
+        $liveSession = $stmtSes->fetch();
+        if ($liveSession) {
+            $partId = 'sp-' . time() . '-' . random_int(1000, 9999);
+            $stmtSP = $pdo->prepare("
+                INSERT INTO session_participants (id, session_id, student_id, attempt_id, status, current_question, answered_count, joined_at)
+                VALUES (:pid, :sid, :uid, :attemptId, 'in_progress', 1, 0, NOW())
+                ON DUPLICATE KEY UPDATE attempt_id = :attemptId, status = 'in_progress'
+            ");
+            $stmtSP->execute([':pid' => $partId, ':sid' => $sessionId, ':uid' => $currentUser['id'], ':attemptId' => $attemptId]);
+        }
     } catch (\Throwable $e) {
-        // continue if table not ready or not enrolled
+        // continue if table not ready
     }
 }
-$limitSeconds = max(0, (int)$exam['time_limit_minutes'] * 60);
+
+if ($liveSession) {
+    if (!empty($liveSession['has_time_limit'])) {
+        $limitMinutes = max(1, (int)($liveSession['time_limit_minutes'] ?? 30));
+        $limitSeconds = $limitMinutes * 60;
+    } else {
+        $limitSeconds = 0; // No time limit in this session
+    }
+} else {
+    $limitSeconds = max(0, (int)$exam['time_limit_minutes'] * 60);
+}
 $remainingSeconds = $limitSeconds > 0 ? max(0, $limitSeconds - $elapsedSeconds) : 0;
 $questionsForJS = array_map(static fn(array $q): array => [
     'id' => (int)$q['id'], 'questionText' => (string)$q['question_text'], 'passage' => $q['passage'],
@@ -79,6 +100,38 @@ $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
   <div class="mt-6 px-4 py-2 rounded-full bg-white/10 text-xs font-bold border border-white/20">
     🔒 ระบบ Eyes On Me กำลังล็อกหน้าจอ
   </div>
+</div>
+
+<!-- Live Boss Fight Floating Widget -->
+<div id="student-boss-hud" class="hidden sticky top-0 z-30 bg-gradient-to-r from-slate-950 via-purple-950 to-slate-900 text-white px-4 py-2.5 shadow-xl border-b border-purple-500/30">
+  <div class="max-w-4xl mx-auto flex items-center justify-between gap-3 text-xs">
+    <div class="flex items-center gap-2.5 truncate">
+      <span id="boss-hud-emoji" class="text-2xl animate-bounce shrink-0">🐲</span>
+      <div class="truncate">
+        <div class="flex items-center gap-2">
+          <strong id="boss-hud-name" class="text-purple-200 text-xs sm:text-sm font-black truncate">มังกรเพลิงแห่งความรู้ ไครอส</strong>
+          <span id="boss-hud-badge" class="px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[9px] font-extrabold uppercase">BOSS FIGHT</span>
+        </div>
+        <div class="text-[10px] text-slate-300">ตอบถูกเพื่อร่วมโจมตีบอส (-10 HP ต่อข้อ)</div>
+      </div>
+    </div>
+
+    <!-- Mini HP Bar -->
+    <div class="w-36 sm:w-56 shrink-0 space-y-1">
+      <div class="flex justify-between text-[10px] font-bold font-mono">
+        <span class="text-purple-300">BOSS HP</span>
+        <span id="boss-hud-hp-text">100 / 100 HP</span>
+      </div>
+      <div class="w-full h-2.5 rounded-full bg-slate-950 p-0.5 border border-white/20 overflow-hidden">
+        <div id="boss-hud-hp-bar" class="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 transition-all duration-500" style="width: 100%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Damage Indicator Animation -->
+<div id="floating-damage" class="pointer-events-none fixed z-50 text-2xl font-black text-pink-400 drop-shadow-[0_4px_12px_rgba(231,45,130,0.8)] opacity-0 transition-all duration-700 transform scale-75">
+  💥 -10 DMG!
 </div>
 
 <div class="min-h-screen flex">
@@ -159,6 +212,7 @@ document.getElementById('check-btn').addEventListener('click', async () => {
     renderQuestion();
 
     if (data.isCorrect && LIVE_SESSION_ID) {
+      showFloatingDamage(10);
       fetch('live-session-api.php?action=deal_damage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -167,6 +221,21 @@ document.getElementById('check-btn').addEventListener('click', async () => {
     }
   } catch (error) { alert(error.message); button.disabled = false; }
 });
+
+function showFloatingDamage(dmg = 10) {
+  const el = document.getElementById('floating-damage');
+  if (!el) return;
+  el.textContent = `💥 -${dmg} DMG!`;
+  el.style.left = '50%';
+  el.style.top = '22%';
+  el.style.transform = 'translate(-50%, -50%) scale(1.2)';
+  el.style.opacity = '1';
+  setTimeout(() => {
+    el.style.transform = 'translate(-50%, -90px) scale(0.8)';
+    el.style.opacity = '0';
+  }, 900);
+}
+
 function submitExam(force) {
   if (submitExam.submitting) return;
   const missing = QUESTIONS.length - Object.keys(answers).length;
@@ -189,15 +258,18 @@ renderQuestion();
 
 // Live Session Polling (Every 3 seconds)
 let lastAnnouncement = '';
+let isSessionClosedHandled = false;
 async function pollLiveSession() {
   if (!LIVE_SESSION_ID) return;
   try {
-    const res = await fetch(`live-session-api.php?action=status&sessionId=${encodeURIComponent(LIVE_SESSION_ID)}`);
+    const curQ = current + 1;
+    const ansCount = Object.keys(answers).length;
+    const res = await fetch(`live-session-api.php?action=status&sessionId=${encodeURIComponent(LIVE_SESSION_ID)}&currentQ=${curQ}&answered=${ansCount}&attemptId=${ATTEMPT_ID}`);
     if (!res.ok) return;
     const data = await res.json();
-    if (!data.ok) return;
+    if (!data.ok && !data.success) return;
 
-    // Eyes On Me lock
+    // 1. Eyes On Me lock
     const overlay = document.getElementById('eyes-on-me-overlay');
     if (overlay) {
       if (data.isEyesOnMeLocked) {
@@ -207,7 +279,7 @@ async function pollLiveSession() {
       }
     }
 
-    // Announcement message
+    // 2. Announcement message
     const banner = document.getElementById('live-announcement-banner');
     const content = document.getElementById('live-announcement-content');
     if (banner && content) {
@@ -226,9 +298,53 @@ async function pollLiveSession() {
       }
     }
 
-    // Teacher reset student attempt
+    // 3. Boss Fight HUD
+    const bossHud = document.getElementById('student-boss-hud');
+    if (bossHud) {
+      if (data.bossFightActive) {
+        bossHud.classList.remove('hidden');
+        const nameEl = document.getElementById('boss-hud-name');
+        if (nameEl) nameEl.textContent = data.bossName || 'มังกรเพลิงแห่งความรู้ ไครอส';
+        const curHp = data.bossCurrentHp ?? 100;
+        const maxHp = Math.max(1, data.bossMaxHp ?? 100);
+        const hpPct = Math.max(0, Math.min(100, Math.round((curHp / maxHp) * 100)));
+        const hpText = document.getElementById('boss-hud-hp-text');
+        if (hpText) hpText.textContent = `${curHp} / ${maxHp} HP (${hpPct}%)`;
+        const hpBar = document.getElementById('boss-hud-hp-bar');
+        if (hpBar) {
+          hpBar.style.width = `${hpPct}%`;
+          hpBar.className = `h-full rounded-full transition-all duration-500 ${
+            hpPct > 50 ? 'bg-gradient-to-r from-emerald-400 to-teal-400'
+            : hpPct > 20 ? 'bg-gradient-to-r from-amber-400 to-rose-500'
+            : 'bg-gradient-to-r from-rose-600 to-pink-500 animate-pulse'
+          }`;
+        }
+        const badge = document.getElementById('boss-hud-badge');
+        if (badge) {
+          if (data.bossDefeated) {
+            badge.textContent = '🎉 DEFEATED!';
+            badge.className = 'px-2 py-0.5 rounded-full bg-emerald-500 text-white font-black text-[9px] animate-pulse';
+          } else {
+            badge.textContent = 'BOSS FIGHT';
+            badge.className = 'px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[9px] font-extrabold uppercase';
+          }
+        }
+      } else {
+        bossHud.classList.add('hidden');
+      }
+    }
+
+    // 4. Session Closed by Teacher
+    if (data.sessionClosed && !isSessionClosedHandled) {
+      isSessionClosedHandled = true;
+      alert('คุณครูได้สิ้นสุดห้องเรียนสดนี้แล้ว ระบบจะทำการส่งคำตอบของคุณโดยอัตโนมัติ');
+      submitExam(true);
+      return;
+    }
+
+    // 5. Teacher reset student attempt
     if (data.resetAttempt) {
-      alert('ครูผู้สอนได้รีเซ็ตสิทธิ์การทำข้อสอบของคุณ ระบบจะเริ่มทำการรีเฟรชหน้าจอ');
+      alert('ครูผู้สอนได้รีเซ็ตสิทธิ์การทำข้อสอบของคุณ ระบบจะเริ่มทำการรีเฟรชหน้าจอเพื่อเริ่มทำใหม่');
       localStorage.removeItem(STORAGE_KEY);
       location.reload();
       return;

@@ -84,6 +84,8 @@
   let activeModalKey = null;
   let isLockAccordionOpen = false;
   let pollingInterval = null;
+  let bossModalTab = "arena";
+  let selectedBossTheme = "dragon";
 
   const sessionId = new URLSearchParams(window.location.search).get("id") || "";
   const esc = (v) => String(v ?? "").replace(/[&<>'"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[c]));
@@ -564,77 +566,210 @@
 
   function renderBossArenaModal(titleEl, descEl, bodyEl, session) {
     titleEl.textContent = "👾 ศูนย์ควบคุมบอสไฟท์ / จอฉายใหญ่ (Boss Battle Arena)";
-    descEl.textContent = "ใช้สำหรับฉายขึ้นจอโปรเจกเตอร์หน้าห้อง เพื่อสร้างความตื่นเต้น";
+    descEl.textContent = "ใช้สำหรับฉายขึ้นจอโปรเจกเตอร์หน้าห้อง เพื่อสร้างความตื่นเต้นและประลองความรู้";
 
     const curHp = session.bossCurrentHp ?? 100;
     const maxHp = Math.max(1, session.bossMaxHp ?? 100);
     const hpPct = Math.max(0, Math.min(100, Math.round((curHp / maxHp) * 100)));
-    const arch = (sessionData?.bossArchetypes || []).find(a => a.id === session.bossTheme) || { emoji: "🐲", name: "บอส" };
+    const archetypes = sessionData?.bossArchetypes || [];
+    const currentTheme = session.bossTheme || selectedBossTheme || "dragon";
+    const arch = archetypes.find(a => a.id === currentTheme) || { emoji: "🐲", name: "บอส" };
     const logs = session.bossCombatLog || [];
 
     bodyEl.innerHTML = `
       <div class="space-y-4">
-        <!-- Arena Canvas Banner -->
-        <div class="p-6 rounded-3xl bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900 text-white border border-purple-500/40 text-center relative overflow-hidden shadow-2xl">
-          <div class="text-6xl my-3 transform hover:scale-110 transition-transform select-none animate-bounce">
-            ${arch.emoji}
-          </div>
-          <h2 class="text-2xl font-black text-purple-200 tracking-wide">${esc(session.bossName)}</h2>
-          <div class="text-xs text-slate-300 mt-1">เลือดบอสจะลดลงทันทีที่นักเรียนในห้องส่งคำตอบที่ถูกต้อง</div>
-
-          <!-- HP Bar -->
-          <div class="max-w-md mx-auto mt-4 space-y-1.5">
-            <div class="flex justify-between text-xs font-bold font-mono">
-              <span class="text-purple-300">BOSS HEALTH</span>
-              <span>${curHp} / ${maxHp} (${hpPct}%)</span>
-            </div>
-            <div class="w-full h-5 rounded-full bg-slate-950 p-0.5 border border-white/30 overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-500 ${
-                hpPct > 50 ? "bg-gradient-to-r from-emerald-400 to-teal-400" : (hpPct > 20 ? "bg-gradient-to-r from-amber-400 to-rose-500" : "bg-gradient-to-r from-rose-600 to-pink-500 animate-pulse")
-              }" style="width: ${hpPct}%"></div>
-            </div>
-          </div>
-
-          ${session.bossDefeated ? `
-            <div class="mt-4 p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 font-black text-sm animate-pulse">
-              🎉 พิชิตบอสสำเร็จ! ทุกคนได้รับ ${session.bossRewardPoints} พอยต์!
-            </div>
-          ` : ""}
+        <!-- Top Tabs -->
+        <div class="flex items-center gap-2 border-b border-slate-200 pb-2.5">
+          <button type="button" id="tab-boss-arena" class="px-3.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors ${
+            bossModalTab === "arena" ? "bg-purple-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }">
+            <span>🎮</span> สนามประลอง (Arena View)
+          </button>
+          <button type="button" id="tab-boss-config" class="px-3.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors ${
+            bossModalTab === "config" ? "bg-purple-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }">
+            <span>⚙️</span> เลือกมอนสเตอร์ & ตั้งค่า (Boss Config)
+          </button>
         </div>
 
-        <!-- Controls & Combat Log -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-          <!-- Quick Strikes -->
-          <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-            <strong class="block text-slate-900 font-bold">⚔️ คำสั่งครูผู้สอน</strong>
-            <div class="grid grid-cols-2 gap-2">
-              <button type="button" id="btn-teacher-strike" class="p-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer flex items-center justify-center gap-1.5">
-                ⚡ ครูโจมตี (-25 HP)
-              </button>
-              <button type="button" id="btn-reset-boss" class="p-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold cursor-pointer">
-                🔄 รีเซ็ตเลือดบอส
+        ${bossModalTab === "arena" ? `
+          <!-- Arena Canvas Banner -->
+          <div id="boss-arena-fullscreen-wrap" class="p-6 rounded-3xl bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900 text-white border border-purple-500/40 text-center relative overflow-hidden shadow-2xl space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-extrabold uppercase animate-pulse">
+                ${session.bossFightActive ? "⚔️ BATTLE IN PROGRESS" : "💤 ARENA STANDBY"}
+              </span>
+              <button type="button" id="btn-fullscreen-arena" class="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-bold border border-white/20 flex items-center gap-1 cursor-pointer">
+                <span>🖥️</span> ขยายเต็มจอ
               </button>
             </div>
-            <button type="button" id="btn-sound-toggle" class="w-full p-2 rounded-xl border border-slate-300 text-slate-600 font-semibold">
-              🔊 เสียงประกอบ: ${battleSoundEnabled ? "เปิดอยู่" : "ปิด"}
-            </button>
+
+            <div class="text-7xl my-2 transform hover:scale-110 transition-transform select-none animate-bounce">
+              ${arch.emoji}
+            </div>
+            <h2 class="text-2xl font-black text-purple-200 tracking-wide">${esc(session.bossName)}</h2>
+            <div class="text-xs text-slate-300">เลือดบอสจะลดลงทันทีที่นักเรียนตอบถูกในแต่ละข้อ (-10 DMG ต่อข้อ)</div>
+
+            <!-- HP Bar -->
+            <div class="max-w-md mx-auto mt-3 space-y-1.5">
+              <div class="flex justify-between text-xs font-bold font-mono">
+                <span class="text-purple-300">BOSS HEALTH</span>
+                <span>${curHp} / ${maxHp} HP (${hpPct}%)</span>
+              </div>
+              <div class="w-full h-5 rounded-full bg-slate-950 p-0.5 border border-white/30 overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-500 ${
+                  hpPct > 50 ? "bg-gradient-to-r from-emerald-400 to-teal-400" : (hpPct > 20 ? "bg-gradient-to-r from-amber-400 to-rose-500" : "bg-gradient-to-r from-rose-600 to-pink-500 animate-pulse")
+                }" style="width: ${hpPct}%"></div>
+              </div>
+            </div>
+
+            ${session.bossDefeated ? `
+              <div class="mt-4 p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 font-black text-sm animate-pulse">
+                🎉 พิชิตบอสสำเร็จ! ทุกคนได้รับ ${session.bossRewardPoints} พอยต์!
+              </div>
+            ` : ""}
           </div>
 
-          <!-- Live Combat Log -->
-          <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-            <strong class="block text-slate-900 font-bold">📜 ประวัติการทำดาเมจล่าสุด</strong>
-            <div class="h-32 overflow-y-auto space-y-1.5 pr-1 font-mono text-[11px]">
-              ${logs.length ? logs.map(hit => `
-                <div class="p-1.5 rounded-lg bg-white border border-slate-200 flex justify-between">
-                  <span class="font-bold text-indigo-700">${esc(hit.studentName)}</span>
-                  <span class="text-rose-600 font-black">-${hit.damage} DMG</span>
-                </div>
-              `).join("") : '<div class="text-slate-400 text-center py-6">ยังไม่มีการโจมตี</div>'}
+          <!-- Controls & Combat Log -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <!-- Quick Strikes -->
+            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+              <strong class="block text-slate-900 font-bold">⚔️ คำสั่งครูผู้สอน</strong>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" id="btn-teacher-strike" class="p-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer flex items-center justify-center gap-1.5 shadow-sm transition-transform hover:scale-102">
+                  ⚡ ครูโจมตี (-25 HP)
+                </button>
+                <button type="button" id="btn-reset-boss" class="p-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold cursor-pointer transition-colors">
+                  🔄 รีเซ็ตเลือดบอส
+                </button>
+              </div>
+              <button type="button" id="btn-sound-toggle" class="w-full p-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-100 cursor-pointer">
+                🔊 เสียงประกอบ: ${battleSoundEnabled ? "เปิดอยู่" : "ปิด"}
+              </button>
+            </div>
+
+            <!-- Live Combat Log -->
+            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+              <strong class="block text-slate-900 font-bold">📜 ประวัติการทำดาเมจล่าสุด</strong>
+              <div class="h-32 overflow-y-auto space-y-1.5 pr-1 font-mono text-[11px]">
+                ${logs.length ? logs.map(hit => `
+                  <div class="p-1.5 rounded-lg bg-white border border-slate-200 flex justify-between items-center">
+                    <span class="font-bold text-indigo-700 truncate">${esc(hit.studentName)}</span>
+                    <span class="text-rose-600 font-black shrink-0">-${hit.damage} DMG</span>
+                  </div>
+                `).join("") : '<div class="text-slate-400 text-center py-6">ยังไม่มีการโจมตี</div>'}
+              </div>
             </div>
           </div>
-        </div>
+        ` : `
+          <!-- Boss Config Tab -->
+          <div class="space-y-4 text-xs">
+            <div>
+              <label class="block font-bold text-slate-700 mb-2">เลือกมอนสเตอร์ / ธีมบอสประจำห้อง</label>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                ${archetypes.map(a => `
+                  <button type="button" data-pick-archetype="${esc(a.id)}" data-archetype-name="${esc(a.name)}" class="p-3 rounded-2xl border-2 text-left cursor-pointer transition-all ${
+                    selectedBossTheme === a.id ? "border-purple-600 bg-purple-50 shadow-xs" : "border-slate-200 hover:border-slate-300 bg-white"
+                  }">
+                    <div class="text-2xl mb-1">${a.emoji}</div>
+                    <strong class="block text-slate-900 text-xs font-black truncate">${esc(a.name)}</strong>
+                    <span class="text-[10px] text-slate-500 line-clamp-2 mt-0.5">${esc(a.description)}</span>
+                  </button>
+                `).join("")}
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">ชื่อบอส</label>
+                <input id="cfg-boss-name" type="text" value="${esc(session.bossName || arch.name)}" class="w-full h-10 px-3 rounded-xl border border-slate-300 outline-none focus:border-purple-500 font-semibold text-xs">
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">พลังชีวิตสูงสุด (HP)</label>
+                <input id="cfg-boss-hp" type="number" min="10" max="10000" value="${maxHp}" class="w-full h-10 px-3 rounded-xl border border-slate-300 outline-none focus:border-purple-500 font-semibold text-xs">
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">พอยต์รางวัล (NC Points)</label>
+                <input id="cfg-boss-reward" type="number" min="0" max="1000" value="${session.bossRewardPoints ?? 50}" class="w-full h-10 px-3 rounded-xl border border-slate-300 outline-none focus:border-purple-500 font-semibold text-xs">
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button type="button" id="btn-save-boss-config" class="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-transform hover:scale-102">
+                🚀 บันทึกและเริ่มบอสใหม่
+              </button>
+            </div>
+          </div>
+        `}
       </div>
     `;
+
+    // Tab button events
+    const tabArena = document.getElementById("tab-boss-arena");
+    const tabConfig = document.getElementById("tab-boss-config");
+    if (tabArena) tabArena.onclick = () => { bossModalTab = "arena"; renderBossArenaModal(titleEl, descEl, bodyEl, session); };
+    if (tabConfig) tabConfig.onclick = () => { bossModalTab = "config"; renderBossArenaModal(titleEl, descEl, bodyEl, session); };
+
+    // Fullscreen Arena
+    const fsBtn = document.getElementById("btn-fullscreen-arena");
+    if (fsBtn) {
+      fsBtn.onclick = () => {
+        const wrap = document.getElementById("boss-arena-fullscreen-wrap");
+        if (wrap) {
+          if (!document.fullscreenElement) {
+            wrap.requestFullscreen().catch(() => {});
+          } else {
+            document.exitFullscreen().catch(() => {});
+          }
+        }
+      };
+    }
+
+    // Archetype Pick
+    bodyEl.querySelectorAll("[data-pick-archetype]").forEach(btn => {
+      btn.onclick = () => {
+        selectedBossTheme = btn.dataset.pickArchetype;
+        const nameInput = document.getElementById("cfg-boss-name");
+        if (nameInput && btn.dataset.archetypeName) {
+          nameInput.value = btn.dataset.archetypeName;
+        }
+        renderBossArenaModal(titleEl, descEl, bodyEl, session);
+      };
+    });
+
+    // Save Boss Config
+    const saveCfgBtn = document.getElementById("btn-save-boss-config");
+    if (saveCfgBtn) {
+      saveCfgBtn.onclick = async () => {
+        const nameInput = document.getElementById("cfg-boss-name");
+        const hpInput = document.getElementById("cfg-boss-hp");
+        const rewInput = document.getElementById("cfg-boss-reward");
+        const bName = nameInput ? nameInput.value.trim() : "";
+        const bHp = hpInput ? parseInt(hpInput.value, 10) : 100;
+        const bRew = rewInput ? parseInt(rewInput.value, 10) : 50;
+
+        saveCfgBtn.disabled = true;
+        saveCfgBtn.textContent = "กำลังบันทึก...";
+        try {
+          await api(`live-sessions-api.php?action=setup_boss&sessionId=${encodeURIComponent(sessionId)}`, {
+            method: "POST",
+            body: JSON.stringify({
+              bossTheme: selectedBossTheme,
+              bossName: bName,
+              bossMaxHp: bHp,
+              bossRewardPoints: bRew,
+            }),
+          });
+          bossModalTab = "arena";
+          playBattleSound("alert");
+          loadSessionData(true);
+        } catch (e) {
+          alert(e.message);
+        } finally {
+          saveCfgBtn.disabled = false;
+        }
+      };
+    }
 
     const strikeBtn = document.getElementById("btn-teacher-strike");
     if (strikeBtn) {

@@ -50,9 +50,27 @@ if (!array_key_exists((int)$selectedAnswer, $options)) {
 }
 
 $correctAnswer = (int)$question['correct_answer'];
+$isCorrect = (int)$selectedAnswer === $correctAnswer;
+
+try {
+    $stmtAns = $pdo->prepare(
+        'INSERT INTO test_answers (attempt_id, question_id, selected_answer, is_correct)
+         VALUES (:att_id, :q_id, :ans, :correct)
+         ON DUPLICATE KEY UPDATE selected_answer = VALUES(selected_answer), is_correct = VALUES(is_correct)'
+    );
+    $stmtAns->execute([
+        ':att_id' => $attemptId,
+        ':q_id'   => $questionId,
+        ':ans'    => $selectedAnswer,
+        ':correct'=> $isCorrect ? 1 : 0,
+    ]);
+} catch (\Throwable $e) {
+    // continue safely
+}
+
 echo json_encode([
     'ok' => true,
-    'isCorrect' => (int)$selectedAnswer === $correctAnswer,
+    'isCorrect' => $isCorrect,
     'correctAnswer' => $correctAnswer,
     'explanation' => (string)($question['explanation'] ?? ''),
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

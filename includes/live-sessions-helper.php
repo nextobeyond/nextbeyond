@@ -50,6 +50,8 @@ function ensureLiveSessionSchema(PDO $pdo): void
             `student_id` INT NOT NULL,
             `attempt_id` BIGINT UNSIGNED NULL,
             `status` ENUM('joined','in_progress','submitted') NOT NULL DEFAULT 'joined',
+            `current_question` INT NOT NULL DEFAULT 1,
+            `answered_count` INT NOT NULL DEFAULT 0,
             `joined_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY `uq_session_student` (`session_id`, `student_id`),
@@ -57,6 +59,22 @@ function ensureLiveSessionSchema(PDO $pdo): void
             INDEX `idx_sp_student` (`student_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
+
+    // Dynamic schema upgrade for existing tables
+    try {
+        $cols = [];
+        foreach ($pdo->query("SHOW COLUMNS FROM session_participants")->fetchAll() as $c) {
+            $cols[(string) $c['Field']] = true;
+        }
+        if (!isset($cols['current_question'])) {
+            $pdo->exec("ALTER TABLE `session_participants` ADD COLUMN `current_question` INT NOT NULL DEFAULT 1 AFTER `status`");
+        }
+        if (!isset($cols['answered_count'])) {
+            $pdo->exec("ALTER TABLE `session_participants` ADD COLUMN `answered_count` INT NOT NULL DEFAULT 0 AFTER `current_question`");
+        }
+    } catch (Throwable $e) {
+        // Silently continue if permissions or already upgraded
+    }
 }
 
 function getBossArchetypes(): array
@@ -132,9 +150,9 @@ function getBossArchetype(?string $theme): array
 
 function generateSessionPin(PDO $pdo): string
 {
-    for ($i = 0; $i < 20; $i++) {
+    for ($i = 0; $i < 30; $i++) {
         $pin = (string) random_int(100000, 999999);
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM classroom_sessions WHERE session_pin = :pin AND status = 'active'");
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM classroom_sessions WHERE session_pin = :pin");
         $stmt->execute([':pin' => $pin]);
         if ((int) $stmt->fetchColumn() === 0) {
             return $pin;
@@ -146,10 +164,28 @@ function generateSessionPin(PDO $pdo): string
 function closeOtherActiveSessions(PDO $pdo, int $teacherId, string $exceptSessionId = ''): void
 {
     if ($exceptSessionId !== '') {
-        $stmt = $pdo->prepare("UPDATE classroom_sessions SET status = 'closed', ended_at = NOW() WHERE teacher_id = :tid AND status = 'active' AND id != :exceptId");
+        $stmt = $pdo->prepare("UPDATE classroom_sessions SET status = 'closed', ended_at = CURRENT_TIMESTAMP WHERE teacher_id = :tid AND status = 'active' AND id != :exceptId");
         $stmt->execute([':tid' => $teacherId, ':exceptId' => $exceptSessionId]);
     } else {
-        $stmt = $pdo->prepare("UPDATE classroom_sessions SET status = 'closed', ended_at = NOW() WHERE teacher_id = :tid AND status = 'active'");
+        $stmt = $pdo->prepare("UPDATE classroom_sessions SET status = 'closed', ended_at = CURRENT_TIMESTAMP WHERE teacher_id = :tid AND status = 'active'");
         $stmt->execute([':tid' => $teacherId]);
     }
 }
+
+function awardBossDefeatPoints(PDO $pdo, string $sessionId, int $rewardPoints): void
+{
+    if ($rewardPoints <= 0) return;
+    try {
+        $stmt = $pdo->prepare("SELECT student_id FROM session_participants WHERE session_id = :sid");
+        $stmt->execute([':sid' => $sessionId]);
+        $students = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        $stmtTx = $pdo->prepare("INSERT INTO nc_point_transactions (user_id, task_id, roadmap_id, points, transaction_type, reason, created_at) VALUES (?, NULL, NULL, ?, 'earn', ?, CURRENT_TIMESTAMP)");
+        foreach ($students as $uid) {
+            $stmtTx->execute([(int) $uid, $rewardPoints, 'พิชิตบอสห้องเรียนสด #' . $sessionId]);
+        }
+    } catch (Throwable $e) {
+        error_log('Award boss defeat points error: ' . $e->getMessage());
+    }
+}
+

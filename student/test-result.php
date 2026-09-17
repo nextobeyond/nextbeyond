@@ -34,6 +34,7 @@ foreach ($questions as $question) {
     if ($question['is_correct']) $skillStats[$skill]['correct']++;
 }
 $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
+$sessionId = trim((string)($_GET['sessionId'] ?? ''));
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -50,13 +51,25 @@ $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
     <?php include 'includes/topbar.php'; ?>
 <main class="result-wrap">
   <section class="result-hero">
+    <?php if ($sessionId !== ''): ?>
+      <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;background:rgba(231,45,130,0.15);color:#ff8dc7;font-size:11px;font-weight:800;margin-bottom:12px">
+        🔴 แบบทดสอบห้องเรียนสด (Live Session)
+      </div>
+    <?php endif; ?>
     <span class="exam-kicker"><?= htmlspecialchars($grade) ?></span>
     <h1><?= htmlspecialchars($attempt['title']) ?></h1>
     <p class="result-meta"><?= htmlspecialchars($attempt['subject'] ?: 'ทั่วไป') ?> · ส่งเมื่อ <?= date('d/m/Y H:i', strtotime((string)$attempt['completed_at'])) ?></p>
     <div class="result-score"><?= $correctCount ?> <small style="font-size:34px;color:#8794aa">/ <?= $total ?></small></div>
     <div style="font-weight:800;color:#dfe5f0">คิดเป็น <span style="color:#8b85ff"><?= $score ?>%</span></div>
     <?php if ($attempt['time_spent_seconds']): ?><p class="result-meta" style="margin-top:8px">ใช้เวลา <?= gmdate('H:i:s', (int)$attempt['time_spent_seconds']) ?></p><?php endif; ?>
-    <div class="result-actions"><a class="secondary-btn" href="tests.php" style="display:inline-flex;align-items:center;text-decoration:none">← กลับหน้ารายการข้อสอบ</a><a class="exam-action" href="take-test.php?id=<?= (int)$attempt['exam_id'] ?>">↻ สอบใหม่อีกครั้ง</a></div>
+    <div class="result-actions">
+      <?php if ($sessionId !== ''): ?>
+        <a class="secondary-btn" href="live-session.php" style="display:inline-flex;align-items:center;text-decoration:none">← กลับหน้าห้องเรียนสด</a>
+      <?php else: ?>
+        <a class="secondary-btn" href="tests.php" style="display:inline-flex;align-items:center;text-decoration:none">← กลับหน้ารายการข้อสอบ</a>
+      <?php endif; ?>
+      <a class="exam-action" href="take-test.php?id=<?= (int)$attempt['exam_id'] ?><?= $sessionId !== '' ? '&sessionId=' . urlencode($sessionId) : '' ?>">↻ สอบใหม่อีกครั้ง</a>
+    </div>
   </section>
 
   <?php if ($skillStats): ?>

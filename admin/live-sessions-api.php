@@ -35,7 +35,7 @@ try {
         $sessionId = trim((string) ($_GET['sessionId'] ?? ''));
 
         if ($sessionId !== '') {
-            $stmt = $pdo->prepare("SELECT s.*, CONCAT_WS(' ', u.first_name, u.last_name) AS teacher_name, e.title AS exam_title, e.subject AS exam_subject FROM classroom_sessions s JOIN users u ON u.id = s.teacher_id LEFT JOIN exams e ON e.id = s.exam_id WHERE s.id = :id LIMIT 1");
+            $stmt = $pdo->prepare("SELECT s.*, COALESCE(CONCAT_WS(' ', u.first_name, u.last_name), 'คุณครู') AS teacher_name, e.title AS exam_title, e.subject AS exam_subject FROM classroom_sessions s LEFT JOIN users u ON u.id = s.teacher_id LEFT JOIN exams e ON e.id = s.exam_id WHERE s.id = :id LIMIT 1");
             $stmt->execute([':id' => $sessionId]);
             $session = $stmt->fetch();
 
@@ -80,7 +80,7 @@ try {
             $stmtP = $pdo->prepare("
                 SELECT sp.*, u.first_name, u.last_name, u.email, u.avatar_url,
                        ta.score, ta.correct_count, ta.total_questions, ta.completed_at, ta.started_at,
-                       (SELECT COUNT(*) FROM test_answers WHERE attempt_id = ta.id) AS answered_count
+                       (SELECT COUNT(*) FROM test_answers WHERE attempt_id = ta.id) AS db_answers_count
                 FROM session_participants sp
                 JOIN users u ON u.id = sp.student_id
                 LEFT JOIN test_attempts ta ON ta.id = sp.attempt_id
@@ -98,12 +98,14 @@ try {
                 $stId = (string) $p['student_id'];
                 $isLocked = $eyesOnMeEnabled || in_array($stId, $lockedStudentIds, true);
                 $isSubmitted = !empty($p['completed_at']) || $p['status'] === 'submitted';
-                $answered = (int) ($p['answered_count'] ?? 0);
+                $dbAnswers = (int) ($p['db_answers_count'] ?? 0);
+                $partAnswers = (int) ($p['answered_count'] ?? 0);
+                $answered = max($dbAnswers, $partAnswers);
                 $tot = $totalQuestions > 0 ? $totalQuestions : max(1, (int) ($p['total_questions'] ?? 0));
                 $progressPct = $tot > 0 ? min(100, round(($answered / $tot) * 100)) : 0;
-                $curQ = min($tot, $answered + 1);
+                $curQ = max(1, min($tot, (int) ($p['current_question'] ?? ($answered + 1))));
 
-                $sessionStatus = $isSubmitted ? 'submitted' : ($answered > 0 ? 'in_progress' : 'joined');
+                $sessionStatus = $isSubmitted ? 'submitted' : (($answered > 0 || $curQ > 1 || !empty($p['attempt_id'])) ? 'in_progress' : 'joined');
                 $scorePct = $p['score'] !== null ? (float) $p['score'] : null;
 
                 $students[] = [
@@ -323,6 +325,10 @@ try {
                     ':id' => $sessionId,
                 ]);
 
+                if ($isDefeated && empty($ses['boss_defeated'])) {
+                    awardBossDefeatPoints($pdo, $sessionId, (int) ($ses['boss_reward_points'] ?? 50));
+                }
+
                 liveSessionRespond([
                     'success' => true,
                     'damageDealt' => $damage,
@@ -472,8 +478,17 @@ try {
         }
 
         if (array_key_exists('bossCurrentHp', $body)) {
+            $newHp = max(0, (int) $body['bossCurrentHp']);
             $fields[] = 'boss_current_hp = :bchp';
-            $params[':bchp'] = max(0, (int) $body['bossCurrentHp']);
+            $params[':bchp'] = $newHp;
+            if ($newHp === 0) {
+                $fields[] = 'boss_defeated = 1';
+            }
+        }
+
+        if (array_key_exists('bossDefeated', $body)) {
+            $fields[] = 'boss_defeated = :bdef';
+            $params[':bdef'] = !empty($body['bossDefeated']) ? 1 : 0;
         }
 
         if (array_key_exists('bossMaxHp', $body)) {
@@ -499,6 +514,13 @@ try {
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
 
+        if ((isset($newHp) && $newHp === 0) || !empty($body['bossDefeated'])) {
+            $stmtDef = $pdo->prepare("SELECT boss_reward_points FROM classroom_sessions WHERE id = :id");
+            $stmtDef->execute([':id' => $sessionId]);
+            $rPoints = (int) ($stmtDef->fetchColumn() ?: 50);
+            awardBossDefeatPoints($pdo, $sessionId, $rPoints);
+        }
+
         liveSessionRespond(['success' => true]);
     }
 
@@ -508,7 +530,10 @@ try {
     if ($method === 'DELETE') {
         $action = trim((string) ($_GET['action'] ?? ''));
         if ($action === 'delete_all_closed') {
+            $pdo->beginTransaction();
+            $pdo->prepare("DELETE sp FROM session_participants sp JOIN classroom_sessions cs ON cs.id = sp.session_id WHERE cs.status = 'closed' AND cs.teacher_id = :tid")->execute([':tid' => $currentUserId]);
             $pdo->prepare("DELETE FROM classroom_sessions WHERE status = 'closed' AND teacher_id = :tid")->execute([':tid' => $currentUserId]);
+            $pdo->commit();
             liveSessionRespond(['success' => true]);
         }
 

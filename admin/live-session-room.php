@@ -321,7 +321,7 @@ $currentPage = 'live-sessions.php';
 
 <!-- MODAL OVERLAY -->
 <div id="live-modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-  <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[85vh] flex flex-col my-auto">
+  <div class="bg-white rounded-3xl max-w-2xl sm:max-w-3xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[88vh] flex flex-col my-auto">
     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
       <div>
         <h3 id="modal-header-title" class="text-base font-bold text-slate-900">ชื่อ Modal</h3>
