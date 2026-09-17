@@ -27,7 +27,18 @@ try {
     ];
     $pdo = new PDO($dsn, ADMIN_DB_USER, ADMIN_DB_PASS, $options);
 } catch (PDOException $e) {
-    error_log('Database connection failed: ' . $e->getMessage());
+    // If database 'nextbeyond' does not exist, attempt fallback to imported database 'u292923614_nextbeyond_M'
+    if ((str_contains($e->getMessage(), '1049') || (int)$e->getCode() === 1049) && ADMIN_DB_NAME === 'nextbeyond') {
+        try {
+            $fallbackDsn = str_replace(';dbname=nextbeyond', ';dbname=u292923614_nextbeyond_M', $dsn);
+            $pdo = new PDO($fallbackDsn, ADMIN_DB_USER, ADMIN_DB_PASS, $options);
+        } catch (PDOException $e2) {
+            $e = $e2;
+        }
+    }
+
+    if (!isset($pdo)) {
+        error_log('Database connection failed: ' . $e->getMessage());
 
     $requestPath = (string) ($_SERVER['REQUEST_URI'] ?? '');
     $accept = (string) ($_SERVER['HTTP_ACCEPT'] ?? '');
@@ -45,4 +56,5 @@ try {
 
     http_response_code(503);
     die('Database service is temporarily unavailable.');
+    }
 }
