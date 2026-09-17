@@ -6,6 +6,7 @@ node_modules/
 .env.*
 !.env.example
 includes/db.local.php
+includes/ai-key.php
 
 # Runtime and editor files
 *.log

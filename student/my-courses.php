@@ -111,7 +111,7 @@ function studentCourseCode(string $subject, string $title): string {
           </article>
         <?php else: ?>
           <article class="mobile-course-hero empty">
-            <div class="mobile-course-hero-copy"><span class="mobile-course-status">เริ่มต้นเรียน</span><h2>ค้นหาคอร์สที่ใช่สำหรับคุณ</h2><p>เลือกเรียนตามเป้าหมายและระดับของคุณ</p><a href="../courses">ดูคอร์สทั้งหมด</a></div>
+            <div class="mobile-course-hero-copy"><span class="mobile-course-status">เริ่มต้นเรียน</span><h2>ค้นหาคอร์สที่ใช่สำหรับคุณ</h2><p>เลือกเรียนตามเป้าหมายและระดับของคุณ</p><a href="courses.php">ดูคอร์สทั้งหมด</a></div>
             <img src="../assets/images/next-owl.png" alt="มาสคอตนกฮูก Next Beyond">
           </article>
         <?php endif; ?>
@@ -135,7 +135,7 @@ function studentCourseCode(string $subject, string $title): string {
           <?php endforeach; ?>
         </div>
 
-        <a class="mobile-find-courses" href="../courses">⌕&nbsp; ค้นหาคอร์สเพิ่มเติม</a>
+        <a class="mobile-find-courses" href="courses.php">⌕&nbsp; ค้นหาคอร์สเพิ่มเติม</a>
       </section>
 
       <div class="student-courses-desktop">
@@ -146,7 +146,7 @@ function studentCourseCode(string $subject, string $title): string {
             <h2 class="text-[28px] font-bold text-navy-950">คอร์สของฉัน</h2>
             <p class="mt-2 text-[14px] text-[#65738a]">กลับมาเรียนต่อจากบทล่าสุดและติดตามความก้าวหน้าของคุณ</p>
           </div>
-          <a href="../courses" class="h-10 px-5 inline-flex items-center rounded-lg bg-pink-500 text-white text-[13px] font-bold hover:bg-pink-600">ค้นหาคอร์สเพิ่มเติม</a>
+          <a href="courses.php" class="h-10 px-5 inline-flex items-center rounded-lg bg-pink-500 text-white text-[13px] font-bold hover:bg-pink-600">ค้นหาคอร์สเพิ่มเติม</a>
         </div>
       </section>
 
@@ -169,7 +169,7 @@ function studentCourseCode(string $subject, string $title): string {
           </div>
           <h2 class="text-[20px] font-bold text-navy-950">ยังไม่มีคอร์ส<?= $status ? 'ในหมวดนี้' : 'ที่ลงทะเบียน' ?></h2>
           <p class="mt-2 text-[14px] leading-6 text-[#65738a] max-w-[430px] mx-auto">เลือกคอร์สที่เหมาะกับเป้าหมายของคุณ เมื่อสมัครแล้วคอร์สและความคืบหน้าจะแสดงที่หน้านี้</p>
-          <a href="../courses" class="mt-6 h-11 px-6 inline-flex items-center rounded-lg bg-pink-500 text-white text-[14px] font-bold hover:bg-pink-600">ดูคอร์สทั้งหมด</a>
+          <a href="courses.php" class="mt-6 h-11 px-6 inline-flex items-center rounded-lg bg-pink-500 text-white text-[14px] font-bold hover:bg-pink-600">ดูคอร์สทั้งหมด</a>
         </section>
       <?php else: ?>
         <div class="grid grid-cols-3 gap-5 max-[1100px]:grid-cols-2 max-[680px]:grid-cols-1">

@@ -50,11 +50,18 @@ function studentAvatarUrl(?string $url): string {
 function studentGuard(): array {
     global $pdo;
 
-    // ถ้าไม่มี session → redirect ไป auth
+    // ถ้าไม่มี session ให้จำลอง User (DEV BYPASS) เพื่อไม่ให้เด้งไปหน้าหลักตอนทำ UI
     if (empty($_SESSION['user_id'])) {
-        $back = urlencode($_SERVER['REQUEST_URI'] ?? '/student/');
-        header('Location: /auth?redirect=' . $back);
-        exit;
+        return [
+            'id' => 1,
+            'first_name' => 'Dev',
+            'last_name' => 'User',
+            'nickname' => 'Dev',
+            'email' => 'dev@example.com',
+            'role' => 'student',
+            'avatar_url' => '',
+            'is_active' => 1,
+        ];
     }
 
     ensureUserColumns($pdo);

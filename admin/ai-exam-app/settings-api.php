@@ -9,6 +9,6 @@ try{
   echo json_encode(['configured'=>$savedKey!=='','maskedKey'=>$maskedKey],JSON_UNESCAPED_UNICODE);
   exit;
  }
- if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){$d=json_decode(file_get_contents('php://input'),true);$key=trim((string)($d['apiKey']??''));if($key===''){http_response_code(422);echo json_encode(['error'=>'กรุณากรอก API Key']);exit;}aiSettingsEnsure($pdo);$q=$pdo->prepare("INSERT INTO system_settings(setting_key,setting_value) VALUES('gemini_api_key',:value) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)");$q->execute([':value'=>aiSettingsEncrypt($key)]);echo json_encode(['success'=>true,'configured'=>true]);exit;}
+ if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){$d=json_decode(file_get_contents('php://input'),true);$key=trim((string)($d['apiKey']??''));if($key===''){http_response_code(422);echo json_encode(['error'=>'กรุณากรอก API Key']);exit;}aiSettingsSetKey($key);echo json_encode(['success'=>true,'configured'=>true]);exit;}
  http_response_code(405);echo json_encode(['error'=>'Method not allowed']);
 }catch(Throwable $e){error_log('AI settings: '.$e->getMessage());http_response_code(500);echo json_encode(['error'=>'บันทึก API Key ลงฐานข้อมูลไม่สำเร็จ']);}
