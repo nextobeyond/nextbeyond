@@ -83,6 +83,7 @@ $currentActiveSession = $stmtActive->fetch();
                 required
                 autocomplete="off"
                 placeholder="000000"
+                value="<?= htmlspecialchars(preg_replace('/[^\d]/', '', (string)($_GET['pin'] ?? ''))) ?>"
                 class="w-full text-center text-3xl font-mono font-black tracking-widest h-16 rounded-2xl border-2 border-slate-200 outline-none focus:border-pink-500 text-navy-950 transition-colors"
                 autofocus
               >
@@ -107,10 +108,10 @@ $currentActiveSession = $stmtActive->fetch();
               </div>
             </div>
             <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2 text-left">
-              <span class="text-base">👾</span>
+              <span class="text-base">📊</span>
               <div>
-                <strong class="block text-slate-800">Boss Fight</strong>
-                <span>ตอบถูกลดเลือดบอส</span>
+                <strong class="block text-slate-800">Real-Time Quiz</strong>
+                <span>ทำข้อสอบและตรวจผลสด</span>
               </div>
             </div>
           </div>

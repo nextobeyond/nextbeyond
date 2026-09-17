@@ -12,3 +12,8 @@ includes/db.local.php
 tmp/
 .idea/
 .vscode/
+
+# Uploaded user assets
+assets/uploads/avatars/*
+!assets/uploads/avatars/.gitkeep
+
