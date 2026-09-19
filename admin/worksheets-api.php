@@ -664,13 +664,14 @@ try {
                 $diff = trim((string) ($q['difficulty'] ?? $difficulty));
                 $lo = trim((string) ($q['learning_objective'] ?? $q['learningObjective'] ?? ''));
 
+                $sourceQId = !empty($q['source_question_id']) ? (int) $q['source_question_id'] : (!empty($q['sourceQuestionId']) ? (int) $q['sourceQuestionId'] : null);
                 $insQ = $pdo->prepare("
                     INSERT INTO worksheet_questions (
                         worksheet_id, sort_order, question_type, question_text,
-                        options, correct_answer, explanation, hint, skill, difficulty, learning_objective
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        options, correct_answer, explanation, hint, skill, difficulty, learning_objective, source_question_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
-                $insQ->execute([$id, $order++, $qType, $qText, $options, $ans, $exp, $hint, $skill, $diff, $lo]);
+                $insQ->execute([$id, $order++, $qType, $qText, $options, $ans, $exp, $hint, $skill, $diff, $lo, $sourceQId]);
             }
             $pdo->prepare("UPDATE worksheets SET question_count = ? WHERE id = ?")->execute([$order - 1, $id]);
         }
