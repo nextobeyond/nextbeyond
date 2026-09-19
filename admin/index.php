@@ -39,6 +39,7 @@ function dashboardIcon(string $name, string $class = 'w-5 h-5'): string
         'calendar' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
         'arrow' => '<path d="M5 12h14M13 6l6 6-6 6"/>',
         'clock' => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        'files' => '<path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/>',
     ];
     return '<svg class="' . $class . '" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($paths[$name] ?? '') . '</svg>';
 }
@@ -93,6 +94,11 @@ if ($enrolledStudents > 0) {
 }
 $courseGradient = $gradientParts ? 'conic-gradient(' . implode(', ', $gradientParts) . ')' : '#e8ecf2';
 
+$recentWorksheets = [];
+try {
+    $recentWorksheets = dashboardRows($pdo, "SELECT id, title, subject, level, updated_at FROM worksheets WHERE status != 'archived' ORDER BY updated_at DESC LIMIT 4");
+} catch (PDOException) {}
+
 function dashboardChange(float $current, float $previous): array
 {
     if ($previous <= 0) return ['text' => $current > 0 ? 'เริ่มมีข้อมูลเดือนนี้' : 'ยังไม่มีข้อมูลเดือนนี้', 'positive' => $current > 0];
@@ -118,7 +124,34 @@ $studentChange = dashboardChange($newStudents, $previousNewStudents);
   <div class="flex-1 flex flex-col min-w-0 ml-[240px] max-[1024px]:ml-0">
     <?php include 'includes/topbar.php'; ?>
     <main class="flex-1 p-6 max-[640px]:p-4">
-      <div class="flex items-center justify-end gap-2 text-[12px] text-[#7890b4] mb-3"><span>อัปเดตล่าสุด <?= htmlspecialchars($now->format('d/m/Y H:i'), ENT_QUOTES, 'UTF-8') ?> น.</span><span class="text-primary-500"><?= dashboardIcon('clock', 'w-4 h-4') ?></span></div>
+      <!-- QUICK ACTIONS (Section 22) -->
+      <div class="bg-white rounded-[14px] border border-[#e6edf5] p-3 shadow-[0_4px_16px_rgba(15,42,83,.03)] mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] font-black text-navy-950 uppercase tracking-wider flex items-center gap-1.5 pl-1">
+            <span class="w-2 h-2 rounded-full bg-pink-500"></span>
+            QUICK ACTIONS
+          </span>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <a href="ai-worksheet.php" class="h-8 px-3 rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-600 font-bold text-[12px] transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span>+ สร้างใบงาน AI</span>
+          </a>
+          <a href="worksheets.php" class="h-8 px-3 rounded-lg bg-[#f4f7fb] hover:bg-slate-100 text-navy-900 font-bold text-[12px] transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-[#64748b]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <span>ค้นหาคลังใบงาน</span>
+          </a>
+          <a href="ai-exam-app/" class="h-8 px-3 rounded-lg bg-[#f4f7fb] hover:bg-slate-100 text-navy-900 font-bold text-[12px] transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/></svg>
+            <span>สร้างข้อสอบ AI</span>
+          </a>
+          <a href="courses.php" class="h-8 px-3 rounded-lg bg-[#f4f7fb] hover:bg-slate-100 text-navy-900 font-bold text-[12px] transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <span>เพิ่มคอร์ส</span>
+          </a>
+        </div>
+      </div>
+
       <section class="grid grid-cols-4 gap-4 mb-4 max-[1280px]:grid-cols-2 max-[640px]:grid-cols-1" aria-label="สรุปข้อมูลสำคัญ">
         <?php
         $summaryCards = [
@@ -238,6 +271,37 @@ $studentChange = dashboardChange($newStudents, $previousNewStudents);
           <?php if ($enrolledStudents > 0): ?><div class="p-5 flex items-center gap-5"><div class="relative shrink-0 w-[132px] h-[132px] rounded-full" style="background: <?= htmlspecialchars($courseGradient, ENT_QUOTES, 'UTF-8') ?>"><div class="absolute inset-[27px] rounded-full bg-white flex flex-col items-center justify-center"><strong class="text-[23px] font-black leading-none"><?= number_format($enrolledStudents) ?></strong><small class="text-[10px] text-[#7890b4] mt-1">ผู้เรียนทั้งหมด</small></div></div><ul class="min-w-0 flex-1 space-y-2"><?php foreach ($courseGroups as $index => $group): ?><li class="flex items-center gap-2 text-[12px]"><span class="w-2.5 h-2.5 rounded-full shrink-0" style="background: <?= $colors[$index] ?>"></span><span class="text-[#526b72] truncate flex-1"><?= htmlspecialchars((string)$group['label'], ENT_QUOTES, 'UTF-8') ?></span><strong><?= number_format(((int)$group['total'] / $enrolledStudents) * 100, 0) ?>%</strong></li><?php endforeach; ?></ul></div><?php else: ?><div class="h-[210px] flex flex-col items-center justify-center text-center px-5"><span class="w-10 h-10 rounded-full bg-[#f1f5fa] text-[#8ba0bd] flex items-center justify-center mb-3"><?= dashboardIcon('users') ?></span><p class="font-bold text-[#526b72]">ยังไม่มีผู้เรียนที่ลงทะเบียนคอร์ส</p><p class="text-[12px] text-[#8ba0bd] mt-1">สัดส่วนจะแสดงจากการลงทะเบียนจริง</p></div><?php endif; ?>
         </section>
       </div>
+
+      <!-- RECENT WORKSHEETS MODULE (Section 23) -->
+      <?php if (!empty($recentWorksheets)): ?>
+        <section class="mt-4 bg-white rounded-[14px] border border-[#e6edf5] shadow-[0_8px_22px_rgba(15,42,83,.035)] p-5">
+          <div class="flex items-center justify-between mb-3 pb-2.5 border-b border-[#edf1f6]">
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center">
+                <?= dashboardIcon('files', 'w-4 h-4') ?>
+              </span>
+              <h2 class="text-[16px] font-black text-navy-950">ใบงานล่าสุด</h2>
+            </div>
+            <a href="worksheets.php" class="text-[12px] font-bold text-pink-500 hover:text-pink-600 flex items-center gap-1">
+              <span>ดูทั้งหมด</span>
+              <span><?= dashboardIcon('arrow', 'inline w-3.5 h-3.5') ?></span>
+            </a>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <?php foreach ($recentWorksheets as $rw): ?>
+              <a href="worksheet-detail.php?id=<?= (int)$rw['id'] ?>" class="group block p-3.5 rounded-xl border border-[#e8ecf2] hover:border-pink-300 hover:bg-[#fafcff] transition">
+                <div class="text-[13px] font-bold text-navy-950 truncate group-hover:text-pink-600 transition-colors">
+                  <?= htmlspecialchars((string)$rw['title'], ENT_QUOTES, 'UTF-8') ?>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-[#7890b4] mt-1.5">
+                  <span class="font-medium text-[#64748b]"><?= htmlspecialchars((string)$rw['subject'], ENT_QUOTES, 'UTF-8') ?> • <?= htmlspecialchars((string)$rw['level'], ENT_QUOTES, 'UTF-8') ?></span>
+                  <span><?= htmlspecialchars((new DateTimeImmutable((string)$rw['updated_at']))->format('d/m H:i'), ENT_QUOTES, 'UTF-8') ?></span>
+                </div>
+              </a>
+            <?php endforeach; ?>
+          </div>
+        </section>
+      <?php endif; ?>
     </main>
   </div>
 </div>

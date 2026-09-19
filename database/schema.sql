@@ -265,3 +265,76 @@ CREATE TABLE IF NOT EXISTS `system_settings` (
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`setting_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 8. Worksheet Library System ("คลังใบงาน")
+CREATE TABLE IF NOT EXISTS `worksheet_folders` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(100) NOT NULL,
+    `creator_id` INT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `worksheets` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `title` VARCHAR(255) NOT NULL,
+    `description` TEXT NULL,
+    `subject` VARCHAR(100) NOT NULL,
+    `level` VARCHAR(50) NOT NULL,
+    `chapter` VARCHAR(150) NULL,
+    `topic` VARCHAR(150) NULL,
+    `subtopic` VARCHAR(150) NULL,
+    `worksheet_type` VARCHAR(50) NOT NULL DEFAULT 'Worksheet',
+    `difficulty` VARCHAR(50) NOT NULL DEFAULT 'medium',
+    `question_count` INT NOT NULL DEFAULT 0,
+    `generation_source` ENUM('ai', 'manual') NOT NULL DEFAULT 'ai',
+    `creator_id` INT NULL,
+    `creator_name` VARCHAR(150) NOT NULL DEFAULT 'Admin',
+    `tags` TEXT NULL,
+    `folder_id` INT NULL,
+    `linked_course_ids` TEXT NULL,
+    `linked_ep_ids` TEXT NULL,
+    `usage_count` INT NOT NULL DEFAULT 0,
+    `status` ENUM('draft', 'published', 'archived') NOT NULL DEFAULT 'published',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_subject` (`subject`),
+    INDEX `idx_level` (`level`),
+    INDEX `idx_status` (`status`),
+    INDEX `idx_folder` (`folder_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `worksheet_questions` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `worksheet_id` INT NOT NULL,
+    `sort_order` INT NOT NULL DEFAULT 1,
+    `question_type` VARCHAR(50) NOT NULL DEFAULT 'multipleChoice',
+    `question_text` MEDIUMTEXT NOT NULL,
+    `options` MEDIUMTEXT NULL,
+    `correct_answer` MEDIUMTEXT NULL,
+    `explanation` MEDIUMTEXT NULL,
+    `hint` TEXT NULL,
+    `skill` VARCHAR(100) NULL,
+    `difficulty` VARCHAR(50) NULL,
+    `learning_objective` TEXT NULL,
+    `image_url` VARCHAR(500) NULL,
+    `points` INT NOT NULL DEFAULT 1,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_worksheet` (`worksheet_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `worksheet_assignments` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `worksheet_id` INT NOT NULL,
+    `course_id` INT NULL,
+    `ep_id` INT NULL,
+    `class_name` VARCHAR(150) NULL,
+    `target_type` ENUM('all', 'selected') NOT NULL DEFAULT 'all',
+    `student_ids` TEXT NULL,
+    `due_date` DATETIME NULL,
+    `assigned_by` INT NULL,
+    `assigned_by_name` VARCHAR(150) NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_ws` (`worksheet_id`),
+    INDEX `idx_course` (`course_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
