@@ -34,8 +34,9 @@
     }
     tbody.innerHTML = rows.map(item => {
       const nameParts = [item.firstName, item.lastName].filter(Boolean).join(" ");
+      const isNicknameSameAsFirst = item.nickname && item.firstName === item.nickname;
       const displayName = nameParts || item.nickname || "คุณครู";
-      const nicknameBadge = item.nickname && nameParts
+      const nicknameBadge = item.nickname && nameParts && !isNicknameSameAsFirst
         ? ` <span class="text-pink-600 font-semibold">(${esc(item.nickname)})</span>`
         : "";
 
@@ -102,7 +103,7 @@
       }
 
       form.elements.id.value = editItem.id;
-      form.elements.firstName.value = editItem.firstName || "";
+      form.elements.firstName.value = (editItem.firstName === editItem.nickname) ? "" : (editItem.firstName || "");
       form.elements.lastName.value = editItem.lastName || "";
       form.elements.nickname.value = editItem.nickname || "";
       form.elements.subjects.value = editItem.subjects || "";

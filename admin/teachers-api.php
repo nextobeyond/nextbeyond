@@ -29,6 +29,11 @@ try {
     if (!in_array('subjects', $cols, true)) {
         $pdo->exec("ALTER TABLE `users` ADD COLUMN `subjects` VARCHAR(255) NULL AFTER `nickname`");
     }
+    $pdo->exec("ALTER TABLE `users` MODIFY COLUMN `first_name` VARCHAR(100) NOT NULL DEFAULT ''");
+    $pdo->exec("ALTER TABLE `users` MODIFY COLUMN `last_name` VARCHAR(100) NOT NULL DEFAULT ''");
+    $pdo->exec("ALTER TABLE `users` MODIFY COLUMN `nickname` VARCHAR(100) NULL DEFAULT NULL");
+    $pdo->exec("ALTER TABLE `users` MODIFY COLUMN `subjects` VARCHAR(255) NULL DEFAULT NULL");
+    $pdo->exec("ALTER TABLE `users` MODIFY COLUMN `phone` VARCHAR(20) NULL DEFAULT NULL");
 } catch (Throwable $e) {
     // Ignore if table schema already modified or cannot alter
 }
@@ -83,9 +88,7 @@ try {
         $password = (string) ($body['password'] ?? '');
 
         // If no first name is entered, use nickname or default to "คุณครู"
-        if ($firstName === '') {
-            $firstName = $nickname !== '' ? $nickname : 'คุณครู';
-        }
+        $effectiveFirstName = $firstName !== '' ? $firstName : ($nickname !== '' ? $nickname : 'คุณครู');
 
         // Email handling: validate if provided, or generate unique internal placeholder if blank
         if ($email !== '') {
@@ -109,8 +112,8 @@ try {
         $stmt->execute([
             ':email' => $email,
             ':password_hash' => password_hash($passwordToHash, PASSWORD_DEFAULT),
-            ':first_name' => $firstName,
-            ':last_name' => $lastName !== '' ? $lastName : null,
+            ':first_name' => $effectiveFirstName,
+            ':last_name' => $lastName,
             ':nickname' => $nickname !== '' ? $nickname : null,
             ':subjects' => $subjects !== '' ? $subjects : null,
             ':phone' => $phone !== '' ? $phone : null,
@@ -141,13 +144,11 @@ try {
         $phone = trim((string) ($body['phone'] ?? ''));
         $password = (string) ($body['password'] ?? '');
 
-        if ($firstName === '') {
-            $firstName = $nickname !== '' ? $nickname : 'คุณครู';
-        }
+        $effectiveFirstName = $firstName !== '' ? $firstName : ($nickname !== '' ? $nickname : 'คุณครู');
 
         $params = [
-            ':first_name' => $firstName,
-            ':last_name' => $lastName !== '' ? $lastName : null,
+            ':first_name' => $effectiveFirstName,
+            ':last_name' => $lastName,
             ':nickname' => $nickname !== '' ? $nickname : null,
             ':subjects' => $subjects !== '' ? $subjects : null,
             ':phone' => $phone !== '' ? $phone : null,
