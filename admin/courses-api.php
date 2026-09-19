@@ -47,7 +47,11 @@ try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     if ($method === 'GET') {
         $courses = $pdo->query(
-            "SELECT c.*, CONCAT_WS(' ', u.first_name, u.last_name) AS teacher_name,
+            "SELECT c.*, 
+                    CASE 
+                        WHEN u.nickname IS NOT NULL AND TRIM(u.nickname) <> '' THEN CONCAT(u.first_name, ' ', u.last_name, ' (', u.nickname, ')')
+                        ELSE CONCAT_WS(' ', u.first_name, u.last_name)
+                    END AS teacher_name,
                     COUNT(DISTINCT e.id) AS enrollment_count
              FROM courses c
              LEFT JOIN users u ON u.id = c.teacher_id AND u.role = 'teacher'
@@ -55,7 +59,7 @@ try {
              GROUP BY c.id ORDER BY c.created_at DESC, c.id DESC"
         )->fetchAll();
         $teachers = $pdo->query(
-            "SELECT id, first_name, last_name FROM users
+            "SELECT id, first_name, last_name, nickname FROM users
              WHERE role = 'teacher' AND is_active = 1 ORDER BY first_name, last_name"
         )->fetchAll();
         courseResponse([
@@ -72,7 +76,8 @@ try {
                 'isFree'=>(bool)$r['is_free'], 'enrollmentCount'=>(int)$r['enrollment_count'],
             ], $courses),
             'teachers' => array_map(static fn(array $r): array => [
-                'id'=>(string)$r['id'], 'name'=>trim($r['first_name'].' '.$r['last_name'])
+                'id'=>(string)$r['id'], 
+                'name'=>trim($r['first_name'].' '.$r['last_name']) . (!empty($r['nickname']) ? ' (' . $r['nickname'] . ')' : '')
             ], $teachers),
         ]);
     }

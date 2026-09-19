@@ -18,3 +18,11 @@ tmp/
 assets/uploads/avatars/*
 !assets/uploads/avatars/.gitkeep
 
+# Python venv and cache
+__pycache__/
+*.py[cod]
+services/exam-export/venv/
+services/exam-export/fonts/*.ttf
+!services/exam-export/fonts/.gitkeep
+
+

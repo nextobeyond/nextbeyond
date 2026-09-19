@@ -74,6 +74,11 @@ try {
     ensureExamSchema($pdo);
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
+    if (($_GET['action'] ?? '') === 'export_docx' || ($_POST['action'] ?? '') === 'export_docx') {
+        require_once __DIR__ . '/../export-exam-docx.php';
+        exit;
+    }
+
     if ($method === 'GET') {
         if (($_GET['view'] ?? '') === 'questions') {
             $params = [];

@@ -146,7 +146,10 @@ try {
             $params[':course_filter'] = (int) $_GET['courseId'];
         }
         $stmt = $pdo->prepare("SELECT ce.*, c.title AS course_name,
-                    CONCAT_WS(' ', u.first_name, u.last_name) AS teacher_name
+                    CASE 
+                        WHEN u.nickname IS NOT NULL AND TRIM(u.nickname) <> '' THEN CONCAT(u.first_name, ' ', u.last_name, ' (', u.nickname, ')')
+                        ELSE CONCAT_WS(' ', u.first_name, u.last_name)
+                    END AS teacher_name
                 FROM calendar_events ce
                 LEFT JOIN courses c ON c.id = ce.course_id
                 JOIN users u ON u.id = ce.teacher_id
@@ -162,10 +165,11 @@ try {
         ], $stmt->fetchAll());
         $teachers = $isTeacher ? [[
             'id' => (string) $consoleUser['id'],
-            'name' => trim($consoleUser['first_name'] . ' ' . $consoleUser['last_name']),
+            'name' => trim($consoleUser['first_name'] . ' ' . $consoleUser['last_name']) . (!empty($consoleUser['nickname']) ? ' (' . $consoleUser['nickname'] . ')' : ''),
         ]] : array_map(static fn(array $row): array => [
-            'id' => (string) $row['id'], 'name' => trim($row['first_name'] . ' ' . $row['last_name']),
-        ], $pdo->query("SELECT id, first_name, last_name FROM users WHERE role = 'teacher' AND is_active = 1 ORDER BY first_name, last_name")->fetchAll());
+            'id' => (string) $row['id'], 
+            'name' => trim($row['first_name'] . ' ' . $row['last_name']) . (!empty($row['nickname']) ? ' (' . $row['nickname'] . ')' : ''),
+        ], $pdo->query("SELECT id, first_name, last_name, nickname FROM users WHERE role = 'teacher' AND is_active = 1 ORDER BY first_name, last_name")->fetchAll());
         $courseSql = $isTeacher
             ? "SELECT id, title, teacher_id FROM courses WHERE teacher_id = " . (int) $consoleUser['id'] . " AND status <> 'archived' ORDER BY title"
             : "SELECT id, title, teacher_id FROM courses WHERE status <> 'archived' ORDER BY title";

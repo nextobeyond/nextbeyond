@@ -93,5 +93,151 @@
   box.onclick=event=>{const button=event.target.closest("[data-open]");if(button)openExam(button.dataset.open)};
   tbody.onclick=event=>{const button=event.target.closest("[data-edit]");if(button)openEditor(questions.find(q=>q.id===button.dataset.edit))};
   search.oninput=()=>examId?renderQuestions():renderSets(); subject.onchange=renderSets;
+
+  // Export Modal in Question Bank
+  const exportModal = $("export-docx-modal"),
+        exportForm = $("export-docx-form"),
+        exportExamIdInput = $("export-exam-id"),
+        exportExamTitleEl = $("export-exam-title"),
+        closeExportModalBtn = $("close-export-modal"),
+        cancelExportBtn = $("btn-cancel-export"),
+        submitExportBtn = $("btn-submit-export"),
+        exportBtnText = $("export-btn-text"),
+        exportStatusBox = $("export-status-box"),
+        optShowTitle = $("opt-show-title"),
+        optShowDiagrams = $("opt-show-diagrams"),
+        optShowAnswers = $("opt-show-answers"),
+        optShowExplanations = $("opt-show-explanations");
+
+  function openBankExportModal() {
+    if (!examId) return;
+    const exam = exams.find(e => e.id === examId);
+    exportExamIdInput.value = examId;
+    exportExamTitleEl.textContent = exam ? exam.title : "ชุดข้อสอบ";
+
+    exportForm.reset();
+    const studentRadio = exportForm.querySelector('input[name="docType"][value="student"]');
+    if (studentRadio) studentRadio.checked = true;
+    optShowTitle.checked = true;
+    optShowDiagrams.checked = true;
+    optShowAnswers.disabled = true;
+    optShowAnswers.checked = false;
+    optShowExplanations.disabled = true;
+    optShowExplanations.checked = false;
+
+    exportStatusBox.className = "hidden mb-4 p-3 rounded-xl text-[13px] font-bold";
+    exportStatusBox.textContent = "";
+    submitExportBtn.disabled = false;
+    exportBtnText.textContent = "สร้างไฟล์ Word";
+
+    exportModal.classList.remove("hidden");
+    exportModal.classList.add("flex");
+  }
+
+  function closeBankExportModal() {
+    exportModal.classList.add("hidden");
+    exportModal.classList.remove("flex");
+  }
+
+  const bankExportBtn = $("bank-export-docx");
+  if (bankExportBtn) bankExportBtn.onclick = openBankExportModal;
+  if (closeExportModalBtn) closeExportModalBtn.onclick = closeBankExportModal;
+  if (cancelExportBtn) cancelExportBtn.onclick = closeBankExportModal;
+  if (exportModal) {
+    exportModal.onclick = event => {
+      if (event.target === exportModal) closeBankExportModal();
+    };
+  }
+
+  if (exportForm) {
+    exportForm.addEventListener("change", event => {
+      if (event.target.name === "docType") {
+        const isTeacher = event.target.value === "teacher";
+        if (isTeacher) {
+          optShowAnswers.disabled = false;
+          optShowAnswers.checked = true;
+          optShowExplanations.disabled = false;
+          optShowExplanations.checked = true;
+        } else {
+          optShowAnswers.disabled = true;
+          optShowAnswers.checked = false;
+          optShowExplanations.disabled = true;
+          optShowExplanations.checked = false;
+        }
+      }
+    });
+
+    exportForm.onsubmit = async event => {
+      event.preventDefault();
+      const currentId = exportExamIdInput.value;
+      if (!currentId) return;
+
+      const docType = exportForm.querySelector('input[name="docType"]:checked')?.value || "student";
+      const payload = {
+        examId: Number(currentId),
+        docType: docType,
+        showTitle: optShowTitle.checked,
+        showDiagrams: optShowDiagrams.checked,
+        showAnswers: optShowAnswers.checked,
+        showExplanations: optShowExplanations.checked,
+      };
+
+      submitExportBtn.disabled = true;
+      exportBtnText.textContent = "กำลังสร้างไฟล์ Word...";
+      exportStatusBox.className = "mb-4 p-3 rounded-xl text-[13px] font-bold bg-blue-50 text-blue-700 border border-blue-200 block";
+      exportStatusBox.innerHTML = '<span class="inline-block animate-spin mr-2">⟳</span> กำลังสร้างไฟล์ Word และประมวลผลรูปประกอบ...';
+
+      try {
+        const resp = await fetch("export-exam-docx.php", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || `เซิร์ฟเวอร์ตอบกลับรหัสข้อผิดพลาด (${resp.status})`);
+        }
+
+        let filename = `exam-${currentId}.docx`;
+        const disposition = resp.headers.get("Content-Disposition");
+        if (disposition) {
+          const matchUtf8 = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+          if (matchUtf8) {
+            filename = decodeURIComponent(matchUtf8[1]);
+          } else {
+            const matchAscii = disposition.match(/filename="?([^";]+)"?/i);
+            if (matchAscii) filename = matchAscii[1];
+          }
+        }
+
+        const blob = await resp.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        a.remove();
+
+        exportStatusBox.className = "mb-4 p-3 rounded-xl text-[13px] font-bold bg-green-50 text-green-700 border border-green-200 block";
+        exportStatusBox.innerHTML = '✓ สร้างไฟล์สำเร็จ กำลังดาวน์โหลดเอกสาร...';
+        exportBtnText.textContent = "สร้างไฟล์สำเร็จ";
+
+        setTimeout(() => {
+          closeBankExportModal();
+        }, 1500);
+
+      } catch (err) {
+        exportStatusBox.className = "mb-4 p-3 rounded-xl text-[13px] font-bold bg-red-50 text-red-700 border border-red-200 block";
+        exportStatusBox.textContent = `เกิดข้อผิดพลาด: ${err.message}`;
+        submitExportBtn.disabled = false;
+        exportBtnText.textContent = "สร้างไฟล์ Word";
+      }
+    };
+  }
+
   (async()=>{try{exams=(await api("exams-api")).exams||[];summary();const subjects=[...new Set(exams.map(e=>e.subject).filter(Boolean))].sort();subject.innerHTML='<option value="">ทุกวิชา</option>'+subjects.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join("");renderSets();if(examId&&exams.some(e=>e.id===examId))await openExam(examId,false)}catch(err){box.innerHTML=`<div class="col-span-full p-10 text-center text-red-500">${esc(err.message)}</div>`}})();
 })();

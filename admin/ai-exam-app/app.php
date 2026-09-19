@@ -4,12 +4,14 @@
  */
 $apiPath = 'api';
 $defaultExamSubjects = [];
+$isAiConfigured = false;
 try {
     require_once __DIR__ . '/subject-prompts.php';
     ensureSubjectPrompts($pdo);
     $subjectRows = $pdo->query("SELECT subject_name FROM ai_subjects WHERE is_active = 1 ORDER BY sort_order ASC, id ASC")->fetchAll(PDO::FETCH_COLUMN);
     $examSubjects = array_filter(array_map('trim', $subjectRows));
-
+    require_once __DIR__ . '/../../includes/ai-settings.php';
+    $isAiConfigured = aiSettingsGetKey($pdo) !== '';
 } catch (Throwable $error) {
     error_log('AI exam subjects: ' . $error->getMessage());
     $examSubjects = ['คณิตศาสตร์', 'วิทยาศาสตร์', 'ภาษาอังกฤษ', 'ภาษาไทย', 'สังคมศึกษา'];
@@ -27,7 +29,10 @@ try {
     <!-- Header with Settings Button -->
     <div class="flex items-center justify-between mb-6">
         <h2 class="text-2xl font-bold text-navy-950">คำสั่งทำใบงาน (AI Exam)</h2>
-        <button id="settings-btn" onclick="openSettings()" class="text-[13px] font-bold text-[#65738a] hover:text-pink-500 flex items-center gap-1 transition-colors bg-[#f4f7fb] hover:bg-pink-50 px-3 py-1.5 rounded-lg border border-[#e8ecf2] hover:border-pink-200">
+        <button id="settings-btn" onclick="openSettings()" class="text-[13px] font-bold text-[#65738a] hover:text-pink-500 flex items-center gap-1.5 transition-colors bg-[#f4f7fb] hover:bg-pink-50 px-3 py-1.5 rounded-lg border border-[#e8ecf2] hover:border-pink-200">
+            <?php if ($isAiConfigured): ?>
+            <span id="settings-badge" class="w-2 h-2 rounded-full bg-[#22c55e] inline-block"></span>
+            <?php endif; ?>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

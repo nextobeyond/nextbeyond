@@ -135,6 +135,16 @@ function updateSettingsBadge(configured) {
     }
 }
 
+// โหลดสถานะ API Key ทันทีเมื่อเปิดหรือรีเฟรชหน้า
+(async function initSettingsBadge() {
+    try {
+        const status = await loadSettingsStatus();
+        updateSettingsBadge(status && status.configured);
+    } catch (e) {
+        // ignore
+    }
+})();
+
 // ---------- View Routing ----------
 function goHome() {
     if (pendingExamSave && !confirm("ข้อสอบยังไม่บันทึก ต้องการกลับและทิ้งข้อสอบชุดนี้หรือไม่?")) return;
