@@ -56,12 +56,12 @@ $currentPage = 'teachers.php';
       <input type="hidden" name="id" id="teacher-id" value="">
       <div class="grid grid-cols-2 gap-4 max-[560px]:grid-cols-1">
         <div>
-          <label class="block text-[13px] font-bold mb-1.5">ชื่อ *</label>
-          <input name="firstName" required class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
+          <label class="block text-[13px] font-bold mb-1.5">ชื่อ</label>
+          <input name="firstName" placeholder="ชื่อ (หรือใส่แค่ชื่อเล่น)" class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
         </div>
         <div>
-          <label class="block text-[13px] font-bold mb-1.5">นามสกุล *</label>
-          <input name="lastName" required class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
+          <label class="block text-[13px] font-bold mb-1.5">นามสกุล</label>
+          <input name="lastName" placeholder="เว้นว่างได้" class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
         </div>
         <div>
           <label class="block text-[13px] font-bold mb-1.5">ชื่อเล่น</label>
@@ -87,12 +87,12 @@ $currentPage = 'teachers.php';
           <input name="phone" type="tel" placeholder="08x-xxx-xxxx" class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
         </div>
         <div>
-          <label class="block text-[13px] font-bold mb-1.5">อีเมล *</label>
-          <input name="email" type="email" required placeholder="teacher@example.com" class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
+          <label class="block text-[13px] font-bold mb-1.5">อีเมล</label>
+          <input name="email" type="email" placeholder="teacher@example.com (เว้นว่างได้)" class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
         </div>
         <div class="col-span-2 max-[560px]:col-span-1">
-          <label id="password-label" class="block text-[13px] font-bold mb-1.5">รหัสผ่านเริ่มต้น *</label>
-          <input name="password" id="teacher-password" type="password" minlength="8" required class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500" placeholder="อย่างน้อย 8 ตัวอักษร">
+          <label id="password-label" class="block text-[13px] font-bold mb-1.5">รหัสผ่านเริ่มต้น</label>
+          <input name="password" id="teacher-password" type="password" class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500" placeholder="เว้นว่างได้ (ค่าเริ่มต้น: 12345678)">
         </div>
       </div>
       <div id="teacher-form-error" class="hidden mt-4 rounded-xl bg-red-50 text-red-600 px-4 py-3 text-[13px] font-bold"></div>

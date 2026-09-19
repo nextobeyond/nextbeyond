@@ -17,40 +17,54 @@
   }
 
   function initials(item) {
-    if (item.nickname && item.nickname.trim()) {
-      return esc(item.nickname.trim().slice(0, 2));
-    }
-    return esc((item.firstName?.[0] || "") + (item.lastName?.[0] || ""));
+    const name = (item.nickname || item.firstName || item.lastName || "ครู").trim();
+    return esc(name.slice(0, 2));
   }
 
   function render() {
     const query = search.value.trim().toLocaleLowerCase("th");
-    const rows = teachers.filter(item => `${item.firstName} ${item.lastName} ${item.nickname || ""} ${item.email} ${item.subjects || ""}`.toLocaleLowerCase("th").includes(query));
+    const rows = teachers.filter(item => {
+      const haystack = `${item.firstName || ""} ${item.lastName || ""} ${item.nickname || ""} ${item.subjects || ""} ${item.email || ""} ${item.phone || ""}`.toLocaleLowerCase("th");
+      return haystack.includes(query);
+    });
     document.getElementById("teachers-count").textContent = `แสดง ${rows.length} จาก ${teachers.length} รายการ`;
     if (!rows.length) {
       tbody.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-[#65738a]">ยังไม่มีข้อมูลคุณครู</td></tr>';
       return;
     }
-    tbody.innerHTML = rows.map(item => `<tr class="hover:bg-[#f8fafc]">
-      <td class="px-6 py-4">
-        <div class="flex items-center gap-3">
-          <div class="w-11 h-11 rounded-full bg-pink-50 text-pink-500 flex items-center justify-center font-black text-[13px]">${initials(item)}</div>
-          <div>
-            <div class="font-bold text-[14px]">
-              ${esc(item.firstName)} ${esc(item.lastName)}${item.nickname ? ` <span class="text-pink-600 font-semibold">(${esc(item.nickname)})</span>` : ""}
+    tbody.innerHTML = rows.map(item => {
+      const nameParts = [item.firstName, item.lastName].filter(Boolean).join(" ");
+      const displayName = nameParts || item.nickname || "คุณครู";
+      const nicknameBadge = item.nickname && nameParts
+        ? ` <span class="text-pink-600 font-semibold">(${esc(item.nickname)})</span>`
+        : "";
+
+      const metaParts = [];
+      if (item.email) metaParts.push(esc(item.email));
+      else metaParts.push('<span class="text-[#94a3b8]">ไม่ได้ระบุอีเมล</span>');
+      if (item.phone) metaParts.push(esc(item.phone));
+
+      return `<tr class="hover:bg-[#f8fafc]">
+        <td class="px-6 py-4">
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-full bg-pink-50 text-pink-500 flex items-center justify-center font-black text-[13px]">${initials(item)}</div>
+            <div>
+              <div class="font-bold text-[14px]">
+                ${esc(displayName)}${nicknameBadge}
+              </div>
+              <div class="text-[12px] text-[#65738a]">${metaParts.join(" · ")}</div>
             </div>
-            <div class="text-[12px] text-[#65738a]">${esc(item.email)}${item.phone ? " · " + esc(item.phone) : ""}</div>
           </div>
-        </div>
-      </td>
-      <td class="px-4 py-4 text-[13px]">${esc(item.subjects || "ยังไม่ได้กำหนด")}</td>
-      <td class="px-4 py-4 text-center font-bold text-[14px]">${item.courseCount}</td>
-      <td class="px-4 py-4"><label class="flex items-center gap-2 text-[12px] font-bold"><input type="checkbox" data-active="${esc(item.id)}" ${item.isActive ? "checked" : ""}> ${item.isActive ? "Active" : "Inactive"}</label></td>
-      <td class="px-4 py-4 text-right whitespace-nowrap">
-        <button type="button" data-edit="${esc(item.id)}" class="text-pink-500 hover:text-pink-600 text-[12px] font-bold mr-3 cursor-pointer">แก้ไข</button>
-        <button type="button" data-delete="${esc(item.id)}" class="text-red-500 hover:text-red-600 text-[12px] font-bold cursor-pointer">ลบ</button>
-      </td>
-    </tr>`).join("");
+        </td>
+        <td class="px-4 py-4 text-[13px]">${esc(item.subjects || "ยังไม่ได้กำหนด")}</td>
+        <td class="px-4 py-4 text-center font-bold text-[14px]">${item.courseCount}</td>
+        <td class="px-4 py-4"><label class="flex items-center gap-2 text-[12px] font-bold"><input type="checkbox" data-active="${esc(item.id)}" ${item.isActive ? "checked" : ""}> ${item.isActive ? "Active" : "Inactive"}</label></td>
+        <td class="px-4 py-4 text-right whitespace-nowrap">
+          <button type="button" data-edit="${esc(item.id)}" class="text-pink-500 hover:text-pink-600 text-[12px] font-bold mr-3 cursor-pointer">แก้ไข</button>
+          <button type="button" data-delete="${esc(item.id)}" class="text-red-500 hover:text-red-600 text-[12px] font-bold cursor-pointer">ลบ</button>
+        </td>
+      </tr>`;
+    }).join("");
   }
 
   async function load() {
@@ -99,10 +113,10 @@
     } else {
       if (modalTitle) modalTitle.textContent = "เพิ่มคุณครูผู้สอน";
       if (saveBtn) saveBtn.textContent = "บันทึกคุณครู";
-      if (pwdLabel) pwdLabel.textContent = "รหัสผ่านเริ่มต้น *";
+      if (pwdLabel) pwdLabel.textContent = "รหัสผ่านเริ่มต้น";
       if (pwdInput) {
-        pwdInput.setAttribute("required", "required");
-        pwdInput.placeholder = "อย่างน้อย 8 ตัวอักษร";
+        pwdInput.removeAttribute("required");
+        pwdInput.placeholder = "เว้นว่างได้ (ค่าเริ่มต้น: 12345678)";
       }
 
       form.reset();

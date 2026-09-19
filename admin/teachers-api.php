@@ -52,11 +52,15 @@ try {
             $userSubjects = trim((string)($row['user_subjects'] ?? ''));
             $courseSubjects = trim((string)($row['course_subjects'] ?? ''));
             $finalSubjects = $userSubjects !== '' ? $userSubjects : $courseSubjects;
+            $email = (string)($row['email'] ?? '');
+            if (str_ends_with($email, '@nextbeyond.internal')) {
+                $email = '';
+            }
             return [
                 'id' => (string) $row['id'],
-                'email' => $row['email'],
-                'firstName' => $row['first_name'],
-                'lastName' => $row['last_name'],
+                'email' => $email,
+                'firstName' => $row['first_name'] ?? '',
+                'lastName' => $row['last_name'] ?? '',
                 'nickname' => $row['nickname'] ?? '',
                 'subjects' => $finalSubjects,
                 'phone' => $row['phone'] ?? '',
@@ -77,15 +81,26 @@ try {
         $email = mb_strtolower(trim((string) ($body['email'] ?? '')));
         $phone = trim((string) ($body['phone'] ?? ''));
         $password = (string) ($body['password'] ?? '');
-        if ($firstName === '' || $lastName === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            teacherResponse(['error' => 'กรุณากรอกชื่อ นามสกุล และอีเมลให้ถูกต้อง'], 422);
+
+        // If no first name is entered, use nickname or default to "คุณครู"
+        if ($firstName === '') {
+            $firstName = $nickname !== '' ? $nickname : 'คุณครู';
         }
-        if (mb_strlen($password) < 8) {
-            teacherResponse(['error' => 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'], 422);
+
+        // Email handling: validate if provided, or generate unique internal placeholder if blank
+        if ($email !== '') {
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                teacherResponse(['error' => 'รูปแบบอีเมลไม่ถูกต้อง'], 422);
+            }
+            $exists = $pdo->prepare('SELECT id FROM users WHERE email = :email LIMIT 1');
+            $exists->execute([':email' => $email]);
+            if ($exists->fetch()) teacherResponse(['error' => 'อีเมลนี้มีบัญชีอยู่แล้ว'], 409);
+        } else {
+            $email = 'teacher_' . time() . '_' . mt_rand(1000, 9999) . '@nextbeyond.internal';
         }
-        $exists = $pdo->prepare('SELECT id FROM users WHERE email = :email LIMIT 1');
-        $exists->execute([':email' => $email]);
-        if ($exists->fetch()) teacherResponse(['error' => 'อีเมลนี้มีบัญชีอยู่แล้ว'], 409);
+
+        // Password handling: if left blank, default to '12345678'
+        $passwordToHash = $password !== '' ? $password : '12345678';
 
         $stmt = $pdo->prepare(
             "INSERT INTO users (email, password_hash, first_name, last_name, nickname, subjects, phone, role, is_active)
@@ -93,9 +108,9 @@ try {
         );
         $stmt->execute([
             ':email' => $email,
-            ':password_hash' => password_hash($password, PASSWORD_DEFAULT),
+            ':password_hash' => password_hash($passwordToHash, PASSWORD_DEFAULT),
             ':first_name' => $firstName,
-            ':last_name' => $lastName,
+            ':last_name' => $lastName !== '' ? $lastName : null,
             ':nickname' => $nickname !== '' ? $nickname : null,
             ':subjects' => $subjects !== '' ? $subjects : null,
             ':phone' => $phone !== '' ? $phone : null,
@@ -117,7 +132,7 @@ try {
             teacherResponse(['success' => true]);
         }
 
-        // Full update (firstName, lastName, nickname, subjects, email, phone, optional password)
+        // Full update (all fields optional)
         $firstName = trim((string) ($body['firstName'] ?? ''));
         $lastName = trim((string) ($body['lastName'] ?? ''));
         $nickname = trim((string) ($body['nickname'] ?? ''));
@@ -126,52 +141,39 @@ try {
         $phone = trim((string) ($body['phone'] ?? ''));
         $password = (string) ($body['password'] ?? '');
 
-        if ($firstName === '' || $lastName === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            teacherResponse(['error' => 'กรุณากรอกชื่อ นามสกุล และอีเมลให้ถูกต้อง'], 422);
+        if ($firstName === '') {
+            $firstName = $nickname !== '' ? $nickname : 'คุณครู';
         }
 
-        $emailCheck = $pdo->prepare('SELECT id FROM users WHERE email = :email AND id != :id LIMIT 1');
-        $emailCheck->execute([':email' => $email, ':id' => $id]);
-        if ($emailCheck->fetch()) teacherResponse(['error' => 'อีเมลนี้ถูกใช้งานแล้วโดยบัญชีอื่น'], 409);
+        $params = [
+            ':first_name' => $firstName,
+            ':last_name' => $lastName !== '' ? $lastName : null,
+            ':nickname' => $nickname !== '' ? $nickname : null,
+            ':subjects' => $subjects !== '' ? $subjects : null,
+            ':phone' => $phone !== '' ? $phone : null,
+            ':id' => $id,
+        ];
+
+        $sqlSet = "first_name = :first_name, last_name = :last_name, nickname = :nickname, subjects = :subjects, phone = :phone";
+
+        if ($email !== '') {
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                teacherResponse(['error' => 'รูปแบบอีเมลไม่ถูกต้อง'], 422);
+            }
+            $emailCheck = $pdo->prepare('SELECT id FROM users WHERE email = :email AND id != :id LIMIT 1');
+            $emailCheck->execute([':email' => $email, ':id' => $id]);
+            if ($emailCheck->fetch()) teacherResponse(['error' => 'อีเมลนี้ถูกใช้งานแล้วโดยบัญชีอื่น'], 409);
+            $sqlSet .= ", email = :email";
+            $params[':email'] = $email;
+        }
 
         if ($password !== '') {
-            if (mb_strlen($password) < 8) {
-                teacherResponse(['error' => 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'], 422);
-            }
-            $stmt = $pdo->prepare(
-                "UPDATE users 
-                 SET first_name = :first_name, last_name = :last_name, nickname = :nickname, 
-                     subjects = :subjects, email = :email, phone = :phone, password_hash = :password_hash 
-                 WHERE id = :id AND role = 'teacher'"
-            );
-            $stmt->execute([
-                ':first_name' => $firstName,
-                ':last_name' => $lastName,
-                ':nickname' => $nickname !== '' ? $nickname : null,
-                ':subjects' => $subjects !== '' ? $subjects : null,
-                ':email' => $email,
-                ':phone' => $phone !== '' ? $phone : null,
-                ':password_hash' => password_hash($password, PASSWORD_DEFAULT),
-                ':id' => $id,
-            ]);
-        } else {
-            $stmt = $pdo->prepare(
-                "UPDATE users 
-                 SET first_name = :first_name, last_name = :last_name, nickname = :nickname, 
-                     subjects = :subjects, email = :email, phone = :phone 
-                 WHERE id = :id AND role = 'teacher'"
-            );
-            $stmt->execute([
-                ':first_name' => $firstName,
-                ':last_name' => $lastName,
-                ':nickname' => $nickname !== '' ? $nickname : null,
-                ':subjects' => $subjects !== '' ? $subjects : null,
-                ':email' => $email,
-                ':phone' => $phone !== '' ? $phone : null,
-                ':id' => $id,
-            ]);
+            $sqlSet .= ", password_hash = :password_hash";
+            $params[':password_hash'] = password_hash($password, PASSWORD_DEFAULT);
         }
 
+        $stmt = $pdo->prepare("UPDATE users SET {$sqlSet} WHERE id = :id AND role = 'teacher'");
+        $stmt->execute($params);
         teacherResponse(['success' => true]);
     }
 
