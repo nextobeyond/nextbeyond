@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `first_name` VARCHAR(100) NOT NULL,
     `last_name` VARCHAR(100) NOT NULL,
     `nickname` VARCHAR(100),
+    `subjects` VARCHAR(255),
     `phone` VARCHAR(20),
     `role` ENUM('student','teacher','admin') DEFAULT 'student',
     `avatar_url` VARCHAR(500),

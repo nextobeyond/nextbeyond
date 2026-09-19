@@ -68,12 +68,27 @@ $currentPage = 'teachers.php';
           <input name="nickname" placeholder="เช่น ครูบิ๊ก, ครูปอ" class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
         </div>
         <div>
-          <label class="block text-[13px] font-bold mb-1.5">เบอร์โทรศัพท์</label>
-          <input name="phone" type="tel" class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
+          <label class="block text-[13px] font-bold mb-1.5">วิชาที่สอน</label>
+          <input name="subjects" list="subjects-datalist" placeholder="เช่น คณิตศาสตร์, ฟิสิกส์" class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
+          <datalist id="subjects-datalist">
+            <option value="คณิตศาสตร์">
+            <option value="วิทยาศาสตร์">
+            <option value="ภาษาอังกฤษ">
+            <option value="ภาษาไทย">
+            <option value="สังคมศึกษา">
+            <option value="ฟิสิกส์">
+            <option value="เคมี">
+            <option value="ชีววิทยา">
+            <option value="คอมพิวเตอร์และเทคโนโลยี">
+          </datalist>
         </div>
-        <div class="col-span-2 max-[560px]:col-span-1">
+        <div>
+          <label class="block text-[13px] font-bold mb-1.5">เบอร์โทรศัพท์</label>
+          <input name="phone" type="tel" placeholder="08x-xxx-xxxx" class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
+        </div>
+        <div>
           <label class="block text-[13px] font-bold mb-1.5">อีเมล *</label>
-          <input name="email" type="email" required class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
+          <input name="email" type="email" required placeholder="teacher@example.com" class="w-full h-11 px-3.5 border border-[#dce4ef] rounded-xl outline-none focus:border-pink-500">
         </div>
         <div class="col-span-2 max-[560px]:col-span-1">
           <label id="password-label" class="block text-[13px] font-bold mb-1.5">รหัสผ่านเริ่มต้น *</label>

@@ -91,6 +91,7 @@
       form.elements.firstName.value = editItem.firstName || "";
       form.elements.lastName.value = editItem.lastName || "";
       form.elements.nickname.value = editItem.nickname || "";
+      form.elements.subjects.value = editItem.subjects || "";
       form.elements.phone.value = editItem.phone || "";
       form.elements.email.value = editItem.email || "";
       form.elements.password.value = "";
