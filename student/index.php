@@ -7,8 +7,11 @@ $currentPage = 'index.php';
 require_once __DIR__ . '/includes/guard.php';
 
 // ── ดึงข้อมูล Stats ──
-// จำนวนคอร์สที่ลงทะเบียน
-$stmtCourses = $pdo->prepare('SELECT COUNT(*) FROM enrollments WHERE user_id = :uid AND status = "active"');
+require_once __DIR__ . '/../admin/enrollments-service.php';
+$enrollmentService = new EnrollmentService($pdo);
+
+// จำนวนคอร์สที่ลงทะเบียน (Active / Trial ไม่หมดอายุ)
+$stmtCourses = $pdo->prepare('SELECT COUNT(*) FROM enrollments WHERE user_id = :uid AND status IN ("active", "trial") AND (end_date IS NULL OR end_date >= CURDATE())');
 $stmtCourses->execute([':uid' => $currentUser['id']]);
 $enrolledCount = (int)$stmtCourses->fetchColumn();
 
@@ -49,14 +52,24 @@ $recentAttempts = $stmtHistory->fetchAll();
 
 // คอร์สกำลังเรียน
 $stmtEnrolled = $pdo->prepare(
-    'SELECT c.id, c.title, c.subject, c.cover_image, c.duration_hours, en.progress_percent
+    'SELECT c.id, c.title, c.subject, c.cover_image, c.duration_hours, en.progress_percent, en.status,
+            cg.name AS class_group_name, cg.schedule_day, cg.schedule_time
      FROM enrollments en
      INNER JOIN courses c ON c.id = en.course_id
-     WHERE en.user_id = :uid AND en.status = "active"
-     ORDER BY en.enrolled_at DESC LIMIT 3'
+     LEFT JOIN class_groups cg ON cg.id = en.class_group_id
+     WHERE en.user_id = :uid AND en.status IN ("active", "trial") AND (en.end_date IS NULL OR en.end_date >= CURDATE())
+     ORDER BY en.enrolled_at DESC LIMIT 6'
 );
 $stmtEnrolled->execute([':uid' => $currentUser['id']]);
 $enrolledCourses = $stmtEnrolled->fetchAll();
+
+// ตารางเรียนรวมจากทุกวิชา (Combined Schedule)
+$rawSchedule = $enrollmentService->getStudentCombinedSchedule((int)$currentUser['id']);
+$weeklySchedule = [];
+foreach ($rawSchedule as $r) {
+    $day = $r['schedule_day'] ?: 'อื่นๆ';
+    $weeklySchedule[$day][] = $r;
+}
 
 $displayName = trim(($currentUser['first_name'] ?? '') . ' ' . ($currentUser['last_name'] ?? '')) ?: 'นักเรียน';
 $firstName = trim((string)($currentUser['first_name'] ?? '')) ?: 'นักเรียน';
@@ -367,24 +380,69 @@ $weekDayLabels = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'];
             <?php endif; ?>
           </div>
 
+          <!-- Weekly Schedule Widget (Combined across all active enrollments) -->
+          <?php if (!empty($weeklySchedule)): ?>
+            <div class="mt-6 bg-white rounded-[16px] border border-[#e8ecf2] p-4 shadow-sm">
+              <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+                <h3 class="text-[15px] font-bold text-navy-950 flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                  <span>ตารางเรียนประจำสัปดาห์</span>
+                </h3>
+                <span class="text-[11px] text-slate-400">จากทุกวิชาที่ลงทะเบียน</span>
+              </div>
+              <div class="space-y-2.5">
+                <?php foreach ($weeklySchedule as $dayName => $dayClasses): ?>
+                  <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100/80">
+                    <div class="text-[11px] font-bold text-pink-600 uppercase tracking-wider mb-1.5"><?= htmlspecialchars($dayName) ?></div>
+                    <div class="space-y-1.5">
+                      <?php foreach ($dayClasses as $cls): ?>
+                        <div class="flex items-start justify-between gap-2 text-xs">
+                          <div>
+                            <div class="font-bold text-navy-950"><?= htmlspecialchars($cls['course_title']) ?></div>
+                            <div class="text-[11px] text-slate-500 flex items-center gap-1.5">
+                              <span class="font-semibold text-blue-600"><?= htmlspecialchars($cls['class_group_name']) ?></span>
+                              <?php if (!empty($cls['teacher_name'])): ?>
+                                <span>· <?= htmlspecialchars($cls['teacher_name']) ?></span>
+                              <?php endif; ?>
+                            </div>
+                          </div>
+                          <span class="shrink-0 px-2 py-0.5 rounded-md bg-white border border-slate-200 font-bold text-[11px] text-navy-950">
+                            <?= htmlspecialchars($cls['schedule_time'] ?: 'ตามตาราง') ?>
+                          </span>
+                        </div>
+                      <?php endforeach; ?>
+                    </div>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          <?php endif; ?>
+
           <!-- Enrolled Courses (below) -->
           <?php if (!empty($enrolledCourses)): ?>
             <div class="mt-6">
               <div class="flex items-center justify-between mb-3">
-                <h3 class="text-[15px] font-bold text-navy-950">กำลังเรียน</h3>
+                <h3 class="text-[15px] font-bold text-navy-950">คอร์สของฉัน</h3>
                 <a href="my-courses.php" class="text-[13px] font-bold text-pink-500">ดูทั้งหมด →</a>
               </div>
               <div class="space-y-3">
                 <?php foreach ($enrolledCourses as $course): ?>
-                  <div class="bg-white rounded-[14px] border border-[#e8ecf2] p-4">
-                    <div class="text-[13px] font-bold text-navy-950 mb-2 truncate"><?= htmlspecialchars($course['title']) ?></div>
+                  <a href="course.php?id=<?= (int)$course['id'] ?>" class="block bg-white rounded-[14px] border border-[#e8ecf2] p-4 hover:border-pink-300 transition-colors">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                      <div class="text-[13px] font-bold text-navy-950 truncate"><?= htmlspecialchars($course['title']) ?></div>
+                      <?php if (!empty($course['class_group_name'])): ?>
+                        <span class="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60">
+                          <?= htmlspecialchars($course['class_group_name']) ?>
+                        </span>
+                      <?php endif; ?>
+                    </div>
                     <div class="flex items-center gap-2">
                       <div class="flex-1 h-2 bg-[#f1f5f9] rounded-full overflow-hidden">
                         <div class="h-full bg-pink-500 rounded-full transition-all" style="width:<?= min(100, (float)$course['progress_percent']) ?>%"></div>
                       </div>
                       <span class="text-[12px] font-bold text-[#65738a] shrink-0"><?= round((float)$course['progress_percent']) ?>%</span>
                     </div>
-                  </div>
+                  </a>
                 <?php endforeach; ?>
               </div>
             </div>

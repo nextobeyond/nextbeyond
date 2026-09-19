@@ -1,9 +1,77 @@
 <?php
-$pageTitle = "บทเรียน | Nextbeyond Compass";
+require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/admin/enrollments-service.php';
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+
+$currentUserId = (int)($_SESSION['user_id'] ?? 0);
+$currentUserRole = (string)($_SESSION['role'] ?? '');
+if ($currentUserId > 0 && empty($currentUserRole)) {
+    $stU = $pdo->prepare('SELECT role FROM users WHERE id = ?');
+    $stU->execute([$currentUserId]);
+    $currentUserRole = (string)($stU->fetchColumn() ?: '');
+}
+
+$lessonId = (int)($_GET['id'] ?? 1);
+$courseId = (int)($_GET['course_id'] ?? 0);
+
+$lesson = null;
+if ($lessonId > 0) {
+    $stL = $pdo->prepare('SELECT l.*, c.title AS course_title, c.subject FROM lessons l LEFT JOIN courses c ON c.id = l.course_id WHERE l.id = ?');
+    $stL->execute([$lessonId]);
+    $lesson = $stL->fetch(PDO::FETCH_ASSOC);
+    if ($lesson && !empty($lesson['course_id'])) {
+        $courseId = (int)$lesson['course_id'];
+    }
+}
+
+$isBlocked = false;
+$courseTitle = $lesson['course_title'] ?? 'คอร์สเรียน';
+
+if ($courseId > 0 && $currentUserRole === 'student' && $currentUserId > 0) {
+    $enrollmentService = new EnrollmentService($pdo);
+    $access = $enrollmentService->checkAccess($currentUserId, $courseId);
+    if (!$access['has_access']) {
+        $isBlocked = true;
+    }
+}
+
+$pageTitle = $lesson ? htmlspecialchars($lesson['title']) . " | Nextbeyond Compass" : "บทเรียน | Nextbeyond Compass";
 $pageDesc = "ห้องเรียนออนไลน์";
-$isLoggedIn = true; // Simulate logged-in user
+$isLoggedIn = $currentUserId > 0;
 include 'includes/head.php';
 include 'includes/header.php';
+
+if ($isBlocked) {
+?>
+<main class="bg-[#f6f8fc] min-h-[75vh] flex items-center justify-center p-6">
+  <div class="max-w-[540px] w-full bg-white rounded-[28px] border border-slate-200/90 shadow-xl p-8 text-center my-12 animate-fade-in">
+    <div class="w-20 h-20 rounded-3xl bg-rose-50 text-rose-500 mx-auto flex items-center justify-center mb-6 shadow-sm">
+      <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2m0 0v2m0-2h2m-2 0H10m7-7V7a5 5 0 00-10 0v3M5 10h14a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7a2 2 0 012-2z"/></svg>
+    </div>
+    <span class="inline-block px-3 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-bold uppercase tracking-wider mb-3">
+      จำกัดสิทธิ์การเข้าถึงรายบุคคล
+    </span>
+    <h1 class="text-2xl md:text-3xl font-black text-navy-950 mb-3 leading-tight">
+      คุณยังไม่มีสิทธิ์เข้าเรียนคอร์สนี้
+    </h1>
+    <p class="text-slate-500 text-sm leading-relaxed mb-8">
+      ขออภัย บทเรียนนี้สงวนสิทธิ์เฉพาะผู้เรียนที่มีสิทธิ์เข้าถึงคอร์ส <b><?= htmlspecialchars($courseTitle) ?></b> หากต้องการเข้าเรียนกรุณาติดต่อเจ้าหน้าที่ หรือเลือกดูคอร์สที่คุณลงทะเบียนไว้
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-3">
+      <a href="student/my-courses.php" class="h-11 px-6 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-sm shadow-md shadow-pink-500/20 transition-all flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5m7 7l-7-7 7-7"/></svg>
+        <span>ดูคอร์สอื่น</span>
+      </a>
+      <a href="contact-us.php" class="h-11 px-6 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-sm transition-colors flex items-center gap-2">
+        <span>ติดต่อสถาบัน</span>
+      </a>
+    </div>
+  </div>
+</main>
+<?php
+include 'includes/footer.php';
+exit;
+}
 ?>
 
 <main class="bg-[#f6f8fc] min-h-screen pb-[100px]">
@@ -11,11 +79,11 @@ include 'includes/header.php';
   <!-- Breadcrumb -->
   <div class="bg-white border-b border-[#e8ecf2]">
     <div class="container py-3.5 text-[13px] text-[#65738a] font-medium">
-      <a href="#" class="hover:text-[#2369dd] transition-colors">คอร์สของฉัน</a> 
+      <a href="student/my-courses.php" class="hover:text-[#2369dd] transition-colors">คอร์สของฉัน</a> 
       <span class="mx-2 text-[#cbd5e1]">/</span> 
-      <a href="#" class="hover:text-[#2369dd] transition-colors">English Communication Starter</a> 
+      <a href="student/course.php?id=<?= $courseId ?>" class="hover:text-[#2369dd] transition-colors"><?= htmlspecialchars($courseTitle) ?></a> 
       <span class="mx-2 text-[#cbd5e1]">/</span> 
-      <span class="text-navy-950 font-bold">Lesson 4</span>
+      <span class="text-navy-950 font-bold"><?= htmlspecialchars($lesson['title'] ?? 'Lesson') ?></span>
     </div>
   </div>
 

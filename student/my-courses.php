@@ -5,16 +5,28 @@ require_once __DIR__ . '/includes/guard.php';
 
 $status = (string) ($_GET['status'] ?? '');
 $allowedStatuses = ['active', 'completed', 'expired'];
-$where = in_array($status, $allowedStatuses, true) ? ' AND en.status = :status' : '';
-$stmt = $pdo->prepare("SELECT en.progress_percent, en.status, en.enrolled_at, en.expires_at,
-                              c.id, c.title, c.subject, c.level, c.cover_image
-                       FROM enrollments en
-                       INNER JOIN courses c ON c.id = en.course_id
-                       WHERE en.user_id = :user_id {$where}
-                       ORDER BY en.enrolled_at DESC");
-$params = [':user_id' => $currentUser['id']];
-if ($where !== '') $params[':status'] = $status;
-$stmt->execute($params);
+
+$where = '';
+if ($status === 'active' || $status === '') {
+    $where = " AND en.status IN ('active', 'trial') AND (en.end_date IS NULL OR en.end_date >= CURDATE())";
+} elseif ($status === 'completed') {
+    $where = " AND en.status = 'completed'";
+} elseif ($status === 'expired') {
+    $where = " AND (en.status = 'expired' OR (en.end_date IS NOT NULL AND en.end_date < CURDATE()))";
+}
+
+$stmt = $pdo->prepare("
+    SELECT en.id AS enrollment_id, en.progress_percent, en.status, en.enrolled_at, en.start_date, en.end_date,
+           en.access_type, en.learning_mode,
+           c.id, c.title, c.subject, c.level, c.cover_image,
+           cg.id AS class_group_id, cg.name AS class_group_name, cg.schedule_day, cg.schedule_time, cg.room
+    FROM enrollments en
+    INNER JOIN courses c ON c.id = en.course_id
+    LEFT JOIN class_groups cg ON cg.id = en.class_group_id
+    WHERE en.user_id = :user_id {$where}
+    ORDER BY en.enrolled_at DESC
+");
+$stmt->execute([':user_id' => $currentUser['id']]);
 $courses = $stmt->fetchAll();
 
 $courseLessonStats = [];
@@ -180,13 +192,37 @@ function studentCourseCode(string $subject, string $title): string {
                 <div class="text-[13px] text-white/75"><?= htmlspecialchars($course['level'] ?: 'ทุกระดับ') ?></div>
               </div>
               <div class="p-5">
-                <div class="flex items-start justify-between gap-3 mb-5">
-                  <h3 class="text-[16px] font-bold leading-6"><?= htmlspecialchars($course['title']) ?></h3>
-                  <span class="shrink-0 text-[11px] font-bold text-[#65738a]"><?= htmlspecialchars($statusLabels[$course['status']] ?? $course['status']) ?></span>
+                <div class="flex items-start justify-between gap-3 mb-3">
+                  <h3 class="text-[16px] font-bold leading-6 text-navy-950"><?= htmlspecialchars($course['title']) ?></h3>
+                  <span class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full <?= $course['status'] === 'trial' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700' ?>">
+                    <?= htmlspecialchars($course['status'] === 'trial' ? 'Trial' : ($statusLabels[$course['status']] ?? $course['status'])) ?>
+                  </span>
                 </div>
+
+                <?php if (!empty($course['class_group_name'])): ?>
+                  <div class="mb-3 px-3 py-2 rounded-xl bg-blue-50/80 border border-blue-200/60 text-xs text-blue-900 flex items-center justify-between">
+                    <span class="font-bold flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                      <?= htmlspecialchars($course['class_group_name']) ?>
+                    </span>
+                    <?php if (!empty($course['schedule_day'])): ?>
+                      <span class="text-slate-500 text-[11px]"><?= htmlspecialchars($course['schedule_day']) ?> <?= htmlspecialchars($course['schedule_time'] ?? '') ?></span>
+                    <?php endif; ?>
+                  </div>
+                <?php endif; ?>
+
                 <div class="flex justify-between text-[12px] mb-2"><span class="text-[#65738a]">ความคืบหน้า</span><strong><?= round($progress) ?>%</strong></div>
-                <div class="h-1.5 rounded-full bg-[#e8edf3] overflow-hidden"><div class="h-full bg-pink-500" style="width:<?= $progress ?>%"></div></div>
-                <a href="../course-details?id=<?= (int)$course['id'] ?>" class="mt-5 h-10 w-full rounded-lg border border-[#cfd7e2] flex items-center justify-center text-[13px] font-bold hover:bg-[#f5f7fa]">ดูรายละเอียดและเรียนต่อ</a>
+                <div class="h-1.5 rounded-full bg-[#e8edf3] overflow-hidden mb-4"><div class="h-full bg-pink-500" style="width:<?= $progress ?>%"></div></div>
+
+                <div class="flex items-center gap-2">
+                  <a href="course.php?id=<?= (int)$course['id'] ?>" class="h-10 flex-1 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm">
+                    <span>เข้าสู่ห้องเรียน</span>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+                  </a>
+                  <a href="../course-details?id=<?= (int)$course['id'] ?>" class="h-10 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold flex items-center justify-center transition-colors" title="ดูภาพรวมหลักสูตร">
+                    รายละเอียด
+                  </a>
+                </div>
               </div>
             </article>
           <?php endforeach; ?>
