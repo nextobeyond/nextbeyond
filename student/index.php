@@ -141,40 +141,56 @@ $metricMasteryPct = 0;
 
 if ($featuredCourseId > 0) {
     // Performance: Average scores across activity submissions & exams
-    $stmtActScores = $pdo->prepare("
-        SELECT percentage FROM activity_submissions sub
-        INNER JOIN worksheet_assignments wa ON wa.id = sub.assignment_id
-        WHERE sub.student_id = ? AND wa.course_id = ? AND sub.status IN ('completed', 'submitted')
-    ");
-    $stmtActScores->execute([(int)$currentUser['id'], $featuredCourseId]);
-    $actScores = $stmtActScores->fetchAll(PDO::FETCH_COLUMN);
+    $actScores = [];
+    try {
+        $stmtActScores = $pdo->prepare("
+            SELECT COALESCE(sub.score_percent, sub.score) AS pct
+            FROM activity_submissions sub
+            INNER JOIN worksheet_assignments wa ON wa.id = sub.assignment_id
+            WHERE sub.student_id = ? AND wa.course_id = ? AND sub.status IN ('completed', 'submitted')
+        ");
+        $stmtActScores->execute([(int)$currentUser['id'], $featuredCourseId]);
+        $actScores = $stmtActScores->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Throwable $e) {
+        $actScores = [];
+    }
 
-    $stmtExamScores = $pdo->prepare("
-        SELECT ta.score FROM test_attempts ta
-        INNER JOIN exams e ON e.id = ta.exam_id
-        WHERE ta.user_id = ? AND e.course_id = ? AND ta.completed_at IS NOT NULL
-    ");
-    $stmtExamScores->execute([(int)$currentUser['id'], $featuredCourseId]);
-    $examScores = $stmtExamScores->fetchAll(PDO::FETCH_COLUMN);
+    $examScores = [];
+    try {
+        $featuredSubject = (string)($featuredCourse['subject'] ?? '');
+        $stmtExamScores = $pdo->prepare("
+            SELECT ta.score FROM test_attempts ta
+            INNER JOIN exams e ON e.id = ta.exam_id
+            WHERE ta.user_id = ? AND e.subject = ? AND ta.completed_at IS NOT NULL
+        ");
+        $stmtExamScores->execute([(int)$currentUser['id'], $featuredSubject]);
+        $examScores = $stmtExamScores->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Throwable $e) {
+        $examScores = [];
+    }
 
     $allScores = array_merge($actScores, $examScores);
     if (!empty($allScores)) {
         $metricPerformancePct = (int)round(array_sum($allScores) / count($allScores));
     } else {
-        $metricPerformancePct = (int)round((float)($averageScore ?? 0));
+        $metricPerformancePct = (int)round((float)($avgScore ?? 0));
     }
 
     // Mastery: Average topic mastery for this course
-    $stmtM = $pdo->prepare("SELECT AVG(mastery_score) FROM topic_mastery WHERE student_id = ? AND course_id = ?");
-    $stmtM->execute([(int)$currentUser['id'], $featuredCourseId]);
-    $avgM = $stmtM->fetchColumn();
-    if ($avgM !== false && $avgM !== null) {
-        $metricMasteryPct = (int)round((float)$avgM);
-    } else {
-        $stmtProf = $pdo->prepare("SELECT overall_mastery FROM student_learning_profiles WHERE student_id = ? AND course_id = ?");
-        $stmtProf->execute([(int)$currentUser['id'], $featuredCourseId]);
-        $profM = $stmtProf->fetchColumn();
-        $metricMasteryPct = $profM !== false && $profM !== null ? (int)round((float)$profM) : 0;
+    try {
+        $stmtM = $pdo->prepare("SELECT AVG(mastery_score) FROM topic_mastery WHERE student_id = ? AND course_id = ?");
+        $stmtM->execute([(int)$currentUser['id'], $featuredCourseId]);
+        $avgM = $stmtM->fetchColumn();
+        if ($avgM !== false && $avgM !== null) {
+            $metricMasteryPct = (int)round((float)$avgM);
+        } else {
+            $stmtProf = $pdo->prepare("SELECT current_mastery FROM student_learning_profiles WHERE student_id = ? AND course_id = ?");
+            $stmtProf->execute([(int)$currentUser['id'], $featuredCourseId]);
+            $profM = $stmtProf->fetchColumn();
+            $metricMasteryPct = $profM !== false && $profM !== null ? (int)round((float)$profM) : 0;
+        }
+    } catch (Throwable $e) {
+        $metricMasteryPct = 0;
     }
 }
 
@@ -649,8 +665,9 @@ $weekDayLabels = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'];
                     </h4>
                     <p class="text-[11px] text-slate-400 mt-0.5 truncate">
                       <?= htmlspecialchars($assign['course_title'] ?? $assign['subject'] ?? '') ?>
-                      <?php if (!empty($assign['topic_name'] ?? $assign['topic'])): ?>
-                        · <?= htmlspecialchars($assign['topic_name'] ?? $assign['topic']) ?>
+                      <?php $topicVal = $assign['topic_name'] ?? $assign['topic'] ?? ''; ?>
+                      <?php if (!empty($topicVal)): ?>
+                        · <?= htmlspecialchars((string)$topicVal) ?>
                       <?php endif; ?>
                     </p>
                     <?php if ($actType === 'remediation'): ?>
