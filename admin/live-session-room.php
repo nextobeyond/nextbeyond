@@ -153,7 +153,62 @@ $currentPage = 'live-sessions.php';
           </div>
         </div>
 
+        <!-- PHASE 2: CLASS UNDERSTANDING CARD ──────────────────────────── -->
+        <div class="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3" id="understanding-card">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">🧠 ความเข้าใจชั้นเรียน</h3>
+                <p class="text-xs text-slate-500 mt-0.5" id="uc-summary-text">ยังไม่มีข้อมูล — กด "เช็กความเข้าใจ" เพื่อเริ่ม</p>
+              </div>
+            </div>
+            <button type="button" id="btn-trigger-check"
+              class="px-3 py-1.5 rounded-lg text-xs font-800 bg-indigo-600 text-white hover:bg-indigo-700 transition whitespace-nowrap flex-shrink-0"
+              title="ส่งคำถามความเข้าใจให้นักเรียนทุกคน">
+              📢 เช็กความเข้าใจ
+            </button>
+          </div>
+          <!-- Stats bars -->
+          <div id="uc-stats-bars" class="space-y-1.5" style="display:none;">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-20 text-green-700 font-700">👍 เข้าใจ</span>
+              <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div id="uc-bar-got" class="h-full bg-green-400 rounded-full transition-all" style="width:0%"></div>
+              </div>
+              <span id="uc-pct-got" class="w-9 text-right font-700 text-slate-600">0%</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-20 text-amber-700 font-700">😐 บางส่วน</span>
+              <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div id="uc-bar-some" class="h-full bg-amber-400 rounded-full transition-all" style="width:0%"></div>
+              </div>
+              <span id="uc-pct-some" class="w-9 text-right font-700 text-slate-600">0%</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-20 text-red-700 font-700">🤷 ไม่เข้าใจ</span>
+              <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div id="uc-bar-conf" class="h-full bg-red-400 rounded-full transition-all" style="width:0%"></div>
+              </div>
+              <span id="uc-pct-conf" class="w-9 text-right font-700 text-slate-600">0%</span>
+            </div>
+          </div>
+          <!-- Topic dropdown for check-in -->
+          <div id="uc-topic-selector" class="pt-2 border-t border-slate-100" style="display:none;">
+            <label class="text-xs font-700 text-slate-600 block mb-1">หัวข้อที่ถาม (ไม่บังคับ)</label>
+            <select id="uc-topic-select" class="w-full h-9 px-3 rounded-lg border border-slate-200 text-sm bg-white text-slate-700">
+              <option value="">-- ทั่วไป --</option>
+            </select>
+          </div>
+        </div>
+        <!-- /PHASE 2 UNDERSTANDING CARD -->
+
         <!-- SECTION 4: Exam Overview Banner -->
+
         <button type="button" data-open-modal="exam_overview" class="w-full p-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 shadow-xs flex items-center justify-between text-left transition-colors cursor-pointer">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
@@ -239,6 +294,15 @@ $currentPage = 'live-sessions.php';
             </div>
             <span class="text-xs font-bold text-slate-950">รีเซ็ตคำตอบ</span>
             <span class="text-[10px] text-slate-600">อนุญาตให้สอบใหม่</span>
+          </button>
+
+          <!-- 9. มอบหมายงานหลังเรียน (Phase 3 Post-Class Assignment) -->
+          <button type="button" data-open-modal="post_class_assignment" class="p-4 rounded-2xl bg-pink-50/90 hover:bg-pink-100 border border-pink-200 flex flex-col items-center justify-center space-y-2 cursor-pointer shadow-xs group transition-all">
+            <div class="w-10 h-10 rounded-2xl bg-pink-500 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </div>
+            <span class="text-xs font-bold text-pink-950">มอบหมายงานหลังเรียน</span>
+            <span class="text-[10px] text-pink-700">Worksheet / Homework</span>
           </button>
         </div>
 

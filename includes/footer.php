@@ -1,3 +1,8 @@
+<?php
+require_once __DIR__ . '/settings-service.php';
+$footerLogo = (string) SettingsService::get('school_logo', '');
+$footerSchoolName = (string) SettingsService::get('school_name', 'NEXTBEYOND');
+?>
   <footer class="pt-14 pb-6 text-[#9db0c8] bg-navy-950">
     <div class="container">
       <style>
@@ -7,18 +12,22 @@
       </style>
       <div class="footer-grid">
         <div class="max-[980px]:col-span-2 max-[680px]:col-span-1">
-          <a class="inline-flex items-center gap-3 min-w-[230px] max-[680px]:min-w-0" href="index.php" aria-label="Nextbeyond Compass">
-            <svg class="w-[38px] h-[38px] shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round" />
-              <clipPath id="logo-clip-footer">
-                <rect x="0" y="9" width="40" height="22" />
-              </clipPath>
-              <g clip-path="url(#logo-clip-footer)">
-                <path d="M 8 36 L 15 4 L 27 36" fill="none" stroke="#ffffff" stroke-width="8.5" stroke-linejoin="miter" stroke-miterlimit="8" />
-              </g>
-            </svg>
+          <a class="inline-flex items-center gap-3 min-w-[230px] max-[680px]:min-w-0" href="index.php" aria-label="<?= htmlspecialchars($footerSchoolName) ?>">
+            <?php if (!empty($footerLogo)): ?>
+              <img src="<?= htmlspecialchars(ltrim($footerLogo, '/')) ?>?v=<?= @filemtime(__DIR__ . '/../' . ltrim($footerLogo, '/')) ?: time() ?>" alt="Logo" class="w-[38px] h-[38px] object-contain rounded-lg shrink-0">
+            <?php else: ?>
+              <svg class="w-[38px] h-[38px] shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round" />
+                <clipPath id="logo-clip-footer">
+                  <rect x="0" y="9" width="40" height="22" />
+                </clipPath>
+                <g clip-path="url(#logo-clip-footer)">
+                  <path d="M 8 36 L 15 4 L 27 36" fill="none" stroke="#ffffff" stroke-width="8.5" stroke-linejoin="miter" stroke-miterlimit="8" />
+                </g>
+              </svg>
+            <?php endif; ?>
             <span class="grid leading-[1.15]">
-              <strong class="text-white text-[15px] tracking-[0.04em]">NEXTBEYOND</strong>
+              <strong class="text-white text-[15px] tracking-[0.04em]"><?= htmlspecialchars(mb_strtoupper($footerSchoolName)) ?></strong>
               <small class="text-[#8e9baf] text-[10px] font-bold tracking-[0.18em] max-[680px]:hidden">COMPASS</small>
             </span>
           </a>
@@ -43,7 +52,7 @@
         </div>
       </div>
       <div class="mt-[38px] pt-5 border-t border-white/10 text-[#7287a2] text-[13px]">
-        © <span data-current-year></span> Nextbeyond Compass. PHP & Tailwind version.
+        © <span data-current-year></span> <?= htmlspecialchars($footerSchoolName) ?>. All rights reserved.
       </div>
     </div>
   </footer>

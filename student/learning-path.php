@@ -3,8 +3,24 @@ $pageTitle = 'เส้นทางการเรียน';
 $currentPage = 'learning-path.php';
 require_once __DIR__ . '/includes/guard.php';
 require_once __DIR__ . '/../includes/roadmap-service.php';
+require_once __DIR__ . '/../includes/learning-journey-service.php';
+$journeyService = new LearningJourneyService($pdo);
 
-$stmt = $pdo->prepare('SELECT * FROM learning_paths WHERE user_id = :user_id ORDER BY updated_at DESC, id DESC');
+function resolveStudentActionUrl(?string $url): string {
+    if (empty($url)) return 'my-courses.php';
+    if (str_starts_with($url, 'lesson.php') || str_starts_with($url, 'course.php')) {
+        return '../' . $url;
+    }
+    return $url;
+}
+
+$stmt = $pdo->prepare('
+    SELECT lp.*, c.title AS course_title, c.subject AS course_subject
+    FROM learning_paths lp
+    LEFT JOIN courses c ON c.id = lp.course_id
+    WHERE lp.user_id = :user_id
+    ORDER BY lp.updated_at DESC, lp.id DESC
+');
 $stmt->execute([':user_id' => $currentUser['id']]);
 $paths = $stmt->fetchAll();
 
@@ -194,24 +210,80 @@ function mobileRoadmapTaskType(array $task): string
           <?php foreach ($paths as $path):
               $progress = min(100, max(0, (float) ($path['progress_percent'] ?? 0)));
               $steps = learningPathSteps($path);
+              $cId = !empty($path['course_id']) ? (int)$path['course_id'] : null;
+              $courseGoals = $cId ? $journeyService->getStudentLearningGoals((int)$currentUser['id'], $cId, 'active') : [];
+              $activeGoal = $courseGoals[0] ?? null;
+              $courseNextAction = $cId ? $journeyService->getStudentNextAction((int)$currentUser['id'], $cId) : null;
           ?>
-            <article class="bg-white border border-[#dfe5ed] rounded-xl overflow-hidden hover:border-[#b8c4d3]">
+            <article class="bg-white border border-[#dfe5ed] rounded-xl overflow-hidden hover:border-[#b8c4d3] shadow-sm">
               <div class="grid grid-cols-[280px_minmax(0,1fr)] max-[760px]:grid-cols-1">
-                <div class="bg-navy-950 text-white p-6 flex flex-col min-h-[250px]">
-                  <span class="text-[11px] uppercase tracking-[.14em] font-bold text-[#90a3bd]"><?= htmlspecialchars($path['subject'] ?: 'Learning path') ?></span>
-                  <h2 class="mt-3 text-[20px] leading-7 font-bold"><?= htmlspecialchars($path['target_goal'] ?: 'เป้าหมายการเรียนของคุณ') ?></h2>
-                  <div class="mt-auto pt-6 text-[12px] text-[#aebbd0]">ระดับ <?= htmlspecialchars($path['current_level'] ?: 'ทั่วไป') ?></div>
-                  <div class="mt-1 text-[12px] text-[#aebbd0]"><?= (int) ($path['hours_per_week'] ?? 0) ?> ชั่วโมงต่อสัปดาห์</div>
+                <div class="bg-navy-950 text-white p-6 flex flex-col justify-between min-h-[250px]">
+                  <div>
+                    <div class="flex items-center gap-2 flex-wrap mb-2">
+                      <span class="text-[11px] uppercase tracking-[.14em] font-bold text-pink-400">
+                        <?= htmlspecialchars($path['course_title'] ?: $path['subject'] ?: 'Learning path') ?>
+                      </span>
+                    </div>
+                    <h2 class="text-[20px] leading-7 font-bold">
+                      <?= htmlspecialchars($path['target_goal'] ?: ($activeGoal['goal_name'] ?? 'เป้าหมายการเรียนของคุณ')) ?>
+                    </h2>
+                    <?php if ($activeGoal): ?>
+                      <div class="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/10 text-white text-xs border border-white/15">
+                        <span>🎯</span>
+                        <span class="font-semibold"><?= htmlspecialchars($activeGoal['goal_name']) ?></span>
+                        <?php if ($activeGoal['target_score'] !== null): ?>
+                          <span class="text-pink-400 font-bold">(<?= (float)$activeGoal['target_score'] ?>)</span>
+                        <?php endif; ?>
+                      </div>
+                    <?php endif; ?>
+                  </div>
+                  <div class="pt-6 border-t border-white/10 text-[12px] text-[#aebbd0]">
+                    <div>ระดับ <?= htmlspecialchars($path['current_level'] ?: 'ทั่วไป') ?></div>
+                    <div class="mt-1"><?= (int) ($path['hours_per_week'] ?? 0) ?> ชั่วโมงต่อสัปดาห์</div>
+                  </div>
                 </div>
                 <div class="p-6 max-[640px]:p-5">
-                  <div class="flex items-center justify-between gap-4 mb-2"><span class="text-[13px] font-bold">ความก้าวหน้าของแผน</span><strong class="text-[18px]"><?= (int) round($progress) ?>%</strong></div>
-                  <div class="h-2 rounded-full bg-[#e8edf3] overflow-hidden"><div class="h-full bg-pink-500" style="width:<?= $progress ?>%"></div></div>
-                  <div class="mt-7">
-                    <h3 class="student-section-title text-[15px] font-bold">ลำดับการเรียน</h3>
+                  <div class="flex items-center justify-between gap-4 mb-2">
+                    <span class="text-[13px] font-bold text-slate-600">ความก้าวหน้าของแผน</span>
+                    <strong class="text-[18px] text-navy-950"><?= (int) round($progress) ?>%</strong>
+                  </div>
+                  <div class="h-2 rounded-full bg-[#e8edf3] overflow-hidden mb-6">
+                    <div class="h-full bg-pink-500" style="width:<?= $progress ?>%"></div>
+                  </div>
+
+                  <?php if ($courseNextAction): ?>
+                    <div class="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-4 flex-wrap">
+                      <div class="flex items-center gap-3">
+                        <span class="w-3 h-3 rounded-full bg-pink-500 shrink-0 animate-pulse"></span>
+                        <div>
+                          <div class="text-[10px] font-black uppercase tracking-wider text-pink-600">ภารกิจถัดไป (Next Action)</div>
+                          <div class="text-sm font-bold text-navy-950"><?= htmlspecialchars($courseNextAction['title']) ?></div>
+                        </div>
+                      </div>
+                      <a href="<?= htmlspecialchars(resolveStudentActionUrl($courseNextAction['action_url'])) ?>"
+                         class="h-9 px-4 rounded-lg bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                        <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        <span>เรียนต่อ</span>
+                      </a>
+                    </div>
+                  <?php endif; ?>
+
+                  <div>
+                    <h3 class="student-section-title text-[15px] font-bold text-navy-950">ลำดับการเรียน (Learning Steps)</h3>
                     <?php if ($steps): ?>
                       <ol class="mt-4 grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
-                        <?php foreach (array_slice($steps, 0, 6) as $index => $step): ?>
-                          <li class="flex items-center gap-3 border border-[#e3e8ef] rounded-lg p-3"><span class="w-7 h-7 shrink-0 rounded-md bg-[#eef2f7] flex items-center justify-center text-[11px] font-bold"><?= $index + 1 ?></span><span class="text-[13px] font-semibold leading-5"><?= htmlspecialchars(learningStepTitle($step)) ?></span></li>
+                        <?php foreach (array_slice($steps, 0, 6) as $index => $step):
+                          $title = learningStepTitle($step);
+                          $isStepCurrent = $courseNextAction && (stripos($courseNextAction['title'], $title) !== false || stripos($title, $courseNextAction['title']) !== false);
+                        ?>
+                          <li class="flex items-center gap-3 border <?= $isStepCurrent ? 'border-pink-300 bg-pink-50/50' : 'border-[#e3e8ef]' ?> rounded-lg p-3">
+                            <span class="w-7 h-7 shrink-0 rounded-md <?= $isStepCurrent ? 'bg-pink-500 text-white' : 'bg-[#eef2f7] text-navy-950' ?> flex items-center justify-center text-[11px] font-bold">
+                              <?= $isStepCurrent ? '▶' : ($index + 1) ?>
+                            </span>
+                            <span class="text-[13px] font-semibold leading-5 <?= $isStepCurrent ? 'text-pink-600' : 'text-slate-800' ?>">
+                              <?= htmlspecialchars($title) ?>
+                            </span>
+                          </li>
                         <?php endforeach; ?>
                       </ol>
                     <?php else: ?>

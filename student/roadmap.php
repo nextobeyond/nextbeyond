@@ -175,7 +175,7 @@ $labels = roadmapStageLabels();
               </div>
               
               <?php if ($isLocked): ?>
-                <div class="task-locked"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>ล็อกอยู่</div>
+                <div class="task-locked" title="<?= htmlspecialchars($task['adaptive_lock_message'] ?? 'ทำภารกิจก่อนหน้าให้สำเร็จก่อน') ?>"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><?= !empty($task['adaptive_lock']) ? 'รอขั้นตอนทบทวน' : 'ล็อกอยู่' ?></div>
               <?php elseif (!$isCompleted): ?>
                 <?php if ($task['completion_type'] === 'complete_lesson' && $task['ref_lesson_id']): ?>
                     <a href="../lesson.php?id=<?= $task['ref_lesson_id'] ?>" class="task-action-btn">เข้าเรียน</a>

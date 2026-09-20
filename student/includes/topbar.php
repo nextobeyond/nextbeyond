@@ -13,13 +13,22 @@ $pageTitle = $pageTitle ?? 'Student Dashboard';
       </svg>
     </button>
 
-    <a href="index.php" class="student-mobile-brand" aria-label="Next Beyond Student">
-      <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
-        <line x1="25" y1="32" x2="31" y2="8" stroke="#ff168b" stroke-width="8" stroke-linecap="round"/>
-        <clipPath id="logo-clip-topbar"><rect x="0" y="9" width="40" height="22"/></clipPath>
-        <g clip-path="url(#logo-clip-topbar)"><path d="M 8 36 L 15 4 L 27 36" fill="none" stroke="#061a40" stroke-width="8.5" stroke-linejoin="miter" stroke-miterlimit="8"/></g>
-      </svg>
-      <span><strong>NEXT BEYOND</strong><small>STUDENT</small></span>
+<?php
+require_once __DIR__ . '/../../includes/settings-service.php';
+$topbarLogo = (string) SettingsService::get('school_logo', '', $pdo ?? null);
+$topbarSchoolName = (string) SettingsService::get('school_name', 'NEXT BEYOND', $pdo ?? null);
+?>
+    <a href="index.php" class="student-mobile-brand" aria-label="<?= htmlspecialchars($topbarSchoolName) ?> Student">
+      <?php if (!empty($topbarLogo)): ?>
+        <img src="../<?= htmlspecialchars(ltrim($topbarLogo, '/')) ?>?v=<?= @filemtime(__DIR__ . '/../../' . ltrim($topbarLogo, '/')) ?: time() ?>" alt="Logo" class="w-8 h-8 object-contain rounded-lg shrink-0">
+      <?php else: ?>
+        <svg viewBox="0 0 40 40" fill="none" aria-hidden="true" class="w-8 h-8 shrink-0">
+          <line x1="25" y1="32" x2="31" y2="8" stroke="#ff168b" stroke-width="8" stroke-linecap="round"/>
+          <clipPath id="logo-clip-topbar"><rect x="0" y="9" width="40" height="22"/></clipPath>
+          <g clip-path="url(#logo-clip-topbar)"><path d="M 8 36 L 15 4 L 27 36" fill="none" stroke="#061a40" stroke-width="8.5" stroke-linejoin="miter" stroke-miterlimit="8"/></g>
+        </svg>
+      <?php endif; ?>
+      <span><strong><?= htmlspecialchars(mb_strtoupper($topbarSchoolName)) ?></strong><small>STUDENT</small></span>
     </a>
 
     <h1 class="text-[16px] font-bold text-navy-950 truncate"><?= htmlspecialchars($pageTitle) ?></h1>

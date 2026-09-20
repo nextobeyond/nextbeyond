@@ -108,6 +108,15 @@ try {
         if (!$user || !$user['is_active'] || !password_verify($password, (string) $user['password_hash'])) {
             authRespond(['error' => 'ไม่พบบัญชีหรือรหัสผ่านไม่ถูกต้อง'], 401);
         }
+
+        require_once __DIR__ . '/includes/settings-service.php';
+        if (SettingsService::isMaintenanceMode($pdo) && !in_array($user['role'], ['admin', 'teacher'], true)) {
+            authRespond(['error' => 'ระบบอยู่ระหว่างการปิดปรับปรุงชั่วคราว (Maintenance Mode) อนุญาตเฉพาะผู้ดูแลระบบและอาจารย์เข้าสู่ระบบเท่านั้น'], 503);
+        }
+        if (!SettingsService::isStudentPortalEnabled($pdo) && $user['role'] === 'student') {
+            authRespond(['error' => 'ระบบพอร์ทัลนักเรียนปิดปรับปรุงชั่วคราว ขออภัยในความไม่สะดวก'], 503);
+        }
+
         session_regenerate_id(true);
         $_SESSION['user_id'] = (int) $user['id'];
         $_SESSION['user_role'] = (string) $user['role'];
@@ -120,6 +129,14 @@ try {
     }
 
     if ($action === 'register') {
+        require_once __DIR__ . '/includes/settings-service.php';
+        if (!SettingsService::isRegistrationEnabled($pdo)) {
+            authRespond(['error' => 'ระบบปิดรับสมัครนักเรียนใหม่ชั่วคราว กรุณาติดต่อสถาบัน'], 403);
+        }
+        if (SettingsService::isMaintenanceMode($pdo)) {
+            authRespond(['error' => 'ระบบอยู่ระหว่างการปิดปรับปรุงชั่วคราว (Maintenance Mode) ไม่สามารถสมัครสมาชิกได้ในขณะนี้'], 503);
+        }
+
         $firstName = trim((string) ($data['firstName'] ?? ''));
         $lastName = trim((string) ($data['lastName'] ?? ''));
         $email = strtolower(trim((string) ($data['email'] ?? '')));

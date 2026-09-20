@@ -84,8 +84,24 @@ function studentGuard(): array {
 
     if (!$user || !$user['is_active'] || !in_array($user['role'], ['student', 'admin'], true)) {
         session_destroy();
-        header('Location: /auth?error=session_expired');
+        header('Location: /auth.php?error=session_expired');
         exit;
+    }
+
+    require_once __DIR__ . '/../../includes/settings-service.php';
+    if ($user['role'] !== 'admin') {
+        if (SettingsService::isMaintenanceMode($pdo)) {
+            http_response_code(503);
+            require __DIR__ . '/../../includes/maintenance-view.php';
+            exit;
+        }
+        if (!SettingsService::isStudentPortalEnabled($pdo)) {
+            http_response_code(503);
+            $maintenanceTitle = 'ระบบพอร์ทัลนักเรียนปิดปรับปรุงชั่วคราว';
+            $maintenanceMessage = 'ระบบนักเรียนกำลังอยู่ระหว่างการปรับปรุงระบบ ขออภัยในความไม่สะดวก กรุณากลับมาใหม่ในภายหลัง';
+            require __DIR__ . '/../../includes/maintenance-view.php';
+            exit;
+        }
     }
 
     return $user;

@@ -84,7 +84,7 @@
   });
 
   async function callAuthApi(payload) {
-    const response = await fetch('auth-api', {
+    const response = await fetch('auth-api.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

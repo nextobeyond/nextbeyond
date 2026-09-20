@@ -1,20 +1,27 @@
 <?php
 $currentPage = $currentPage ?? 'index.php';
+require_once __DIR__ . '/settings-service.php';
+$headerLogo = (string) SettingsService::get('school_logo', '');
+$headerSchoolName = (string) SettingsService::get('school_name', 'NEXTBEYOND');
 ?>
   <header class="sticky top-0 z-50 border-b border-white/5 bg-navy-950">
     <div class="container min-h-[78px] flex items-center gap-7">
-      <a class="inline-flex items-center gap-3 min-w-[230px] max-[680px]:min-w-0" href="index.php" aria-label="Nextbeyond Compass หน้าแรก">
-        <svg class="w-[38px] h-[38px] shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round" />
-          <clipPath id="logo-clip">
-            <rect x="0" y="9" width="40" height="22" />
-          </clipPath>
-          <g clip-path="url(#logo-clip)">
-            <path d="M 8 36 L 15 4 L 27 36" fill="none" stroke="#ffffff" stroke-width="8.5" stroke-linejoin="miter" stroke-miterlimit="8" />
-          </g>
-        </svg>
+      <a class="inline-flex items-center gap-3 min-w-[230px] max-[680px]:min-w-0" href="index.php" aria-label="<?= htmlspecialchars($headerSchoolName) ?> หน้าแรก">
+        <?php if (!empty($headerLogo)): ?>
+          <img src="<?= htmlspecialchars(ltrim($headerLogo, '/')) ?>?v=<?= @filemtime(__DIR__ . '/../' . ltrim($headerLogo, '/')) ?: time() ?>" alt="Logo" class="w-[38px] h-[38px] object-contain rounded-lg shrink-0">
+        <?php else: ?>
+          <svg class="w-[38px] h-[38px] shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round" />
+            <clipPath id="logo-clip">
+              <rect x="0" y="9" width="40" height="22" />
+            </clipPath>
+            <g clip-path="url(#logo-clip)">
+              <path d="M 8 36 L 15 4 L 27 36" fill="none" stroke="#ffffff" stroke-width="8.5" stroke-linejoin="miter" stroke-miterlimit="8" />
+            </g>
+          </svg>
+        <?php endif; ?>
         <span class="grid leading-[1.15]">
-          <strong class="text-white text-[15px] tracking-[0.04em]">NEXTBEYOND</strong>
+          <strong class="text-white text-[15px] tracking-[0.04em]"><?= htmlspecialchars(mb_strtoupper($headerSchoolName)) ?></strong>
           <small class="text-[#8e9baf] text-[10px] font-bold tracking-[0.18em] max-[680px]:hidden">COMPASS</small>
         </span>
       </a>

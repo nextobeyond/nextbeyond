@@ -294,6 +294,89 @@ $initialPin = preg_replace('/[^\d]/', '', (string)($_GET['pin'] ?? ''));
   };
 })();
 </script>
+
+<!-- ─── Phase 2: Understanding Check Panel ───────────────────────────── -->
+<div id="understanding-panel" style="display:none; position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:200; width:min(480px, calc(100vw - 32px));">
+  <div style="background:linear-gradient(135deg,#1e1b4b,#312e81); border:1px solid rgba(255,255,255,.18); border-radius:20px; padding:20px 22px; box-shadow:0 16px 48px rgba(0,0,0,.4); color:#fff; backdrop-filter:blur(12px);">
+    <p style="font-size:11px; font-weight:700; opacity:.65; letter-spacing:.06em; margin-bottom:6px;" id="uc-topic-label">เช็กความเข้าใจ</p>
+    <p style="font-size:16px; font-weight:800; margin-bottom:14px;">เข้าใจบทเรียนนี้ดีแค่ไหน? 🤔</p>
+    <div style="display:flex; gap:10px;">
+      <button onclick="submitUnderstanding('got_it')" id="uc-got-it"
+        style="flex:1; padding:11px 0; border-radius:12px; border:none; background:#22c55e; color:#fff; font-size:13px; font-weight:800; cursor:pointer; transition:.15s;">
+        👍 เข้าใจแล้ว
+      </button>
+      <button onclick="submitUnderstanding('somewhat')" id="uc-somewhat"
+        style="flex:1; padding:11px 0; border-radius:12px; border:none; background:#f59e0b; color:#fff; font-size:13px; font-weight:800; cursor:pointer; transition:.15s;">
+        😐 บางส่วน
+      </button>
+      <button onclick="submitUnderstanding('confused')" id="uc-confused"
+        style="flex:1; padding:11px 0; border-radius:12px; border:none; background:#ef4444; color:#fff; font-size:13px; font-weight:800; cursor:pointer; transition:.15s;">
+        🤷 ยังไม่เข้าใจ
+      </button>
+    </div>
+    <button onclick="dismissUnderstanding()" style="position:absolute; top:12px; right:14px; background:none; border:none; color:rgba(255,255,255,.5); font-size:20px; cursor:pointer; line-height:1;">×</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  let _ucSessionId = null;
+  let _ucCurrentTopic = '';
+  let _ucSubmitted = false;
+
+  // Called by existing polling code when announcement contains _check_ prefix
+  window.__p2_triggerCheck = function (sessionId, topicName) {
+    _ucSessionId  = sessionId;
+    _ucCurrentTopic = topicName || '';
+    _ucSubmitted  = false;
+    const panel = document.getElementById('understanding-panel');
+    const label = document.getElementById('uc-topic-label');
+    if (panel) {
+      if (label) label.textContent = topicName ? '📌 หัวข้อ: ' + topicName : 'เช็กความเข้าใจ';
+      panel.style.display = 'block';
+      // Reset buttons
+      ['uc-got-it','uc-somewhat','uc-confused'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.disabled = false; b.style.opacity = '1'; }
+      });
+    }
+  };
+
+  window.submitUnderstanding = async function (val) {
+    if (!_ucSessionId || _ucSubmitted) return;
+    _ucSubmitted = true;
+    ['uc-got-it','uc-somewhat','uc-confused'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) { b.disabled = true; b.style.opacity = '0.5'; }
+    });
+    try {
+      await fetch('live-session-api.php?action=understanding_check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: _ucSessionId, understanding: val, topicName: _ucCurrentTopic }),
+      });
+    } catch (_) { /* silently continue */ }
+    setTimeout(dismissUnderstanding, 1200);
+  };
+
+  window.dismissUnderstanding = function () {
+    const panel = document.getElementById('understanding-panel');
+    if (panel) panel.style.display = 'none';
+  };
+
+  // Hook into polling: intercept announcement messages prefixed with "_check_"
+  const _origFetch = window.fetch;
+  // The existing live-session polling checks announcementMessage; we extend it here
+  const _checkInterval = setInterval(function () {
+    const ann = window.__currentAnnouncement;
+    if (ann && ann.startsWith('_check_') && _ucSessionId) {
+      const topic = ann.replace('_check_', '').trim();
+      window.__p2_triggerCheck(_ucSessionId, topic);
+      window.__currentAnnouncement = null; // consume
+    }
+  }, 2000);
+})();
+</script>
 </body>
 </html>
-

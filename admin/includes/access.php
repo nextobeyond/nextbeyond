@@ -14,7 +14,7 @@ function teacherMenuSettings(): array
         'teacher_test_access' => ['แบบทดสอบและคลังข้อสอบ', ['tests.php', 'question-bank.php', 'exams-api.php', 'export-exam-docx.php', 'live-sessions.php', 'live-session-room.php', 'live-sessions-api.php', 'question-search-api.php']],
         'teacher_worksheet_access' => ['คลังใบงานและ AI สร้างใบงาน', ['worksheets.php', 'worksheet-detail.php', 'ai-worksheet.php', 'worksheets-api.php', 'question-search-api.php']],
         'teacher_ai_access' => ['AI สร้างข้อสอบ', ['ai-exam.php', 'ai-exam-app/']],
-        'teacher_students_access' => ['นักเรียน', ['students.php', 'students-api.php', 'student-detail.php', 'enrollments-api.php', 'course-matrix.php']],
+        'teacher_students_access' => ['นักเรียน', ['students.php', 'students-api.php', 'student-detail.php', 'enrollments-api.php', 'course-matrix.php', 'adaptive-learning-api.php', 'interventions.php']],
         'teacher_orders_access' => ['คำสั่งซื้อและบัญชี', ['orders.php', 'orders-api.php']],
     ];
 }

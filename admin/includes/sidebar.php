@@ -24,6 +24,7 @@ $adminMenu = [
   ],
   "OPERATIONS" => [
     ["students.php", "นักเรียน"],
+    ["interventions.php", "คิวช่วยเหลือผู้เรียน"],
     ["orders.php", "คำสั่งซื้อและบัญชี"]
   ],
   "SYSTEM" => [
@@ -37,19 +38,30 @@ foreach ($adminMenu as $group => $items) {
 }
 ?>
 <aside class="fixed inset-y-0 left-0 w-[240px] bg-navy-950 text-white overflow-y-auto flex flex-col z-40 max-[1024px]:-translate-x-full transition-transform duration-300 shadow-[4px_0_24px_rgba(15,42,83,0.1)]" id="adminSidebar">
+<?php
+require_once __DIR__ . '/../../includes/settings-service.php';
+$sidebarLogo = (string) SettingsService::get('school_logo', '', $pdo);
+$sidebarSchoolName = (string) SettingsService::get('school_name', 'NEXT BEYOND', $pdo);
+?>
   <div class="p-6 border-b border-white/10 shrink-0">
-    <a href="<?= htmlspecialchars($adminLinkPrefix, ENT_QUOTES, 'UTF-8') ?>index.php" class="inline-flex items-center gap-3 w-full" aria-label="Next Beyond Admin">
-      <svg class="w-[32px] h-[32px] shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round" />
-        <clipPath id="logo-clip-admin">
-          <rect x="0" y="9" width="40" height="22" />
-        </clipPath>
-        <g clip-path="url(#logo-clip-admin)">
-          <path d="M 8 36 L 15 4 L 27 36" fill="none" stroke="#ffffff" stroke-width="8.5" stroke-linejoin="miter" stroke-miterlimit="8" />
-        </g>
-      </svg>
-      <span class="grid leading-[1.15]">
-        <strong class="text-white text-[14px] tracking-[0.04em]">NEXT BEYOND</strong>
+    <a href="<?= htmlspecialchars($adminLinkPrefix, ENT_QUOTES, 'UTF-8') ?>index.php" class="inline-flex items-center gap-3 w-full" aria-label="<?= htmlspecialchars($sidebarSchoolName) ?> Admin">
+      <span id="admin-sidebar-logo-slot" class="shrink-0 flex items-center justify-center">
+        <?php if (!empty($sidebarLogo)): ?>
+          <img src="../<?= htmlspecialchars(ltrim($sidebarLogo, '/')) ?>?v=<?= @filemtime(__DIR__ . '/../../' . ltrim($sidebarLogo, '/')) ?: time() ?>" alt="Logo" class="w-8 h-8 object-contain rounded-lg shrink-0">
+        <?php else: ?>
+          <svg class="w-[32px] h-[32px] shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round" />
+            <clipPath id="logo-clip-admin">
+              <rect x="0" y="9" width="40" height="22" />
+            </clipPath>
+            <g clip-path="url(#logo-clip-admin)">
+              <path d="M 8 36 L 15 4 L 27 36" fill="none" stroke="#ffffff" stroke-width="8.5" stroke-linejoin="miter" stroke-miterlimit="8" />
+            </g>
+          </svg>
+        <?php endif; ?>
+      </span>
+      <span class="grid leading-[1.15] truncate">
+        <strong id="admin-sidebar-school-name" class="text-white text-[14px] tracking-[0.04em] truncate"><?= htmlspecialchars(mb_strtoupper($sidebarSchoolName)) ?></strong>
         <small class="text-pink-500 text-[9px] font-bold tracking-[0.18em]"><?= $consoleUser['role'] === 'teacher' ? 'TEACHER CONSOLE' : 'ADMIN CONSOLE' ?></small>
       </span>
     </a>

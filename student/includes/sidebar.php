@@ -12,6 +12,7 @@ $studentMenu = [
         ['courses.php',      'ค้นหาคอร์ส',        'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'],
         ['learning-path.php','เส้นทางการเรียน',   'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'],
         ['roadmap.php',      'Study Roadmap',     'M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437A1 1 0 0021 17.305V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934a1.125 1.125 0 01-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689A1.125 1.125 0 003 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934a1.125 1.125 0 011.006 0l4.994 2.497a1.125 1.125 0 001.006 0z'],
+        ['skill-map.php',    '🗺️ แผนที่ทักษะ',    'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7'],
     ],
     'แบบทดสอบ'  => [
         ['live-session.php', '⚡ ห้องเรียนสด (Live)', 'M13 10V3L4 14h7v7l9-11h-7z'],
@@ -35,20 +36,29 @@ $displayName = !empty($u['nickname']) ? trim($u['nickname']) : (trim(($u['first_
 $initials = mb_strtoupper(mb_substr($u['first_name'] ?? 'N', 0, 1) . mb_substr($u['last_name'] ?? 'B', 0, 1));
 $avatarSrc = studentAvatarUrl($u['avatar_url'] ?? null);
 ?>
+<?php
+require_once __DIR__ . '/../../includes/settings-service.php';
+$studentLogo = (string) SettingsService::get('school_logo', '', $pdo);
+$studentSchoolName = (string) SettingsService::get('school_name', 'NEXT BEYOND', $pdo);
+?>
 <aside id="studentSidebar" class="fixed inset-y-0 left-0 w-[240px] bg-white border-r border-[#e8ecf2] overflow-y-auto flex flex-col z-40 shadow-[2px_0_16px_rgba(15,42,83,0.06)] max-[1024px]:-translate-x-full transition-transform duration-300">
 
   <!-- Logo -->
   <div class="p-5 border-b border-[#e8ecf2] shrink-0">
-    <a href="/index.php" class="inline-flex items-center gap-3 w-full" aria-label="Nextbeyond Compass">
-      <svg class="w-8 h-8 shrink-0" viewBox="0 0 40 40" fill="none">
-        <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round"/>
-        <clipPath id="logo-clip-student"><rect x="0" y="9" width="40" height="22"/></clipPath>
-        <g clip-path="url(#logo-clip-student)">
-          <path d="M 8 36 L 15 4 L 27 36" fill="none" stroke="#061633" stroke-width="8.5" stroke-linejoin="miter" stroke-miterlimit="8"/>
-        </g>
-      </svg>
-      <span class="grid leading-tight">
-        <strong class="text-navy-950 text-[13px] tracking-[0.04em]">NEXT BEYOND</strong>
+    <a href="../index.php" class="inline-flex items-center gap-3 w-full" aria-label="<?= htmlspecialchars($studentSchoolName) ?>">
+      <?php if (!empty($studentLogo)): ?>
+        <img src="../<?= htmlspecialchars(ltrim($studentLogo, '/')) ?>?v=<?= @filemtime(__DIR__ . '/../../' . ltrim($studentLogo, '/')) ?: time() ?>" alt="Logo" class="w-8 h-8 object-contain rounded-lg shrink-0">
+      <?php else: ?>
+        <svg class="w-8 h-8 shrink-0" viewBox="0 0 40 40" fill="none">
+          <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round"/>
+          <clipPath id="logo-clip-student"><rect x="0" y="9" width="40" height="22"/></clipPath>
+          <g clip-path="url(#logo-clip-student)">
+            <path d="M 8 36 L 15 4 L 27 36" fill="none" stroke="#061633" stroke-width="8.5" stroke-linejoin="miter" stroke-miterlimit="8"/>
+          </g>
+        </svg>
+      <?php endif; ?>
+      <span class="grid leading-tight truncate">
+        <strong class="text-navy-950 text-[13px] tracking-[0.04em] truncate"><?= htmlspecialchars(mb_strtoupper($studentSchoolName)) ?></strong>
         <small class="text-pink-500 text-[9px] font-bold tracking-[0.18em]">STUDENT</small>
       </span>
     </a>

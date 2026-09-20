@@ -7,6 +7,7 @@ header('Cache-Control: no-store');
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/includes/access.php';
 require_once __DIR__ . '/../includes/ai-settings.php';
+require_once __DIR__ . '/../includes/phase4-adaptive-service.php';
 
 function jsonRespond(array $data, int $status = 200): never {
     http_response_code($status);
@@ -602,6 +603,7 @@ try {
 
         // Update exact count
         $pdo->prepare("UPDATE worksheets SET question_count = ? WHERE id = ?")->execute([$order - 1, $wsId]);
+        (new \NextBeyond\Adaptive\CanonicalQuestionRepository($pdo))->syncWorksheet($wsId);
 
         jsonRespond([
             'success' => true,
@@ -665,16 +667,19 @@ try {
                 $lo = trim((string) ($q['learning_objective'] ?? $q['learningObjective'] ?? ''));
 
                 $sourceQId = !empty($q['source_question_id']) ? (int) $q['source_question_id'] : (!empty($q['sourceQuestionId']) ? (int) $q['sourceQuestionId'] : null);
+                $canonicalQId = !empty($q['canonical_question_id']) ? (int)$q['canonical_question_id'] : (!empty($q['canonicalQuestionId']) ? (int)$q['canonicalQuestionId'] : null);
                 $insQ = $pdo->prepare("
                     INSERT INTO worksheet_questions (
                         worksheet_id, sort_order, question_type, question_text,
-                        options, correct_answer, explanation, hint, skill, difficulty, learning_objective, source_question_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        options, correct_answer, explanation, hint, skill, difficulty, learning_objective, source_question_id, canonical_question_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
-                $insQ->execute([$id, $order++, $qType, $qText, $options, $ans, $exp, $hint, $skill, $diff, $lo, $sourceQId]);
+                $insQ->execute([$id, $order++, $qType, $qText, $options, $ans, $exp, $hint, $skill, $diff, $lo, $sourceQId, $canonicalQId]);
             }
             $pdo->prepare("UPDATE worksheets SET question_count = ? WHERE id = ?")->execute([$order - 1, $id]);
         }
+
+        (new \NextBeyond\Adaptive\CanonicalQuestionRepository($pdo))->syncWorksheet($id);
 
         jsonRespond(['success' => true, 'message' => 'บันทึกการแก้ไขเรียบร้อยแล้ว']);
     }
@@ -729,6 +734,8 @@ try {
                 $q['hint'], $q['skill'], $q['difficulty'], $q['learning_objective']
             ]);
         }
+
+        (new \NextBeyond\Adaptive\CanonicalQuestionRepository($pdo))->syncWorksheet($newId);
 
         jsonRespond([
             'success' => true,
@@ -812,36 +819,90 @@ try {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 9. ASSIGN WORKSHEET TO CLASS / COURSE
+    // 9. ASSIGN WORKSHEET TO CLASS / COURSE / STUDENT (Phase 3 Extended)
     // ─────────────────────────────────────────────────────────────
     if ($action === 'assign') {
+        require_once __DIR__ . '/../includes/phase3-mastery-service.php';
+        $p3 = new Phase3MasteryService($pdo);
+
         $data = parseInput();
         $worksheetId = (int) ($data['worksheet_id'] ?? 0);
-        if (!$worksheetId) jsonRespond(['error' => 'ไม่พบรหัสใบงาน'], 400);
+        $examId = !empty($data['exam_id']) ? (int)$data['exam_id'] : null;
+        if (!$worksheetId && !$examId) jsonRespond(['error' => 'ไม่พบรหัสใบงานหรือข้อสอบ'], 400);
 
         $courseId = !empty($data['course_id']) ? (int) $data['course_id'] : null;
+        $classGroupId = !empty($data['class_group_id']) ? (int)$data['class_group_id'] : null;
+        $sessionId = !empty($data['session_id']) ? (string)$data['session_id'] : null;
         $epId = !empty($data['ep_id']) ? (int) $data['ep_id'] : null;
         $className = trim((string) ($data['class_name'] ?? ''));
         $targetType = ($data['target_type'] ?? '') === 'selected' ? 'selected' : 'all';
-        $studentIds = isset($data['student_ids']) && is_array($data['student_ids']) ? json_encode($data['student_ids']) : null;
+        $studentIds = isset($data['student_ids']) && is_array($data['student_ids']) ? $data['student_ids'] : null;
         $dueDate = !empty($data['due_date']) ? date('Y-m-d H:i:s', strtotime($data['due_date'])) : null;
+        $activityType = (string)($data['activity_type'] ?? 'worksheet');
+        $title = trim((string)($data['title'] ?? ''));
+        $topicName = trim((string)($data['topic_name'] ?? ''));
+        $maxAttempts = isset($data['max_attempts']) ? (int)$data['max_attempts'] : 1;
+        $passScore = isset($data['pass_score']) ? (float)$data['pass_score'] : 60.0;
 
         $assignerName = trim(($consoleUser['first_name'] ?? 'Admin') . ' ' . ($consoleUser['last_name'] ?? ''));
         $assignerId = (int) ($consoleUser['id'] ?? 1);
 
-        $stmt = $pdo->prepare("
-            INSERT INTO worksheet_assignments (
-                worksheet_id, course_id, ep_id, class_name, target_type, student_ids, due_date, assigned_by, assigned_by_name
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ");
-        $stmt->execute([$worksheetId, $courseId, $epId, $className, $targetType, $studentIds, $dueDate, $assignerId, $assignerName]);
+        $assignId = $p3->createAssignment([
+            'worksheet_id'     => $worksheetId ?: null,
+            'exam_id'          => $examId,
+            'course_id'        => $courseId,
+            'class_group_id'   => $classGroupId,
+            'session_id'       => $sessionId,
+            'activity_type'    => $activityType,
+            'title'            => $title,
+            'topic_name'       => $topicName,
+            'target_type'      => $targetType,
+            'student_ids'      => $studentIds,
+            'due_date'         => $dueDate,
+            'max_attempts'     => $maxAttempts,
+            'pass_score'       => $passScore,
+            'assigned_by'      => $assignerId,
+            'assigned_by_name' => $assignerName,
+        ]);
 
-        // Increment usage count on worksheet
-        $pdo->prepare("UPDATE worksheets SET usage_count = usage_count + 1 WHERE id = ?")->execute([$worksheetId]);
+        if ($worksheetId) {
+            $pdo->prepare("UPDATE worksheets SET usage_count = usage_count + 1 WHERE id = ?")->execute([$worksheetId]);
+        }
 
         jsonRespond([
             'success' => true,
-            'message' => 'มอบหมายใบงานให้คลาสเรียบร้อยแล้ว'
+            'assignment_id' => $assignId,
+            'message' => 'มอบหมายกิจกรรมการเรียนรู้เรียบร้อยแล้ว'
+        ]);
+    }
+
+    // 9.1 QUICK ASSIGN FROM LIVE SESSION (Section 42-43)
+    if ($action === 'quick_assign_session') {
+        require_once __DIR__ . '/../includes/phase3-mastery-service.php';
+        $p3 = new Phase3MasteryService($pdo);
+
+        $data = parseInput();
+        $sessionId = trim((string)($data['session_id'] ?? ''));
+        $worksheetId = (int)($data['worksheet_id'] ?? 0);
+        $dueDate = trim((string)($data['due_date'] ?? date('Y-m-d 23:59:59', strtotime('+3 days'))));
+        $activityType = (string)($data['activity_type'] ?? 'homework');
+
+        if (empty($sessionId) || $worksheetId < 1) {
+            jsonRespond(['error' => 'session_id and worksheet_id required'], 422);
+        }
+
+        $assignId = $p3->quickAssignFromSession(
+            $sessionId,
+            $worksheetId,
+            $dueDate,
+            $activityType,
+            (int)($consoleUser['id'] ?? 1)
+        );
+
+        jsonRespond([
+            'success' => true,
+            'assignment_id' => $assignId,
+            'message' => 'มอบหมายงานหลังเรียนเรียบร้อยแล้ว'
         ]);
     }
 
@@ -959,6 +1020,11 @@ try {
                     break;
                 }
             } else {
+                if (str_contains((string)$rawRes, 'API key not valid') || str_contains((string)$rawRes, 'API_KEY_INVALID')) {
+                    jsonRespond([
+                        'error' => 'Gemini API Key ในระบบไม่ถูกต้อง หรือหมดอายุ (API key not valid) กรุณาไปที่เมนู "ตั้งค่าระบบ" > แท็บ "AI API Key" เพื่อกรอกและบันทึก API Key ใหม่จาก Google AI Studio'
+                    ], 401);
+                }
                 $lastError = "Model {$model} returned HTTP {$httpCode}: " . substr((string)$rawRes, 0, 150);
             }
         }

@@ -7,8 +7,10 @@ header('Cache-Control: no-store');
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/includes/guard.php';
 require_once __DIR__ . '/../includes/live-sessions-helper.php';
+require_once __DIR__ . '/../includes/phase2-session-service.php';
 
 ensureLiveSessionSchema($pdo);
+$_p2 = new Phase2SessionService($pdo);
 
 function studentLiveRespond(array $data, int $status = 200): never
 {
@@ -232,7 +234,32 @@ try {
         ]);
     }
 
+    // ----------------------------------------------------
+    // POST: understanding_check — student signals got_it/confused/somewhat
+    // ----------------------------------------------------
+    if ($method === 'POST' && $action === 'understanding_check') {
+        $body          = studentLiveBody();
+        $sessionId     = trim((string)($body['sessionId'] ?? ''));
+        $understanding = trim((string)($body['understanding'] ?? ''));
+        $topicName     = trim((string)($body['topicName'] ?? ''));
+        $qIdx          = isset($body['questionIndex']) ? (int)$body['questionIndex'] : null;
+
+        if ($sessionId === '') studentLiveRespond(['ok' => false, 'error' => 'sessionId required'], 422);
+        if (!in_array($understanding, ['got_it','confused','somewhat'], true)) {
+            studentLiveRespond(['ok' => false, 'error' => 'understanding must be got_it, confused, or somewhat'], 422);
+        }
+
+        // Verify student is a participant
+        $chk = $pdo->prepare("SELECT 1 FROM session_participants WHERE session_id = :sid AND student_id = :uid LIMIT 1");
+        $chk->execute([':sid' => $sessionId, ':uid' => $currentStudentId]);
+        if (!$chk->fetchColumn()) studentLiveRespond(['ok' => false, 'error' => 'ไม่พบข้อมูลการเข้าร่วม'], 403);
+
+        $_p2->saveUnderstandingCheck($sessionId, $currentStudentId, $qIdx, $topicName, $understanding);
+        studentLiveRespond(['ok' => true, 'success' => true, 'understanding' => $understanding]);
+    }
+
     studentLiveRespond(['error' => 'Method not allowed'], 405);
+
 } catch (Throwable $e) {
     error_log('Student Live Session API Error: ' . $e->getMessage());
     studentLiveRespond(['error' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);

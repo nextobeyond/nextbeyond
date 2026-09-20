@@ -130,6 +130,35 @@ function getRoadmapTasks(PDO $pdo, int $roadmapId, int $userId): array
             }
         }
     }
+
+    // Phase 5 blocking gaps pause only the affected subject/course branch.
+    try {
+        $blockingStmt = $pdo->prepare("
+            SELECT DISTINCT s.course_id,c.subject
+            FROM adaptive_roadmap_steps s
+            JOIN courses c ON c.id=s.course_id
+            WHERE s.student_id=? AND s.is_blocking=1
+              AND s.status IN ('available','in_progress','locked')
+        ");
+        $blockingStmt->execute([$userId]);
+        $blocking = $blockingStmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($tasks as &$task) {
+            if (in_array($task['progress_status'], ['completed', 'exempted'], true)) continue;
+            foreach ($blocking as $branch) {
+                $sameCourse = !empty($task['ref_course_id']) && (int)$task['ref_course_id'] === (int)$branch['course_id'];
+                $sameSubject = !empty($task['subject']) && mb_strtolower(trim((string)$task['subject'])) === mb_strtolower(trim((string)$branch['subject']));
+                if ($sameCourse || $sameSubject) {
+                    $task['progress_status'] = 'locked';
+                    $task['adaptive_lock'] = true;
+                    $task['adaptive_lock_message'] = 'ทำขั้นตอนทบทวนที่แนะนำให้เสร็จก่อน แล้วเส้นทางนี้จะเปิดต่ออัตโนมัติ';
+                    break;
+                }
+            }
+        }
+        unset($task);
+    } catch (Throwable $e) {
+        // Static prerequisite behavior remains available before Phase 5 is installed.
+    }
     
     return $tasks;
 }

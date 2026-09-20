@@ -98,6 +98,24 @@ $recentWorksheets = [];
 try {
     $recentWorksheets = dashboardRows($pdo, "SELECT id, title, subject, level, updated_at FROM worksheets WHERE status != 'archived' ORDER BY updated_at DESC LIMIT 4");
 } catch (PDOException) {}
+$classLearningGaps = [];
+$interventionQueue = [];
+try {
+    $classLearningGaps = dashboardRows($pdo, "SELECT g.course_id,c.title course_title,g.topic_name,g.skill_name,
+        COUNT(DISTINCT g.student_id) affected_students,COUNT(DISTINCT e.user_id) enrolled_students,
+        ROUND(COUNT(DISTINCT g.student_id)*100/NULLIF(COUNT(DISTINCT e.user_id),0),0) affected_percent
+      FROM student_learning_gaps g JOIN courses c ON c.id=g.course_id
+      LEFT JOIN enrollments e ON e.course_id=g.course_id AND e.status IN ('active','trial')
+      WHERE g.status IN ('open','monitoring','improving') AND g.severity IN ('moderate','high','critical')
+      GROUP BY g.course_id,c.title,g.topic_name,g.skill_name ORDER BY affected_students DESC,g.last_detected_at DESC LIMIT 6");
+} catch (PDOException) {}
+try {
+    $interventionQueue = dashboardRows($pdo, "SELECT i.id,i.student_id,i.topic_name,i.severity,i.priority_score,i.status,
+        CONCAT_WS(' ',u.first_name,u.last_name) student_name,c.title course_title
+      FROM teacher_interventions i JOIN users u ON u.id=i.student_id JOIN courses c ON c.id=i.course_id
+      WHERE i.status IN ('recommended','planned','in_progress','monitoring')
+      ORDER BY i.priority_score DESC,i.created_at ASC LIMIT 5");
+} catch (PDOException) {}
 
 function dashboardChange(float $current, float $previous): array
 {
@@ -151,6 +169,24 @@ $studentChange = dashboardChange($newStudents, $previousNewStudents);
           </a>
         </div>
       </div>
+
+      <?php if ($classLearningGaps): ?>
+      <section class="bg-white rounded-[14px] border border-[#e6edf5] p-5 shadow-[0_4px_16px_rgba(15,42,83,.03)] mb-4">
+        <div class="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-slate-100"><div><h2 class="text-[17px] font-black">Learning Gaps ระดับชั้นเรียน</h2><p class="text-[12px] text-slate-500">หัวข้อที่ควรวางแผนทบทวนจากหลักฐานของผู้เรียน</p></div><a href="students.php" class="text-[12px] font-bold text-pink-500">ดูนักเรียน →</a></div>
+        <div class="grid grid-cols-3 gap-3 max-[1000px]:grid-cols-2 max-[640px]:grid-cols-1">
+          <?php foreach ($classLearningGaps as $gap): ?>
+          <div class="p-3 rounded-xl border border-slate-200"><div class="text-[11px] text-slate-500 truncate"><?= htmlspecialchars($gap['course_title']) ?></div><div class="font-black text-[14px] mt-0.5"><?= htmlspecialchars($gap['topic_name']) ?></div><?php if ($gap['skill_name']): ?><div class="text-[11px] text-slate-500 truncate"><?= htmlspecialchars($gap['skill_name']) ?></div><?php endif; ?><div class="mt-2 text-[12px] text-rose-700 font-bold"><?= (int)$gap['affected_students'] ?> / <?= (int)$gap['enrolled_students'] ?> คน<?= $gap['affected_percent'] !== null ? ' · '.(int)$gap['affected_percent'].'%' : '' ?></div></div>
+          <?php endforeach; ?>
+        </div>
+      </section>
+      <?php endif; ?>
+
+      <?php if ($interventionQueue): ?>
+      <section class="bg-white rounded-[14px] border border-[#e6edf5] p-5 shadow-[0_4px_16px_rgba(15,42,83,.03)] mb-4">
+        <div class="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-slate-100"><div><h2 class="text-[17px] font-black">คิวช่วยเหลือผู้เรียน</h2><p class="text-[12px] text-slate-500">รายการที่ควรได้รับการติดตามจากครู เรียงตามความเร่งด่วน</p></div><a href="interventions.php" class="text-[12px] font-bold text-pink-500">เปิดคิวทั้งหมด →</a></div>
+        <div class="grid grid-cols-5 gap-2 max-[1100px]:grid-cols-2 max-[640px]:grid-cols-1"><?php foreach($interventionQueue as $item): ?><a href="student-detail.php?id=<?= (int)$item['student_id'] ?>" class="p-3 rounded-xl border hover:border-pink-300"><div class="flex justify-between"><b class="text-sm truncate"><?= htmlspecialchars($item['student_name']) ?></b><span class="font-black <?= (float)$item['priority_score']>=80?'text-rose-600':'text-amber-600' ?>"><?= round((float)$item['priority_score']) ?></span></div><p class="text-xs font-bold mt-1 truncate"><?= htmlspecialchars($item['topic_name']) ?></p><p class="text-[11px] text-slate-500 mt-1 truncate"><?= htmlspecialchars($item['course_title']) ?> · <?= htmlspecialchars($item['status']) ?></p></a><?php endforeach; ?></div>
+      </section>
+      <?php endif; ?>
 
       <section class="grid grid-cols-4 gap-4 mb-4 max-[1280px]:grid-cols-2 max-[640px]:grid-cols-1" aria-label="สรุปข้อมูลสำคัญ">
         <?php

@@ -34,8 +34,9 @@ RewriteRule ^ai-exam-app/?$ admin/ai-exam-app/ [R=302,L]
 RewriteCond %{THE_REQUEST} \s/+(.*?/)?index(\.php)?[\s?] [NC]
 RewriteRule ^ /%1 [R=301,L,NE]
 
-# 2. เปลี่ยนเส้นทาง (Redirect) URL ที่มี .php ตัวอื่นๆ ไปยัง URL ที่ไม่มี .php (ยกเว้น POST request เช่น API)
+# 2. เปลี่ยนเส้นทาง (Redirect) URL ที่มี .php ตัวอื่นๆ ไปยัง URL ที่ไม่มี .php (ยกเว้น POST request และไฟล์ API)
 RewriteCond %{REQUEST_METHOD} !POST
+RewriteCond %{THE_REQUEST} !-api\.php [NC]
 RewriteCond %{THE_REQUEST} \s/+(.+?)\.php[\s?] [NC]
 RewriteRule ^ /%1 [R=301,L,NE]
 

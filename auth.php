@@ -17,19 +17,27 @@ include 'includes/header.php';
     <div class="w-full max-w-[440px]">
 
       <!-- Logo -->
+<?php
+$authLogo = (string) SettingsService::get('school_logo', '');
+$authSchoolName = (string) SettingsService::get('school_name', 'NEXTBEYOND');
+?>
       <div class="text-center mb-8 flex flex-col items-center">
-        <a href="index.php" class="inline-flex items-center gap-3 mb-6" aria-label="Nextbeyond Compass">
-          <svg class="w-[46px] h-[46px] shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round" />
-            <clipPath id="logo-clip-auth">
-              <rect x="0" y="9" width="40" height="22" />
-            </clipPath>
-            <g clip-path="url(#logo-clip-auth)">
-              <path d="M 8 36 L 15 4 L 27 36" fill="none" stroke="#0f172a" stroke-width="8.5" stroke-linejoin="miter" stroke-miterlimit="8" />
-            </g>
-          </svg>
+        <a href="index.php" class="inline-flex items-center gap-3 mb-6" aria-label="<?= htmlspecialchars($authSchoolName) ?>">
+          <?php if (!empty($authLogo)): ?>
+            <img src="<?= htmlspecialchars(ltrim($authLogo, '/')) ?>?v=<?= @filemtime(__DIR__ . '/' . ltrim($authLogo, '/')) ?: time() ?>" alt="Logo" class="w-[46px] h-[46px] object-contain rounded-lg shrink-0">
+          <?php else: ?>
+            <svg class="w-[46px] h-[46px] shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round" />
+              <clipPath id="logo-clip-auth">
+                <rect x="0" y="9" width="40" height="22" />
+              </clipPath>
+              <g clip-path="url(#logo-clip-auth)">
+                <path d="M 8 36 L 15 4 L 27 36" fill="none" stroke="#0f172a" stroke-width="8.5" stroke-linejoin="miter" stroke-miterlimit="8" />
+              </g>
+            </svg>
+          <?php endif; ?>
           <span class="grid leading-[1.15] text-left">
-            <strong class="text-navy-950 text-[18px] tracking-[0.04em]">NEXTBEYOND</strong>
+            <strong class="text-navy-950 text-[18px] tracking-[0.04em]"><?= htmlspecialchars(mb_strtoupper($authSchoolName)) ?></strong>
             <small class="text-[#65738a] text-[11px] font-bold tracking-[0.18em]">COMPASS</small>
           </span>
         </a>
@@ -37,13 +45,27 @@ include 'includes/header.php';
         <p class="text-[#65738a] text-[15px]">เข้าสู่ระบบเพื่อเรียนต่อจากที่ค้างไว้</p>
       </div>
 
+<?php
+$isRegistrationEnabled = SettingsService::isRegistrationEnabled();
+$isMaintenanceActive = SettingsService::isMaintenanceMode();
+?>
       <!-- Login Card -->
       <div class="border border-[#dce4ef] rounded-[22px] bg-white p-7 shadow-[0_12px_32px_rgba(15,42,83,.08)]">
+
+        <?php if ($isMaintenanceActive): ?>
+        <div class="mb-5 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm flex items-start gap-3">
+          <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          <div>
+            <p class="font-bold text-amber-950 mb-0.5">ระบบอยู่ในโหมดปิดปรับปรุงชั่วคราว</p>
+            <p class="text-xs text-amber-800">อนุญาตเฉพาะผู้ดูแลระบบและอาจารย์เข้าสู่ระบบเท่านั้น ผู้เรียนทั่วไปจะไม่สามารถเข้าสู่ระบบหรือสมัครใหม่ได้ในขณะนี้</p>
+          </div>
+        </div>
+        <?php endif; ?>
 
         <!-- Tabs -->
         <div class="flex border-b border-[#e8ecf2] mb-6">
           <button class="flex-1 py-3 text-center text-[14px] font-bold border-b-2 border-pink-500 text-navy-950 transition-colors" data-tab="login-tab" data-active>เข้าสู่ระบบ</button>
-          <button class="flex-1 py-3 text-center text-[14px] font-bold border-b-2 border-transparent text-[#94a3b8] hover:text-navy-950 transition-colors" data-tab="register-tab">สมัครสมาชิก</button>
+          <button class="flex-1 py-3 text-center text-[14px] font-bold border-b-2 border-transparent text-[#94a3b8] hover:text-navy-950 transition-colors" data-tab="register-tab">สมัครสมาชิก<?= (!$isRegistrationEnabled || $isMaintenanceActive) ? ' <span class="text-[11px] text-amber-600 font-normal">(ปิด)</span>' : '' ?></button>
         </div>
 
         <!-- Login Tab Content -->
@@ -72,21 +94,36 @@ include 'includes/header.php';
 
         <!-- Register Tab Content (hidden by default) -->
         <div data-tab-content="register-tab" class="hidden">
-          <div class="text-center py-6">
-            <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-pink-50 flex items-center justify-center">
-              <svg class="w-8 h-8 text-pink-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM3 20a6 6 0 0 1 12 0v1H3v-1Z"/></svg>
+          <?php if (!$isRegistrationEnabled || $isMaintenanceActive): ?>
+            <div class="text-center py-6">
+              <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-600">
+                <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              </div>
+              <h3 class="text-[19px] font-bold text-navy-950 mb-2">ปิดรับสมัครสมาชิกชั่วคราว</h3>
+              <p class="text-[#65738a] text-[14px] mb-6 max-w-[320px] mx-auto leading-relaxed">ขณะนี้ระบบปิดรับสมัครนักเรียนใหม่ชั่วคราว หากท่านสนใจหลักสูตร สามารถติดต่อสอบถามเจ้าหน้าที่ได้โดยตรง</p>
+              <a href="contact-us.php" class="inline-flex items-center justify-center w-full h-12 rounded-xl bg-navy-950 text-white font-bold text-[15px] hover:bg-navy-900 transition-colors">ติดต่อเจ้าหน้าที่</a>
             </div>
-            <h3 class="text-[20px] font-bold text-navy-950 mb-2">สร้างบัญชีนักเรียนใหม่</h3>
-            <p class="text-[#65738a] text-[14px] mb-6 max-w-[320px] mx-auto">กรอกข้อมูลเพียง 4 ขั้นตอน เพื่อเริ่มเรียนกับ Nextbeyond Compass</p>
-            <button class="w-full h-12 rounded-xl bg-pink-500 text-white font-bold text-[15px] shadow-[0_8px_20px_rgba(231,45,130,.2)] transition-transform hover:-translate-y-0.5" data-goto="student">เริ่มสมัครสมาชิก →</button>
-            <p class="text-[12px] text-[#94a3b8] mt-4">ผู้ปกครองสามารถช่วยสมัครและดูแลบัญชีให้นักเรียนได้</p>
-          </div>
+          <?php else: ?>
+            <div class="text-center py-6">
+              <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-pink-50 flex items-center justify-center">
+                <svg class="w-8 h-8 text-pink-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM3 20a6 6 0 0 1 12 0v1H3v-1Z"/></svg>
+              </div>
+              <h3 class="text-[20px] font-bold text-navy-950 mb-2">สร้างบัญชีนักเรียนใหม่</h3>
+              <p class="text-[#65738a] text-[14px] mb-6 max-w-[320px] mx-auto">กรอกข้อมูลเพียง 4 ขั้นตอน เพื่อเริ่มเรียนกับ Nextbeyond Compass</p>
+              <button class="w-full h-12 rounded-xl bg-pink-500 text-white font-bold text-[15px] shadow-[0_8px_20px_rgba(231,45,130,.2)] transition-transform hover:-translate-y-0.5" data-goto="student">เริ่มสมัครสมาชิก →</button>
+              <p class="text-[12px] text-[#94a3b8] mt-4">ผู้ปกครองสามารถช่วยสมัครและดูแลบัญชีให้นักเรียนได้</p>
+            </div>
+          <?php endif; ?>
         </div>
       </div>
 
       <!-- Bottom Link -->
       <div class="text-center mt-6">
-        <p class="text-[13px] text-[#94a3b8]">ยังไม่มีบัญชี? <button class="text-pink-500 font-bold hover:underline" data-goto="student">สมัครเลย</button></p>
+        <?php if ($isRegistrationEnabled && !$isMaintenanceActive): ?>
+          <p class="text-[13px] text-[#94a3b8]">ยังไม่มีบัญชี? <button class="text-pink-500 font-bold hover:underline" data-goto="student">สมัครเลย</button></p>
+        <?php else: ?>
+          <p class="text-[13px] text-[#94a3b8]">ยังไม่มีบัญชี? <span class="text-amber-600 font-semibold">(ปิดรับสมัครชั่วคราว)</span></p>
+        <?php endif; ?>
       </div>
     </div>
   </section>

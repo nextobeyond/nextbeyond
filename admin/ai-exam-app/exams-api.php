@@ -6,6 +6,7 @@ header('Cache-Control: no-store');
 
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../includes/access.php';
+require_once __DIR__ . '/../../includes/phase4-adaptive-service.php';
 
 require_once __DIR__ . '/question-validation.php';
 
@@ -238,6 +239,7 @@ try {
             ]);
         }
         $pdo->commit();
+        (new \NextBeyond\Adaptive\CanonicalQuestionRepository($pdo))->syncExam($examId);
         respond(['success' => true, 'examId' => $examId], 201);
     }
 
@@ -271,6 +273,9 @@ try {
                 ':difficulty' => trim((string) ($body['difficulty'] ?? '')) ?: null,
                 ':id' => $id,
             ]);
+            $examIdStmt = $pdo->prepare('SELECT exam_id FROM exam_questions WHERE id=?');
+            $examIdStmt->execute([$id]);
+            (new \NextBeyond\Adaptive\CanonicalQuestionRepository($pdo))->syncExam((int)$examIdStmt->fetchColumn());
             respond(['success' => true]);
         }
         $id = (int) ($body['id'] ?? 0);
@@ -327,6 +332,7 @@ try {
         if (($_GET['entity'] ?? '') === 'question') {
             $id = (int) ($_GET['id'] ?? 0);
             if ($id < 1) respond(['error' => 'ไม่พบรหัสคำถาม'], 422);
+            $pdo->prepare("UPDATE question_bank_items SET status='archived',review_status='archived',index_status='pending' WHERE source_type='exam' AND source_record_id=?")->execute([$id]);
             $stmt = $pdo->prepare('DELETE FROM exam_questions WHERE id = :id');
             $stmt->execute([':id' => $id]);
             respond(['success' => true]);
@@ -335,6 +341,7 @@ try {
         if ($id < 1) {
             respond(['error' => 'ไม่พบรหัสข้อสอบ'], 422);
         }
+        $pdo->prepare("UPDATE question_bank_items b JOIN exam_questions q ON q.id=b.source_record_id SET b.status='archived',b.review_status='archived',b.index_status='pending' WHERE b.source_type='exam' AND q.exam_id=?")->execute([$id]);
         $stmt = $pdo->prepare('DELETE FROM exams WHERE id = :id');
         $stmt->execute([':id' => $id]);
         respond(['success' => true]);

@@ -75,6 +75,15 @@ function ensureLiveSessionSchema(PDO $pdo): void
     } catch (Throwable $e) {
         // Silently continue if permissions or already upgraded
     }
+
+    // Phase 2: ensure PREPARE & LEARN schema (session_topics, session_readiness, session_understanding_checks)
+    if (!class_exists('Phase2SessionService')) {
+        $p2File = __DIR__ . '/phase2-session-service.php';
+        if (file_exists($p2File)) require_once $p2File;
+    }
+    if (class_exists('Phase2SessionService')) {
+        (new Phase2SessionService($pdo))->ensurePhase2Schema();
+    }
 }
 
 function getBossArchetypes(): array

@@ -77,34 +77,82 @@ try {
             settingsRespond(['error' => 'กรุณาเลือกไฟล์โลโก้'], 422);
         }
         $file = $_FILES['logo'];
-        if ((int) $file['size'] > 2 * 1024 * 1024) settingsRespond(['error' => 'ไฟล์โลโก้ต้องมีขนาดไม่เกิน 2MB'], 422);
+        if ((int) $file['size'] > 5 * 1024 * 1024) settingsRespond(['error' => 'ไฟล์โลโก้ต้องมีขนาดไม่เกิน 5MB'], 422);
+        
         $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
-        $extensions = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp'];
-        if (!isset($extensions[$mime])) settingsRespond(['error' => 'รองรับเฉพาะไฟล์ PNG, JPG และ WEBP'], 422);
+        $origExt = strtolower(pathinfo($file['name'] ?? '', PATHINFO_EXTENSION));
+        
+        $extensions = [
+            'image/png' => 'png',
+            'image/jpeg' => 'jpg',
+            'image/pjpeg' => 'jpg',
+            'image/webp' => 'webp',
+            'image/svg+xml' => 'svg',
+            'image/svg' => 'svg',
+            'image/gif' => 'gif',
+        ];
+
+        $ext = $extensions[$mime] ?? null;
+        if (!$ext && in_array($origExt, ['svg', 'png', 'jpg', 'jpeg', 'webp', 'gif'], true)) {
+            // Fallback check for SVG text MIME
+            if ($origExt === 'svg') {
+                $contentStart = file_get_contents($file['tmp_name'], false, null, 0, 500);
+                if (str_contains($contentStart, '<svg')) {
+                    $ext = 'svg';
+                }
+            }
+        }
+
+        if (!$ext) {
+            settingsRespond(['error' => 'รองรับเฉพาะไฟล์ PNG, JPG, WEBP, SVG และ GIF'], 422);
+        }
 
         $uploadDir = __DIR__ . '/../assets/uploads/settings';
-        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
             throw new RuntimeException('สร้างโฟลเดอร์อัปโหลดไม่สำเร็จ');
         }
+        @chmod($uploadDir, 0777);
+
         foreach (glob($uploadDir . '/school-logo.*') ?: [] as $oldFile) @unlink($oldFile);
-        $filename = 'school-logo.' . $extensions[$mime];
-        if (!move_uploaded_file($file['tmp_name'], $uploadDir . '/' . $filename)) {
+        $filename = 'school-logo.' . $ext;
+        $destination = $uploadDir . '/' . $filename;
+        if (!move_uploaded_file($file['tmp_name'], $destination)) {
             throw new RuntimeException('บันทึกไฟล์โลโก้ไม่สำเร็จ');
         }
-        $path = '/assets/uploads/settings/' . $filename;
-        $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES ('school_logo', :value)
-            ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+        @chmod($destination, 0666);
+
+        // Store clean relative path: assets/uploads/settings/school-logo.ext
+        $path = 'assets/uploads/settings/' . $filename;
+        $stmt = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, updated_at) VALUES ('school_logo', :value, NOW())
+            ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()");
         $stmt->execute([':value' => $path]);
-        settingsRespond(['success' => true, 'path' => $path]);
+        
+        require_once __DIR__ . '/../includes/settings-service.php';
+        SettingsService::set('school_logo', $path, $pdo);
+
+        settingsRespond(['success' => true, 'path' => $path, 'message' => 'อัปโหลดโลโก้สำเร็จ']);
     }
 
     $body = json_decode(file_get_contents('php://input'), true);
+    
+    // Support removing logo
+    if (($body['action'] ?? '') === 'remove_logo') {
+        $uploadDir = __DIR__ . '/../assets/uploads/settings';
+        foreach (glob($uploadDir . '/school-logo.*') ?: [] as $oldFile) @unlink($oldFile);
+        $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, updated_at) VALUES ('school_logo', '', NOW())
+            ON DUPLICATE KEY UPDATE setting_value = '', updated_at = NOW()")->execute();
+        require_once __DIR__ . '/../includes/settings-service.php';
+        SettingsService::set('school_logo', '', $pdo);
+        settingsRespond(['success' => true, 'path' => '', 'message' => 'ลบโลโก้เรียบร้อยแล้ว']);
+    }
+
     $incoming = is_array($body['settings'] ?? null) ? $body['settings'] : [];
     if (!$incoming) settingsRespond(['error' => 'ไม่มีข้อมูลที่ต้องการบันทึก'], 422);
 
+    require_once __DIR__ . '/../includes/settings-service.php';
     $pdo->beginTransaction();
-    $stmt = $pdo->prepare('INSERT INTO system_settings (setting_key, setting_value) VALUES (:key, :value)
-        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
+    $stmt = $pdo->prepare('INSERT INTO system_settings (setting_key, setting_value, updated_at) VALUES (:key, :value, NOW())
+        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()');
     $saved = [];
     foreach ($incoming as $key => $value) {
         if (!array_key_exists($key, $defaults) || $key === 'school_logo') continue;
@@ -115,6 +163,7 @@ try {
             if (mb_strlen($value) > 2000) settingsRespond(['error' => 'ข้อมูลยาวเกินกำหนด'], 422);
         }
         $stmt->execute([':key' => $key, ':value' => $value]);
+        SettingsService::set($key, in_array($key, $booleanKeys, true) ? ($value === '1') : $value, $pdo);
         $saved[$key] = in_array($key, $booleanKeys, true) ? $value === '1' : $value;
     }
     $pdo->commit();

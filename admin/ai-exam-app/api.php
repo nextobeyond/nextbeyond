@@ -284,6 +284,9 @@ function callGemini($modelName, $apiKey, $payload, $temperature) {
     curl_close($ch);
 
     if ($httpCode !== 200) {
+        if (str_contains((string)$response, 'API key not valid') || str_contains((string)$response, 'API_KEY_INVALID')) {
+            throw new Exception("Gemini API Key ไม่ถูกต้อง หรือหมดอายุ กรุณาตรวจสอบและตั้งค่าใหม่ที่เมนู 'ตั้งค่าระบบ' > แท็บ 'AI API Key'");
+        }
         throw new Exception("HTTP {$httpCode}: " . $response);
     }
 

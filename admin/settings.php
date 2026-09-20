@@ -42,8 +42,16 @@ $currentPage = 'settings.php';
             <div class="px-7 py-5 border-b border-[#e8ecf2]"><h3 class="text-[17px] font-bold">ข้อมูลทั่วไป</h3><p class="mt-1 text-[12px] text-[#65738a]">ข้อมูลติดต่อและสถานะการให้บริการของสถาบัน</p></div>
             <div class="p-7 space-y-6">
               <div class="flex items-center gap-5 pb-6 border-b border-[#e8ecf2] max-[600px]:items-start">
-                <div id="school-logo-preview" class="w-20 h-20 shrink-0 rounded-xl bg-[#f8fafc] border border-dashed border-[#cbd5e1] flex items-center justify-center overflow-hidden text-[11px] font-bold text-[#94a3b8]">LOGO</div>
-                <div><div class="text-[13px] font-bold">โลโก้สถาบัน</div><p class="mt-1 mb-3 text-[11px] text-[#65738a]">PNG, JPG หรือ WEBP ขนาดไม่เกิน 2MB</p><input id="school-logo-input" type="file" accept=".png,.jpg,.jpeg,.webp" class="hidden"><button id="choose-school-logo" type="button" class="h-9 px-4 rounded-lg border border-[#dce4ef] text-[12px] font-bold hover:bg-[#f8fafc]">เลือกไฟล์</button></div>
+                <div id="school-logo-preview" class="w-20 h-20 shrink-0 rounded-xl bg-[#f8fafc] border border-dashed border-[#cbd5e1] flex items-center justify-center overflow-hidden text-[11px] font-bold text-[#94a3b8] relative group">LOGO</div>
+                <div>
+                  <div class="text-[13px] font-bold">โลโก้สถาบัน</div>
+                  <p class="mt-1 mb-3 text-[11px] text-[#65738a]">PNG, JPG, SVG หรือ WEBP ขนาดไม่เกิน 5MB</p>
+                  <input id="school-logo-input" type="file" accept=".png,.jpg,.jpeg,.webp,.svg,.gif" class="hidden">
+                  <div class="flex items-center gap-2">
+                    <button id="choose-school-logo" type="button" class="h-9 px-4 rounded-lg border border-[#dce4ef] text-[12px] font-bold hover:bg-[#f8fafc] transition-colors">เลือกไฟล์</button>
+                    <button id="btn-remove-logo" type="button" class="hidden h-9 px-3 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 text-[12px] font-bold transition-colors">ลบโลโก้</button>
+                  </div>
+                </div>
               </div>
               <div class="grid grid-cols-2 gap-5 max-[640px]:grid-cols-1">
                 <label class="text-[12px] font-bold">ชื่อสถาบัน *<input data-setting="school_name" required class="settings-field mt-2" placeholder="ชื่อสถาบัน"></label>
@@ -56,7 +64,7 @@ $currentPage = 'settings.php';
                 <label class="settings-toggle-row"><span><b>โหมดบำรุงรักษา</b><small>บันทึกสถานะสำหรับหยุดให้บริการเว็บไซต์ชั่วคราว</small></span><input data-setting="maintenance_mode" type="checkbox" class="settings-checkbox"></label>
               </div>
             </div>
-            <div class="settings-actions"><button type="button" data-settings-reset class="settings-cancel">ยกเลิก</button><button class="settings-save">บันทึกข้อมูลสถาบัน</button></div>
+            <div class="settings-actions"><button type="button" data-settings-reset class="settings-cancel">ยกเลิก</button><button type="submit" class="settings-save">บันทึกข้อมูลสถาบัน</button></div>
           </form>
         </section>
 
@@ -71,7 +79,7 @@ $currentPage = 'settings.php';
               <label class="text-[12px] font-bold">เลขประจำตัวผู้เสียภาษี<input data-setting="tax_id" class="settings-field mt-2" placeholder="เลขประจำตัวผู้เสียภาษี"></label>
               <label class="text-[12px] font-bold">คำแนะนำการชำระเงิน<textarea data-setting="payment_instructions" class="settings-field mt-2 min-h-[92px] py-3 resize-y" placeholder="ข้อความที่ต้องการแจ้งผู้ชำระเงิน"></textarea></label>
             </div>
-            <div class="settings-actions"><button type="button" data-settings-reset class="settings-cancel">ยกเลิก</button><button class="settings-save">บันทึกการชำระเงิน</button></div>
+            <div class="settings-actions"><button type="button" data-settings-reset class="settings-cancel">ยกเลิก</button><button type="submit" class="settings-save">บันทึกการชำระเงิน</button></div>
           </form>
         </section>
 
@@ -93,7 +101,7 @@ $currentPage = 'settings.php';
               <label class="settings-toggle-row"><span><b>อนุญาตข้อสอบสำหรับ Guest</b><small>แอดมินสามารถเปิดข้อสอบให้ผู้ที่ไม่ได้เข้าสู่ระบบทำได้</small></span><input data-setting="guest_test_access" type="checkbox" class="settings-checkbox"></label>
               <label class="settings-toggle-row"><span><b>แจ้งเตือนทางอีเมล</b><small>เปิดสถานะการส่งอีเมลแจ้งเตือนจากระบบ</small></span><input data-setting="email_notifications" type="checkbox" class="settings-checkbox"></label>
             </div>
-            <div class="settings-actions"><button type="button" data-settings-reset class="settings-cancel">ยกเลิก</button><button class="settings-save">บันทึกสิทธิ์</button></div>
+            <div class="settings-actions"><button type="button" data-settings-reset class="settings-cancel">ยกเลิก</button><button type="submit" class="settings-save">บันทึกสิทธิ์</button></div>
           </form>
         </section>
 
@@ -106,7 +114,7 @@ $currentPage = 'settings.php';
               </div>
               <label class="settings-toggle-row"><input data-setting="calculator_enabled" type="checkbox" class="settings-checkbox"></label>
             </div>
-            <div class="settings-actions"><button type="button" data-settings-reset class="settings-cancel">ยกเลิก</button><button class="settings-save">บันทึกสิทธิ์</button></div>
+            <div class="settings-actions"><button type="button" data-settings-reset class="settings-cancel">ยกเลิก</button><button type="submit" class="settings-save">บันทึกสิทธิ์คำนวณ</button></div>
           </form>
 
           <div class="bg-white rounded-[20px] border border-[#e8ecf2] overflow-hidden">
@@ -138,14 +146,36 @@ $currentPage = 'settings.php';
 
         <section data-settings-panel="ai" class="hidden">
           <form id="ai-settings-form" class="bg-white rounded-[20px] border border-[#e8ecf2] overflow-hidden">
-            <div class="px-7 py-5 border-b border-[#e8ecf2] flex items-center justify-between gap-4"><div><h3 class="text-[17px] font-bold">Gemini API Key</h3><p class="mt-1 text-[12px] text-[#65738a]">ใช้สำหรับ AI Exam Generator และจัดเก็บแบบเข้ารหัส</p></div><span id="ai-key-status" class="px-3 py-1 rounded-full bg-[#f1f5f9] text-[#65738a] text-[11px] font-bold">กำลังตรวจสอบ</span></div>
-            <div class="p-7">
-              <label class="text-[12px] font-bold">API Key<input id="settings-api-key" type="password" autocomplete="off" class="settings-field mt-2" placeholder="กรอก API Key ใหม่เมื่อต้องการเปลี่ยน"></label>
-              <p id="ai-key-hint" class="mt-3 text-[11px] text-[#65738a]">ระบบจะไม่แสดง API Key ฉบับเต็มหลังบันทึก</p>
+            <div class="px-7 py-5 border-b border-[#e8ecf2] flex items-center justify-between gap-4">
+              <div>
+                <h3 class="text-[17px] font-bold">Gemini API Key</h3>
+                <p class="mt-1 text-[12px] text-[#65738a]">ใช้สำหรับ AI Exam Generator, AI Worksheet และระบบค้นหาข้อสอบอัจฉริยะ (จัดเก็บแบบเข้ารหัส AES-256)</p>
+              </div>
+              <span id="ai-key-status" class="px-3 py-1 rounded-full bg-[#f1f5f9] text-[#65738a] text-[11px] font-bold">กำลังตรวจสอบ</span>
             </div>
-            <div class="settings-actions"><span></span><button class="settings-save">บันทึก API Key</button></div>
+            <div class="p-7 space-y-4">
+              <div>
+                <label class="text-[12px] font-bold text-navy-950">API Key</label>
+                <div class="relative mt-2">
+                  <input id="settings-api-key" type="password" autocomplete="off" class="settings-field pr-24" placeholder="กรอก API Key ใหม่เมื่อต้องการเปลี่ยน (AIzaSy...)">
+                  <button type="button" id="toggle-api-key-vis" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 hover:text-slate-600 px-2 py-1 rounded">แสดง</button>
+                </div>
+                <p id="ai-key-hint" class="mt-2 text-[11px] text-[#65738a]">ระบบจะไม่แสดง API Key ฉบับเต็มหลังบันทึกเพื่อความปลอดภัย</p>
+              </div>
+              <div id="ai-test-result" class="hidden p-4 rounded-xl text-xs font-medium border"></div>
+            </div>
+            <div class="settings-actions flex items-center justify-between">
+              <button type="button" id="btn-test-ai" class="h-10 px-4 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span>ทดสอบการเชื่อมต่อ API Key</span>
+              </button>
+              <button type="submit" class="settings-save">บันทึก API Key</button>
+            </div>
           </form>
         </section>
+
+        <!-- Floating Toast Notification -->
+        <div id="settings-toast" class="fixed bottom-6 right-6 z-50 transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-bold bg-white text-navy-950"></div>
 
         
       </div>

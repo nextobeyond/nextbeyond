@@ -1,6 +1,12 @@
 <?php
-$pageTitle = "ติดต่อเรา | Nextbeyond Compass";
-$pageDesc = "ติดต่อสอบถามข้อมูลคอร์สเรียน ขอคำปรึกษา หรือแจ้งปัญหาการใช้งาน";
+require_once __DIR__ . '/includes/settings-service.php';
+$schoolName = getSystemSetting('school_name', 'Nextbeyond Compass');
+$schoolPhone = getSystemSetting('school_phone', '02-123-4567');
+$schoolEmail = getSystemSetting('school_email', 'contact@nextbeyond.com');
+$schoolAddress = getSystemSetting('school_address', 'อาคาร Next Beyond ชั้น 3 เขตปทุมวัน กรุงเทพมหานคร 10330');
+
+$pageTitle = "ติดต่อเรา | " . htmlspecialchars($schoolName);
+$pageDesc = "ติดต่อสอบถามข้อมูลคอร์สเรียน ขอคำปรึกษา หรือแจ้งปัญหาการใช้งาน " . htmlspecialchars($schoolName);
 $currentPage = 'contact-us.php';
 include 'includes/head.php';
 include 'includes/header.php';
@@ -39,7 +45,7 @@ include 'includes/header.php';
               </div>
               <div>
                 <h3 class="text-[15px] font-bold text-navy-950 mb-1">ที่ตั้งสถาบัน</h3>
-                <p class="text-[14px] text-[#65738a] leading-[1.6]">อาคาร Next Beyond ชั้น 3<br>เขตปทุมวัน กรุงเทพมหานคร 10330</p>
+                <p class="text-[14px] text-[#65738a] leading-[1.6]"><?= nl2br(htmlspecialchars($schoolAddress)) ?></p>
               </div>
             </div>
 
@@ -49,7 +55,7 @@ include 'includes/header.php';
               </div>
               <div>
                 <h3 class="text-[15px] font-bold text-navy-950 mb-1">โทรศัพท์</h3>
-                <p class="text-[14px] text-[#65738a] leading-[1.6]">02-XXX-XXXX<br>(จันทร์-ศุกร์ 09:00 - 18:00)</p>
+                <p class="text-[14px] text-[#65738a] leading-[1.6]"><?= htmlspecialchars($schoolPhone) ?><br><span class="text-xs text-slate-400">(เวลาทำการ จันทร์-ศุกร์ 09:00 - 18:00)</span></p>
               </div>
             </div>
 
@@ -59,7 +65,7 @@ include 'includes/header.php';
               </div>
               <div>
                 <h3 class="text-[15px] font-bold text-navy-950 mb-1">อีเมล</h3>
-                <p class="text-[14px] text-[#65738a] leading-[1.6]">support@nextbeyond.net<br>info@nextbeyond.net</p>
+                <p class="text-[14px] text-[#65738a] leading-[1.6]"><?= htmlspecialchars($schoolEmail) ?></p>
               </div>
             </div>
 

@@ -57,6 +57,10 @@ try {
             'worksheetId' => $worksheetId,
             'excludeExistingWorksheetQuestions' => $excludeExisting,
             'excludeIds' => $excludeIds
+            ,'studentId' => (int)($body['student_id'] ?? 0)
+            ,'actorId' => (int)($consoleUser['id'] ?? 0)
+            ,'seenPolicy' => (string)($body['seen_policy'] ?? 'allow_repeat')
+            ,'purpose' => (string)($body['purpose'] ?? 'question_bank')
         ]);
 
         jsonExit([
@@ -64,7 +68,9 @@ try {
             'parsedIntent' => $result['parsedIntent'],
             'totalFound' => $result['totalCandidates'],
             'recommended' => $result['recommended'],
-            'candidates' => $result['candidates']
+            'candidates' => $result['candidates'],
+            'shortfall' => $result['shortfall'] ?? 0,
+            'searchCapabilities' => $result['searchCapabilities'] ?? []
         ]);
     }
 

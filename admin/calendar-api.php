@@ -4,6 +4,8 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 require_once __DIR__ . '/includes/access.php';
+require_once __DIR__ . '/../includes/phase2-session-service.php';
+$_p2 = new Phase2SessionService($pdo);
 
 function calendarRespond(array $payload, int $status = 200): never
 {
@@ -149,20 +151,33 @@ try {
                     CASE 
                         WHEN u.nickname IS NOT NULL AND TRIM(u.nickname) <> '' THEN CONCAT(u.first_name, ' ', u.last_name, ' (', u.nickname, ')')
                         ELSE CONCAT_WS(' ', u.first_name, u.last_name)
-                    END AS teacher_name
+                    END AS teacher_name,
+                    cs.id AS linked_session_id, cs.status AS linked_session_status, cs.session_pin AS linked_session_pin
                 FROM calendar_events ce
                 LEFT JOIN courses c ON c.id = ce.course_id
                 JOIN users u ON u.id = ce.teacher_id
+                LEFT JOIN classroom_sessions cs ON cs.id = ce.session_id
                 WHERE " . implode(' AND ', $where) . " ORDER BY ce.event_date, ce.start_time, ce.id");
         $stmt->execute($params);
-        $events = array_map(static fn(array $row): array => [
-            'id' => (string) $row['id'], 'title' => $row['title'], 'eventType' => $row['event_type'],
-            'courseId' => $row['course_id'] === null ? null : (string) $row['course_id'], 'courseName' => $row['course_name'],
-            'teacherId' => (string) $row['teacher_id'], 'teacherName' => $row['teacher_name'],
-            'eventDate' => $row['event_date'], 'startTime' => substr($row['start_time'], 0, 5),
-            'endTime' => substr($row['end_time'], 0, 5), 'location' => $row['location'],
-            'notes' => $row['notes'], 'color' => $row['color'], 'status' => $row['status'],
-        ], $stmt->fetchAll());
+        $rawEvents = $stmt->fetchAll();
+        $events = array_map(function(array $row) use ($_p2): array {
+            $eid = (int)$row['id'];
+            $topics = array_map(fn($t) => (string)$t['topic_name'], $_p2->getEventTopics($eid));
+            return [
+                'id' => (string)$row['id'], 'title' => $row['title'], 'eventType' => $row['event_type'],
+                'courseId' => $row['course_id'] === null ? null : (string)$row['course_id'],
+                'courseName' => $row['course_name'],
+                'teacherId' => (string)$row['teacher_id'], 'teacherName' => $row['teacher_name'],
+                'eventDate' => $row['event_date'], 'startTime' => substr($row['start_time'], 0, 5),
+                'endTime' => substr($row['end_time'], 0, 5), 'location' => $row['location'],
+                'notes' => $row['notes'], 'color' => $row['color'], 'status' => $row['status'],
+                // Phase 2 fields
+                'sessionId' => $row['linked_session_id'] ?? null,
+                'sessionStatus' => $row['linked_session_status'] ?? null,
+                'sessionPin' => $row['linked_session_pin'] ?? null,
+                'topics' => $topics,
+            ];
+        }, $rawEvents);
         $teachers = $isTeacher ? [[
             'id' => (string) $consoleUser['id'],
             'name' => trim($consoleUser['first_name'] . ' ' . $consoleUser['last_name']) . (!empty($consoleUser['nickname']) ? ' (' . $consoleUser['nickname'] . ')' : ''),
@@ -180,14 +195,49 @@ try {
         calendarRespond(['events' => $events, 'teachers' => $teachers, 'courses' => $courses, 'isTeacher' => $isTeacher]);
     }
 
+    // ── POST action=save_topics ────────────────────────────────────────────
+    if ($method === 'POST' && trim((string)($_GET['action'] ?? '')) === 'save_topics') {
+        $body    = calendarBody();
+        $eventId = (int)($body['eventId'] ?? 0);
+        $topics  = $body['topics'] ?? [];
+        if ($eventId < 1) calendarRespond(['error' => 'eventId required'], 422);
+        if (!is_array($topics)) calendarRespond(['error' => 'topics must be array'], 422);
+        $_p2->saveTopicsForEvent($eventId, $topics);
+        calendarRespond(['success' => true]);
+    }
+
+    // ── POST action=link_session ───────────────────────────────────────────
+    if ($method === 'POST' && trim((string)($_GET['action'] ?? '')) === 'link_session') {
+        $body      = calendarBody();
+        $eventId   = (int)($body['eventId'] ?? 0);
+        $sessionId = trim((string)($body['sessionId'] ?? ''));
+        if ($eventId < 1 || $sessionId === '') calendarRespond(['error' => 'eventId and sessionId required'], 422);
+        $_p2->linkSessionToEvent($sessionId, $eventId);
+        calendarRespond(['success' => true]);
+    }
+
+    // placeholder to continue existing flow
+    if ($method === 'GET') {
+    }
+
     if ($method === 'POST') {
-        $values = validateCalendarEvent(calendarBody(), $consoleUser, $pdo);
+        $rawBody = calendarBody();
+        $values = validateCalendarEvent($rawBody, $consoleUser, $pdo);
         assertNoScheduleConflict($pdo, $values);
         $values['created_by'] = (int) $consoleUser['id'];
         $columns = array_keys($values);
         $stmt = $pdo->prepare('INSERT INTO calendar_events (' . implode(', ', $columns) . ') VALUES (:' . implode(', :', $columns) . ')');
         $stmt->execute($values);
-        calendarRespond(['success' => true, 'eventId' => (int) $pdo->lastInsertId()], 201);
+        $eventId = (int) $pdo->lastInsertId();
+
+        $rawTopics = $rawBody['topics'] ?? null;
+        if ($rawTopics !== null) {
+            $topicList = is_array($rawTopics) ? $rawTopics : array_map('trim', explode(',', (string)$rawTopics));
+            $topicList = array_values(array_filter($topicList, fn($t) => $t !== ''));
+            $_p2->saveTopicsForEvent($eventId, $topicList);
+        }
+
+        calendarRespond(['success' => true, 'eventId' => $eventId], 201);
     }
 
     if ($method === 'PATCH') {
@@ -204,6 +254,14 @@ try {
         $sets = implode(', ', array_map(static fn(string $key): string => $key . ' = :' . $key, array_keys($values)));
         $values['id'] = $id;
         $pdo->prepare("UPDATE calendar_events SET {$sets} WHERE id = :id")->execute($values);
+
+        $rawTopics = $body['topics'] ?? null;
+        if ($rawTopics !== null) {
+            $topicList = is_array($rawTopics) ? $rawTopics : array_map('trim', explode(',', (string)$rawTopics));
+            $topicList = array_values(array_filter($topicList, fn($t) => $t !== ''));
+            $_p2->saveTopicsForEvent($id, $topicList);
+        }
+
         calendarRespond(['success' => true]);
     }
 

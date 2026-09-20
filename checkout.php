@@ -1,6 +1,9 @@
 <?php
-$pageTitle = "ตะกร้าและชำระเงิน | Nextbeyond Compass";
-$pageDesc = "ชำระเงินค่าคอร์สเรียน Nextbeyond Compass";
+require_once __DIR__ . '/includes/settings-service.php';
+$settings = SettingsService::getAll($pdo);
+
+$pageTitle = "ตะกร้าและชำระเงิน | " . htmlspecialchars($settings['school_name'] ?? 'Nextbeyond Compass');
+$pageDesc = "ชำระเงินค่าคอร์สเรียน " . htmlspecialchars($settings['school_name'] ?? 'Nextbeyond Compass');
 $currentPage = 'checkout.php';
 $extraHead = '<script defer src="assets/js/checkout.js"></script>';
 include 'includes/head.php';
@@ -206,6 +209,19 @@ include 'includes/header.php';
                   <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/PromptPay_logo.png" alt="PromptPay" class="h-6 object-contain">
                 </div>
               </label>
+
+              <!-- PromptPay Details -->
+              <div id="promptpay-info" class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-navy-950 space-y-1.5">
+                <div class="font-bold flex items-center justify-between">
+                  <span>หมายเลข PromptPay:</span>
+                  <span class="font-mono text-sm text-pink-600 font-black"><?= htmlspecialchars($settings['promptpay_number'] ?: '0105566123456') ?></span>
+                </div>
+                <div class="flex items-center justify-between text-slate-600">
+                  <span>ชื่อบัญชี:</span>
+                  <span class="font-semibold text-navy-950"><?= htmlspecialchars($settings['bank_account_name'] ?: 'บจก. เน็กซ์ บียอนด์ เอ็ดดูเคชั่น') ?></span>
+                </div>
+              </div>
+
               <label class="block p-4 border border-[#dce4ef] rounded-xl bg-white cursor-pointer hover:border-[#b8c5d8]">
                 <div class="flex items-center gap-3">
                   <input type="radio" name="paymentMethod" value="card" class="w-4 h-4 accent-pink-500">
@@ -222,6 +238,27 @@ include 'includes/header.php';
                   <div class="flex-1 text-[15px] font-bold text-navy-950">โอนเงินผ่านบัญชีธนาคาร</div>
                 </div>
               </label>
+
+              <!-- Bank Transfer Details -->
+              <div id="transfer-info" class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-navy-950 space-y-1.5">
+                <div class="flex items-center justify-between text-slate-600">
+                  <span>ธนาคาร:</span>
+                  <span class="font-bold text-navy-950"><?= htmlspecialchars($settings['bank_name'] ?: 'ธนาคารกสิกรไทย (KBANK)') ?></span>
+                </div>
+                <div class="flex items-center justify-between text-slate-600">
+                  <span>ชื่อบัญชี:</span>
+                  <span class="font-semibold text-navy-950"><?= htmlspecialchars($settings['bank_account_name'] ?: 'บจก. เน็กซ์ บียอนด์ เอ็ดดูเคชั่น') ?></span>
+                </div>
+                <div class="flex items-center justify-between text-slate-600">
+                  <span>เลขที่บัญชี:</span>
+                  <span class="font-mono text-sm text-pink-600 font-black"><?= htmlspecialchars($settings['bank_account_number'] ?: '123-4-56789-0') ?></span>
+                </div>
+                <?php if (!empty($settings['payment_instructions'])): ?>
+                  <div class="pt-2 border-t border-slate-200 text-slate-500 text-[11px] leading-relaxed">
+                    <b>คำแนะนำการชำระเงิน:</b> <?= nl2br(htmlspecialchars($settings['payment_instructions'])) ?>
+                  </div>
+                <?php endif; ?>
+              </div>
             </div>
           </div>
         </div>
@@ -334,12 +371,13 @@ include 'includes/header.php';
         <!-- Header -->
         <div class="flex justify-between items-start mb-10 pb-10 border-b border-[#e8ecf2] max-[640px]:flex-col max-[640px]:gap-6">
           <div>
-            <div class="text-[20px] font-black text-navy-950 tracking-tight mb-2">NEXTBEYOND COMPASS</div>
+            <div class="text-[20px] font-black text-navy-950 tracking-tight mb-2"><?= htmlspecialchars($settings['school_name'] ?: 'NEXTBEYOND COMPASS') ?></div>
             <p class="text-[13px] text-[#65738a] leading-relaxed mb-0">
-              บริษัท เน็กซ์ บียอนด์ เอ็ดดูเคชั่น จำกัด<br>
-              99/9 ถนนสุขุมวิท กรุงเทพมหานคร 10110<br>
-              เลขประจำตัวผู้เสียภาษี: 0105550000000<br>
-              โทร: 02-000-0000 | อีเมล: hello@nextbeyond.com
+              <?= nl2br(htmlspecialchars($settings['school_address'] ?: 'อาคาร Next Beyond ชั้น 3 เขตปทุมวัน กรุงเทพมหานคร 10330')) ?><br>
+              <?php if (!empty($settings['tax_id'])): ?>
+                เลขประจำตัวผู้เสียภาษี: <?= htmlspecialchars($settings['tax_id']) ?><br>
+              <?php endif; ?>
+              โทร: <?= htmlspecialchars($settings['school_phone'] ?: '02-123-4567') ?> | อีเมล: <?= htmlspecialchars($settings['school_email'] ?: 'contact@nextbeyond.com') ?>
             </p>
           </div>
           <div class="text-right max-[640px]:text-left">

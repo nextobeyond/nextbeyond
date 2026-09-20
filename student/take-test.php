@@ -102,6 +102,29 @@ $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
   </div>
 </div>
 
+<!-- Phase 2: Understanding Check Floating Panel -->
+<div id="understanding-panel" style="display:none; position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:200; width:min(480px, calc(100vw - 32px));">
+  <div style="background:linear-gradient(135deg,#1e1b4b,#312e81); border:1px solid rgba(255,255,255,.2); border-radius:20px; padding:20px 22px; box-shadow:0 16px 48px rgba(0,0,0,.45); color:#fff; backdrop-filter:blur(12px); position:relative;">
+    <p style="font-size:11px; font-weight:700; opacity:.7; letter-spacing:.06em; margin-bottom:6px;" id="uc-topic-label">เช็กความเข้าใจจากครูผู้สอน</p>
+    <p style="font-size:16px; font-weight:800; margin-bottom:14px;">เข้าใจบทเรียนนี้ดีแค่ไหน? 🤔</p>
+    <div style="display:flex; gap:10px;">
+      <button type="button" onclick="submitUnderstanding('got_it')" id="uc-got-it"
+        style="flex:1; padding:11px 0; border-radius:12px; border:none; background:#22c55e; color:#fff; font-size:13px; font-weight:800; cursor:pointer; transition:.15s;">
+        👍 เข้าใจแล้ว
+      </button>
+      <button type="button" onclick="submitUnderstanding('somewhat')" id="uc-somewhat"
+        style="flex:1; padding:11px 0; border-radius:12px; border:none; background:#f59e0b; color:#fff; font-size:13px; font-weight:800; cursor:pointer; transition:.15s;">
+        😐 บางส่วน
+      </button>
+      <button type="button" onclick="submitUnderstanding('confused')" id="uc-confused"
+        style="flex:1; padding:11px 0; border-radius:12px; border:none; background:#ef4444; color:#fff; font-size:13px; font-weight:800; cursor:pointer; transition:.15s;">
+        🤷 ยังไม่เข้าใจ
+      </button>
+    </div>
+    <button type="button" onclick="dismissUnderstanding()" style="position:absolute; top:12px; right:14px; background:none; border:none; color:rgba(255,255,255,.5); font-size:20px; cursor:pointer; line-height:1;">✕</button>
+  </div>
+</div>
+
 <div class="min-h-screen flex">
   <?php include 'includes/sidebar.php'; ?>
   <div class="flex-1 flex flex-col ml-[240px] max-[1024px]:ml-0 min-w-0">
@@ -232,13 +255,18 @@ async function pollLiveSession() {
     if (banner && content) {
       const msg = (data.announcementMessage || '').trim();
       if (msg) {
-        if (msg !== lastAnnouncement) {
-          lastAnnouncement = msg;
-          banner.dataset.dismissed = '0';
-        }
-        if (banner.dataset.dismissed !== '1') {
-          content.textContent = msg;
-          banner.classList.remove('hidden');
+        if (msg.startsWith('_check_')) {
+          const topic = msg.replace('_check_', '').trim();
+          showUnderstandingCheck(topic);
+        } else {
+          if (msg !== lastAnnouncement) {
+            lastAnnouncement = msg;
+            banner.dataset.dismissed = '0';
+          }
+          if (banner.dataset.dismissed !== '1') {
+            content.textContent = msg;
+            banner.classList.remove('hidden');
+          }
         }
       } else {
         banner.classList.add('hidden');
@@ -262,6 +290,44 @@ async function pollLiveSession() {
       return;
     }
   } catch (_) {}
+}
+
+// Phase 2: Understanding Check Functions
+let _ucTopic = '';
+let _ucSubmitted = false;
+function showUnderstandingCheck(topic) {
+  _ucTopic = topic || '';
+  _ucSubmitted = false;
+  const p = document.getElementById('understanding-panel');
+  const l = document.getElementById('uc-topic-label');
+  if (p) {
+    if (l) l.textContent = topic ? '📌 หัวข้อ: ' + topic : 'เช็กความเข้าใจจากครูผู้สอน';
+    p.style.display = 'block';
+    ['uc-got-it','uc-somewhat','uc-confused'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) { b.disabled = false; b.style.opacity = '1'; }
+    });
+  }
+}
+async function submitUnderstanding(val) {
+  if (!LIVE_SESSION_ID || _ucSubmitted) return;
+  _ucSubmitted = true;
+  ['uc-got-it','uc-somewhat','uc-confused'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.disabled = true; b.style.opacity = '0.5'; }
+  });
+  try {
+    await fetch('live-session-api.php?action=understanding_check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: LIVE_SESSION_ID, understanding: val, topicName: _ucTopic }),
+    });
+  } catch (_) {}
+  setTimeout(dismissUnderstanding, 1200);
+}
+function dismissUnderstanding() {
+  const p = document.getElementById('understanding-panel');
+  if (p) p.style.display = 'none';
 }
 
 if (LIVE_SESSION_ID) {

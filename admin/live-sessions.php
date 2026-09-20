@@ -30,6 +30,20 @@ $totalHistoricalStudents = array_sum(array_map(fn($cs) => (int)$cs['student_coun
 
 // Fetch available published exams
 $exams = $pdo->query("SELECT id, title, subject, grade, time_limit_minutes FROM exams WHERE is_published = 1 AND status = 'active' ORDER BY title ASC")->fetchAll();
+
+// Phase 2: Fetch scheduled calendar events for linking
+$stmtEvents = $pdo->prepare("
+    SELECT ce.id, ce.title, ce.event_date, ce.start_time, c.title AS course_title
+    FROM calendar_events ce
+    LEFT JOIN courses c ON c.id = ce.course_id
+    WHERE (ce.teacher_id = :tid OR :isAdmin = 1)
+      AND ce.status = 'scheduled'
+      AND ce.event_date >= CURDATE()
+    ORDER BY ce.event_date ASC, ce.start_time ASC
+    LIMIT 25
+");
+$stmtEvents->execute([':tid' => $currentUserId, ':isAdmin' => ($isAdmin ? 1 : 0)]);
+$calendarEvents = $stmtEvents->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="th" class="scroll-smooth">
@@ -496,6 +510,20 @@ $exams = $pdo->query("SELECT id, title, subject, grade, time_limit_minutes FROM 
         </select>
       </div>
 
+      <!-- Phase 2: Calendar Event Linker -->
+      <div>
+        <label class="block font-bold text-slate-800 mb-1.5">📅 เชื่อมโยงกับคาบเรียนในปฏิทิน (Phase 2)</label>
+        <select name="calendarEventId" id="create-calendar-event" class="w-full h-11 px-3 rounded-xl border border-slate-300 outline-none focus:border-pink-500 text-xs bg-white">
+          <option value="">-- ไม่เชื่อมโยง (สร้างห้องเรียนสดอิสระ) --</option>
+          <?php foreach ($calendarEvents as $cev): ?>
+            <option value="<?= (int)$cev['id'] ?>">
+              <?= htmlspecialchars($cev['event_date']) ?> <?= substr($cev['start_time'], 0, 5) ?> น. - <?= htmlspecialchars($cev['title']) ?><?= !empty($cev['course_title']) ? ' ('.htmlspecialchars($cev['course_title']).')' : '' ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+        <p class="text-[11px] text-slate-500 mt-1">หากเชื่อมโยง ระบบจะดึงหัวข้อการเตรียมตัว และบันทึกผลความเข้าใจลง Learning Profile โดยอัตโนมัติ</p>
+      </div>
+
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block font-bold text-slate-800 mb-1.5">ระดับการศึกษา</label>
@@ -551,6 +579,15 @@ $exams = $pdo->query("SELECT id, title, subject, grade, time_limit_minutes FROM 
   if (openBtn) openBtn.onclick = () => toggleModal(true);
   if (closeBtn) closeBtn.onclick = () => toggleModal(false);
   if (cancelBtn) cancelBtn.onclick = () => toggleModal(false);
+
+  // Phase 2: Check URL for preselected calendar event
+  const urlParams = new URLSearchParams(window.location.search);
+  const preselectedCalId = urlParams.get("calendarEventId");
+  if (preselectedCalId) {
+    toggleModal(true);
+    const calSelect = document.getElementById("create-calendar-event");
+    if (calSelect) calSelect.value = preselectedCalId;
+  }
 
   // Projector Modal
   const projectorModal = document.getElementById("projector-modal-overlay");
@@ -615,6 +652,7 @@ $exams = $pdo->query("SELECT id, title, subject, grade, time_limit_minutes FROM 
       timeLimitMinutes: fd.get("timeLimitMinutes"),
       hasTimeLimit: fd.get("hasTimeLimit") !== null,
       allowLateJoin: fd.get("allowLateJoin") !== null,
+      calendarEventId: fd.get("calendarEventId") || null,
     };
 
     try {

@@ -100,6 +100,17 @@
     return json;
   }
 
+  window.flagStudentForFollowup = async (studentId, studentName) => {
+    const notes = prompt(`บันทึกเพื่อช่วย ${studentName} หลังคาบ (ไม่บังคับ)`) ?? '';
+    try {
+      const data = await api('live-sessions-api.php?action=follow_up_intervention', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId, studentId, notes }),
+      });
+      alert(data.duplicate ? 'นักเรียนมีรายการช่วยเหลือหัวข้อนี้อยู่แล้ว ระบบไม่ได้สร้างซ้ำ' : 'เพิ่มในคิวช่วยเหลือผู้เรียนแล้ว');
+    } catch (error) { alert(error.message); }
+  };
+
   async function loadSessionData(isManual = false) {
     if (!sessionId) return;
     const refreshBtn = document.getElementById("btn-refresh-icon");
@@ -229,9 +240,70 @@
       }).join("") : '<div class="text-xs text-slate-400">รอรับสัญญาณเข้าร่วมจากนักเรียนผ่าน PIN...</div>';
     }
 
+    renderBossCard(session);
+    renderUnderstandingCard(sessionData);
+
     // If modal is open, re-render its content
     if (activeModalKey) {
       renderModalContent(activeModalKey);
+    }
+  }
+
+  function renderUnderstandingCard(data) {
+    if (!data) return;
+    const { understandingStats, sessionTopics } = data;
+    const stats = understandingStats || { totals: { got_it: 0, somewhat: 0, confused: 0, total: 0 }, confused_pct: 0, topics: [] };
+    const totals = stats.totals || { got_it: 0, somewhat: 0, confused: 0, total: 0 };
+    const totalChecks = totals.total || 0;
+
+    const summaryEl = document.getElementById("uc-summary-text");
+    const barsWrap = document.getElementById("uc-stats-bars");
+    const topicSelector = document.getElementById("uc-topic-selector");
+    const topicSelect = document.getElementById("uc-topic-select");
+
+    // Populate topic dropdown if available and not yet populated
+    if (topicSelect && sessionTopics && sessionTopics.length) {
+      if (topicSelector) topicSelector.style.display = "block";
+      const currentVal = topicSelect.value;
+      const opts = ['<option value="">-- ทั่วไป (ทั้งคาบ) --</option>'];
+      sessionTopics.forEach(t => {
+        const name = typeof t === "string" ? t : (t.topic_name || "");
+        if (name) opts.push(`<option value="${esc(name)}">${esc(name)}</option>`);
+      });
+      if (opts.length > 1 && topicSelect.children.length <= 1) {
+        topicSelect.innerHTML = opts.join("");
+        if (currentVal) topicSelect.value = currentVal;
+      }
+    }
+
+    if (totalChecks === 0) {
+      if (summaryEl) summaryEl.textContent = 'ยังไม่มีข้อมูล — กด "📢 เช็กความเข้าใจ" เพื่อเริ่ม';
+      if (barsWrap) barsWrap.style.display = "none";
+      return;
+    }
+
+    const gotPct = Math.round((totals.got_it / totalChecks) * 100);
+    const somePct = Math.round((totals.somewhat / totalChecks) * 100);
+    const confPct = Math.round((totals.confused / totalChecks) * 100);
+
+    if (summaryEl) {
+      summaryEl.innerHTML = `ตอบแล้ว <strong>${totalChecks}</strong> คน • เข้าใจ <span class="text-emerald-600 font-extrabold">${gotPct}%</span> • สับสน <span class="text-rose-600 font-extrabold">${confPct}%</span>`;
+    }
+    if (barsWrap) {
+      barsWrap.style.display = "block";
+      const bg = document.getElementById("uc-bar-got");
+      const bs = document.getElementById("uc-bar-some");
+      const bc = document.getElementById("uc-bar-conf");
+      const pg = document.getElementById("uc-pct-got");
+      const ps = document.getElementById("uc-pct-some");
+      const pc = document.getElementById("uc-pct-conf");
+
+      if (bg) bg.style.width = `${gotPct}%`;
+      if (bs) bs.style.width = `${somePct}%`;
+      if (bc) bc.style.width = `${confPct}%`;
+      if (pg) pg.textContent = `${gotPct}% (${totals.got_it})`;
+      if (ps) ps.textContent = `${somePct}% (${totals.somewhat})`;
+      if (pc) pc.textContent = `${confPct}% (${totals.confused})`;
     }
   }
 
@@ -360,10 +432,11 @@
                     <small class="text-slate-400">${esc(st.email)}</small>
                   </div>
                 </div>
-                <div class="text-right">
+                <div class="text-right flex items-center gap-2">
                   ${st.scorePercentage !== null
                     ? `<span class="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-bold">คะแนน ${st.scorePercentage}%</span>`
                     : `<span class="text-slate-500">ทำข้อ ${st.currentQuestionNumber}/${st.totalQuestions} (${st.progressPct}%)</span>`}
+                  <button type="button" onclick="flagStudentForFollowup(${Number(st.studentId)}, decodeURIComponent('${encodeURIComponent(String(st.name)).replace(/'/g, '%27')}'))" class="px-2 py-1 rounded-lg border border-amber-300 text-amber-800 font-bold">ติดตามหลังคาบ</button>
                 </div>
               </div>
             `).join("") : '<div class="py-8 text-center text-slate-400">ยังไม่มีนักเรียน</div>'}
@@ -441,6 +514,118 @@
             }
           };
         }
+        break;
+      }
+
+      case "post_class_assignment": {
+        titleEl.textContent = "📝 มอบหมายงานหลังเรียน (Post-Class Assignment)";
+        descEl.textContent = "เลือกใบงาน แบบฝึกหัด หรือการบ้านเพื่อมอบหมายให้นักเรียนในคลาสนี้โดยอัตโนมัติ";
+        bodyEl.innerHTML = `
+          <div class="space-y-4 text-xs">
+            <div class="p-3 rounded-2xl bg-pink-50 text-pink-900 border border-pink-100 flex items-center gap-2">
+              <span class="text-base">💡</span>
+              <span>ระบบจะเชื่อมโยง <b>Session ID</b> และ <b>Topic</b> ของคาบนี้เข้ากับใบงานเพื่อติดตามความก้าวหน้าอัตโนมัติ</span>
+            </div>
+
+            <div>
+              <label class="font-bold text-slate-700 block mb-1.5">ประเภทกิจกรรมการเรียนรู้:</label>
+              <select id="quick-assign-type" class="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white font-medium text-slate-800">
+                <option value="homework">การบ้าน (Homework) — มีกำหนดส่ง</option>
+                <option value="worksheet">ใบงาน (Worksheet) — แบบฝึกหัดทั่วไป</option>
+                <option value="practice">ฝึกฝน (Practice) — ทบทวนเพิ่มเติม</option>
+                <option value="posttest">แบบทดสอบหลังเรียน (Post-Test) — วัดผลหลังเรียน</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="font-bold text-slate-700 block mb-1.5">เลือกใบงานจากคลัง (Worksheet Library):</label>
+              <select id="quick-assign-worksheet" class="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white font-medium text-slate-800">
+                <option value="">กำลังโหลดรายการใบงาน...</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="font-bold text-slate-700 block mb-1.5">กำหนดส่ง (Due Date):</label>
+              <input type="datetime-local" id="quick-assign-due" class="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white font-medium text-slate-800" value="${new Date(Date.now() + 3*86400000).toISOString().slice(0, 16)}">
+            </div>
+
+            <div id="quick-assign-result" class="hidden p-3 rounded-xl text-xs font-bold"></div>
+
+            <div class="pt-2 flex justify-end gap-2">
+              <button type="button" data-close-modal class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 cursor-pointer">ยกเลิก</button>
+              <button type="button" id="btn-submit-quick-assign" class="px-5 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold shadow-md shadow-pink-500/20 cursor-pointer">มอบหมายทันที</button>
+            </div>
+          </div>
+        `;
+
+        fetch('worksheets-api.php?action=list')
+          .then(r => r.json())
+          .then(data => {
+            const selectEl = document.getElementById('quick-assign-worksheet');
+            if (!selectEl) return;
+            const list = data.worksheets || [];
+            if (!list.length) {
+              selectEl.innerHTML = '<option value="">ไม่มีใบงานในคลัง กรุณาสร้างใบงานก่อน</option>';
+              return;
+            }
+            selectEl.innerHTML = list.map(w => `<option value="${w.id}">${esc(w.title)} (${esc(w.topic || w.subject || 'ทั่วไป')}) - ${w.question_count || 0} ข้อ</option>`).join('');
+          })
+          .catch(() => {
+            const selectEl = document.getElementById('quick-assign-worksheet');
+            if (selectEl) selectEl.innerHTML = '<option value="1">ใบงานตัวอย่าง #1</option>';
+          });
+
+        setTimeout(() => {
+          const submitBtn = document.getElementById('btn-submit-quick-assign');
+          if (submitBtn) {
+            submitBtn.addEventListener('click', async () => {
+              const wsId = document.getElementById('quick-assign-worksheet')?.value;
+              const actType = document.getElementById('quick-assign-type')?.value;
+              const dueDate = document.getElementById('quick-assign-due')?.value;
+              const resultEl = document.getElementById('quick-assign-result');
+
+              if (!wsId) {
+                alert('กรุณาเลือกใบงาน');
+                return;
+              }
+
+              submitBtn.disabled = true;
+              submitBtn.textContent = 'กำลังมอบหมาย...';
+
+              try {
+                const res = await fetch('worksheets-api.php', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'quick_assign_session',
+                    session_id: session.id,
+                    worksheet_id: parseInt(wsId, 10),
+                    activity_type: actType,
+                    due_date: dueDate
+                  })
+                });
+                const d = await res.json();
+                if (d.success) {
+                  resultEl.className = 'p-3 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-800';
+                  resultEl.textContent = '✓ ' + (d.message || 'มอบหมายงานหลังเรียนเรียบร้อยแล้ว');
+                  resultEl.classList.remove('hidden');
+                  submitBtn.textContent = 'มอบหมายสำเร็จ';
+                  setTimeout(() => {
+                    document.getElementById('live-modal-overlay')?.classList.add('hidden');
+                  }, 1200);
+                } else {
+                  alert(d.error || 'เกิดข้อผิดพลาด');
+                  submitBtn.disabled = false;
+                  submitBtn.textContent = 'มอบหมายทันที';
+                }
+              } catch (e) {
+                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'มอบหมายทันที';
+              }
+            });
+          }
+        }, 100);
         break;
       }
 
@@ -894,6 +1079,35 @@
           renderAll();
         } catch (e) {
           alert(e.message);
+        }
+      };
+    }
+
+    // Phase 2: Trigger Understanding Check
+    const triggerCheckBtn = document.getElementById("btn-trigger-check");
+    if (triggerCheckBtn) {
+      triggerCheckBtn.onclick = async () => {
+        triggerCheckBtn.disabled = true;
+        const origText = triggerCheckBtn.innerHTML;
+        triggerCheckBtn.textContent = "⏳ กำลังส่ง...";
+        try {
+          const topicSelect = document.getElementById("uc-topic-select");
+          const selTopic = topicSelect ? topicSelect.value.trim() : "";
+          const msg = "_check_" + (selTopic ? " " + selTopic : "");
+          await api("live-sessions-api.php?action=update_announcement", {
+            method: "POST",
+            body: JSON.stringify({ sessionId, announcementMessage: msg })
+          });
+          triggerCheckBtn.textContent = "✓ ส่งเช็กแล้ว!";
+          playBattleSound("alert");
+          setTimeout(() => {
+            triggerCheckBtn.disabled = false;
+            triggerCheckBtn.innerHTML = origText;
+          }, 3000);
+        } catch (err) {
+          alert(err.message || "ส่งคำถามความเข้าใจไม่สำเร็จ");
+          triggerCheckBtn.disabled = false;
+          triggerCheckBtn.innerHTML = origText;
         }
       };
     }

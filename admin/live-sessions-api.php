@@ -7,8 +7,11 @@ header('Cache-Control: no-store');
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/includes/access.php';
 require_once __DIR__ . '/../includes/live-sessions-helper.php';
+require_once __DIR__ . '/../includes/phase2-session-service.php';
+require_once __DIR__ . '/../includes/phase5-mastery-service.php';
 
 ensureLiveSessionSchema($pdo);
+$_p2 = new Phase2SessionService($pdo);
 
 function liveSessionRespond(array $data, int $status = 200): never
 {
@@ -231,6 +234,9 @@ try {
                 'students' => $students,
                 'questionStats' => $questionStats,
                 'bossArchetypes' => getBossArchetypes(),
+                // Phase 2: understanding check stats + session topics
+                'understandingStats' => $_p2->getUnderstandingStats($sessionId),
+                'sessionTopics'      => $_p2->getSessionTopics($sessionId),
             ]);
         }
 
@@ -295,6 +301,31 @@ try {
                 $pdo->commit();
 
                 liveSessionRespond(['success' => true, 'message' => 'รีเซ็ตการทำข้อสอบเรียบร้อยแล้ว']);
+            }
+
+            if ($action === 'follow_up_intervention') {
+                $studentId = (int)($body['studentId'] ?? 0);
+                if ($studentId < 1) liveSessionRespond(['error' => 'กรุณาเลือกนักเรียน'], 422);
+                $context = $pdo->prepare("SELECT cs.calendar_event_id,ce.course_id,
+                    COALESCE(NULLIF(?,''),(SELECT topic_name FROM session_topics WHERE session_id=cs.id ORDER BY sort_order,id LIMIT 1),cs.title) topic_name
+                  FROM classroom_sessions cs LEFT JOIN calendar_events ce ON ce.id=cs.calendar_event_id WHERE cs.id=?");
+                $context->execute([trim((string)($body['topicName'] ?? '')),$sessionId]);
+                $ctx = $context->fetch(PDO::FETCH_ASSOC);
+                $courseId = (int)($ctx['course_id'] ?? 0);
+                if (!$courseId) {
+                    $course = $pdo->prepare("SELECT course_id FROM enrollments WHERE user_id=? AND status IN ('active','trial') ORDER BY enrolled_at DESC LIMIT 1");
+                    $course->execute([$studentId]);$courseId=(int)$course->fetchColumn();
+                }
+                if (!$courseId) liveSessionRespond(['error' => 'ไม่พบคอร์สสำหรับสร้างรายการติดตาม'], 422);
+                $topic = trim((string)($ctx['topic_name'] ?? 'ติดตามหลังเรียน')) ?: 'ติดตามหลังเรียน';
+                $gapStmt=$pdo->prepare("SELECT id FROM student_learning_gaps WHERE student_id=? AND course_id=? AND topic_name=? AND status<>'resolved' ORDER BY id DESC LIMIT 1");
+                $gapStmt->execute([$studentId,$courseId,$topic]);$gapId=(int)$gapStmt->fetchColumn();
+                $result=(new \NextBeyond\Mastery\InterventionService($pdo))->createManual([
+                    'student_id'=>$studentId,'course_id'=>$courseId,'gap_id'=>$gapId?:null,'topic_name'=>$topic,
+                    'trigger_type'=>'live_class_followup','recommended_action'=>'teacher_feedback','priority_score'=>70,
+                    'teacher_notes'=>'ติดตามจาก Live Session '.$sessionId.(!empty($body['notes'])?' — '.trim((string)$body['notes']):''),
+                ],$currentUserId);
+                liveSessionRespond(['success'=>true]+$result,201);
             }
 
             if ($action === 'teacher_strike') {
@@ -419,12 +450,21 @@ try {
             ':btheme' => $archetype['id'],
         ]);
 
+        // Phase 2: link to calendar event if provided
+        $calEventId = (int)($body['calendarEventId'] ?? 0);
+        $readinessSummary = null;
+        if ($calEventId > 0) {
+            $_p2->linkSessionToEvent($sessionId, $calEventId);
+            $readinessSummary = $_p2->getEventReadinessSummaryForTeacher($calEventId);
+        }
+
         liveSessionRespond([
             'success' => true,
             'sessionId' => $sessionId,
             'sessionPin' => $pin,
             'hasTimeLimit' => (bool) $hasTimeLimit,
             'timeLimitMinutes' => $timeLimit,
+            'readinessSummary' => $readinessSummary,
         ], 201);
     }
 
@@ -521,8 +561,14 @@ try {
             awardBossDefeatPoints($pdo, $sessionId, $rPoints);
         }
 
+        // Phase 2: When session closes, sync understanding checks → topic_mastery
+        if (isset($status) && $status === 'closed') {
+            try { $_p2->syncUnderstandingToMastery($sessionId); } catch (Throwable $e) { /* non-fatal */ }
+        }
+
         liveSessionRespond(['success' => true]);
     }
+
 
     // ----------------------------------------------------
     // DELETE: Delete session

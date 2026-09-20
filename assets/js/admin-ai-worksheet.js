@@ -103,7 +103,18 @@
       currentGeneration = data;
       renderGenerationResult(data);
     } catch (err) {
-      errorBox.textContent = err.message;
+      if (err.message.includes("API Key") || err.message.includes("API key")) {
+        errorBox.innerHTML = `
+          <div>${escapeHtml(err.message)}</div>
+          <div class="mt-2 pt-2 border-t border-red-200">
+            <a href="settings.php" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white font-bold text-xs hover:bg-red-700 transition">
+              ⚙️ ไปที่หน้าตั้งค่าระบบ (AI API Key)
+            </a>
+          </div>
+        `;
+      } else {
+        errorBox.textContent = err.message;
+      }
       errorBox.classList.remove("hidden");
       placeholderView.classList.remove("hidden");
     } finally {
