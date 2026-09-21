@@ -6,98 +6,183 @@ $pageTitle   = 'Dashboard นักเรียน';
 $currentPage = 'index.php';
 require_once __DIR__ . '/includes/guard.php';
 
-// ── ดึงข้อมูล Stats ──
-require_once __DIR__ . '/../admin/enrollments-service.php';
-$enrollmentService = new EnrollmentService($pdo);
+// ── กำหนดค่าเริ่มต้นตัวแปร Dashboard ทั้งหมดเพื่อป้องกัน Error 500 ──
+$currentUserId = (int)($currentUser['id'] ?? 0);
+$enrolledCount = 0;
+$attemptCount = 0;
+$avgScore = 0.0;
+$availableExams = [];
+$recentAttempts = [];
+$enrolledCourses = [];
+$weeklySchedule = [];
+$primaryNextAction = null;
+$studentUpcomingList = [];
+$activeGoals = [];
+$upcomingClasses = [];
+$nextClass = null;
+$studentAssignments = [];
+$mobileMissions = [];
+$activeWeekDays = array_fill(0, 7, false);
+$weekDayLabels = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'];
 
-// ── Learning Journey Core (Phase 1) ──
-require_once __DIR__ . '/../includes/learning-journey-service.php';
-$journeyService = new LearningJourneyService($pdo);
-$primaryNextAction = $journeyService->getStudentNextAction((int)$currentUser['id']);
-$studentUpcomingList = $journeyService->getStudentUpcomingList((int)$currentUser['id']);
-$activeGoals = $journeyService->getStudentLearningGoals((int)$currentUser['id'], null, 'active');
-
-// ── Phase 2: PREPARE & LEARN — Upcoming Class Events ──
-require_once __DIR__ . '/../includes/phase2-session-service.php';
-$_p2 = new Phase2SessionService($pdo);
-$upcomingClasses = $_p2->getUpcomingEventsForStudent((int)$currentUser['id'], 72);
-$nextClass = $upcomingClasses[0] ?? null;
-
-// ── Phase 3: PRACTICE & MEASURE — Student Assignments & Separate Metrics ──
-require_once __DIR__ . '/../includes/phase3-mastery-service.php';
-$_p3 = new Phase3MasteryService($pdo);
-$studentAssignments = $_p3->getStudentAssignments((int)$currentUser['id'], null, 'all');
-
-function resolveStudentActionUrl(?string $url): string {
-    if (empty($url)) return 'my-courses.php';
-    if (str_starts_with($url, 'student/')) {
-        return substr($url, 8);
+if (!function_exists('resolveStudentActionUrl')) {
+    function resolveStudentActionUrl(?string $url): string {
+        if (empty($url)) return 'my-courses.php';
+        if (str_starts_with($url, 'student/')) {
+            return substr($url, 8);
+        }
+        if (str_starts_with($url, 'lesson.php') || str_starts_with($url, 'course.php')) {
+            return '../' . $url;
+        }
+        return $url;
     }
-    if (str_starts_with($url, 'lesson.php') || str_starts_with($url, 'course.php')) {
-        return '../' . $url;
-    }
-    return $url;
 }
 
-// จำนวนคอร์สที่ลงทะเบียน (Active / Trial ไม่หมดอายุ)
-$stmtCourses = $pdo->prepare('SELECT COUNT(*) FROM enrollments WHERE user_id = :uid AND status IN ("active", "trial") AND (end_date IS NULL OR end_date >= CURDATE())');
-$stmtCourses->execute([':uid' => $currentUser['id']]);
-$enrolledCount = (int)$stmtCourses->fetchColumn();
+// ── 1. ดึงข้อมูล Stats ──
+try {
+    require_once __DIR__ . '/../admin/enrollments-service.php';
+    $enrollmentService = new EnrollmentService($pdo);
+    $rawSchedule = $enrollmentService->getStudentCombinedSchedule($currentUserId);
+    foreach ($rawSchedule as $r) {
+        $day = $r['schedule_day'] ?: 'อื่นๆ';
+        $weeklySchedule[$day][] = $r;
+    }
+} catch (Throwable $e) {
+    error_log("EnrollmentService schedule error: " . $e->getMessage());
+}
 
-// จำนวนข้อสอบที่ทำแล้ว
-$stmtAttempts = $pdo->prepare('SELECT COUNT(*) FROM test_attempts WHERE user_id = :uid AND completed_at IS NOT NULL');
-$stmtAttempts->execute([':uid' => $currentUser['id']]);
-$attemptCount = (int)$stmtAttempts->fetchColumn();
+// ── 2. Learning Journey Core (Phase 1) ──
+try {
+    require_once __DIR__ . '/../includes/learning-journey-service.php';
+    $journeyService = new LearningJourneyService($pdo);
+    $primaryNextAction = $journeyService->getStudentNextAction($currentUserId);
+    $studentUpcomingList = $journeyService->getStudentUpcomingList($currentUserId);
+    $activeGoals = $journeyService->getStudentLearningGoals($currentUserId, null, 'active');
+} catch (Throwable $e) {
+    error_log("LearningJourneyService error: " . $e->getMessage());
+}
 
-// คะแนนเฉลี่ย
-$stmtAvg = $pdo->prepare('SELECT AVG(score) FROM test_attempts WHERE user_id = :uid AND completed_at IS NOT NULL AND score IS NOT NULL');
-$stmtAvg->execute([':uid' => $currentUser['id']]);
-$avgScore = round((float)($stmtAvg->fetchColumn() ?: 0), 1);
+// ── 3. Phase 2: PREPARE & LEARN — Upcoming Class Events ──
+try {
+    require_once __DIR__ . '/../includes/phase2-session-service.php';
+    $_p2 = new Phase2SessionService($pdo);
+    $upcomingClasses = $_p2->getUpcomingEventsForStudent($currentUserId, 72);
+    $nextClass = $upcomingClasses[0] ?? null;
+} catch (Throwable $e) {
+    error_log("Phase2SessionService error: " . $e->getMessage());
+}
 
-// ข้อสอบที่เปิดอยู่ (is_published=1, status=active)
-$stmtExams = $pdo->query(
-    "SELECT e.id, e.title, e.subject, e.grade, e.type, e.time_limit_minutes,
-            COUNT(q.id) AS question_count
-     FROM exams e
-     LEFT JOIN exam_questions q ON q.exam_id = e.id
-     WHERE e.is_published = 1 AND e.status = 'active'
-     GROUP BY e.id
-     ORDER BY e.updated_at DESC, e.id DESC
-     LIMIT 6"
-);
-$availableExams = $stmtExams->fetchAll();
+// ── 4. Phase 3: PRACTICE & MEASURE — Student Assignments ──
+try {
+    require_once __DIR__ . '/../includes/phase3-mastery-service.php';
+    $_p3 = new Phase3MasteryService($pdo);
+    $studentAssignments = $_p3->getStudentAssignments($currentUserId, null, 'all');
+} catch (Throwable $e) {
+    error_log("Phase3MasteryService error: " . $e->getMessage());
+}
 
-// ประวัติข้อสอบล่าสุด 5 รายการ
-$stmtHistory = $pdo->prepare(
-    'SELECT a.id, a.score, a.correct_count, a.total_questions, a.completed_at,
-            e.title, e.subject, e.type
-     FROM test_attempts a
-     INNER JOIN exams e ON e.id = a.exam_id
-     WHERE a.user_id = :uid AND a.completed_at IS NOT NULL
-     ORDER BY a.completed_at DESC LIMIT 5'
-);
-$stmtHistory->execute([':uid' => $currentUser['id']]);
-$recentAttempts = $stmtHistory->fetchAll();
+// ── 5. จำนวนคอร์สที่ลงทะเบียน ──
+try {
+    $stmtCourses = $pdo->prepare('SELECT COUNT(*) FROM enrollments WHERE user_id = :uid AND status IN ("active", "trial") AND (end_date IS NULL OR end_date >= CURDATE())');
+    $stmtCourses->execute([':uid' => $currentUserId]);
+    $enrolledCount = (int)$stmtCourses->fetchColumn();
+} catch (Throwable $e) {
+    try {
+        $stmtCourses = $pdo->prepare('SELECT COUNT(*) FROM enrollments WHERE user_id = :uid AND status IN ("active", "trial")');
+        $stmtCourses->execute([':uid' => $currentUserId]);
+        $enrolledCount = (int)$stmtCourses->fetchColumn();
+    } catch (Throwable $e2) {
+        $enrolledCount = 0;
+    }
+}
 
-// คอร์สกำลังเรียน
-$stmtEnrolled = $pdo->prepare(
-    'SELECT c.id, c.title, c.subject, c.cover_image, c.duration_hours, en.progress_percent, en.status,
-            cg.name AS class_group_name, cg.schedule_day, cg.schedule_time
-     FROM enrollments en
-     INNER JOIN courses c ON c.id = en.course_id
-     LEFT JOIN class_groups cg ON cg.id = en.class_group_id
-     WHERE en.user_id = :uid AND en.status IN ("active", "trial") AND (en.end_date IS NULL OR en.end_date >= CURDATE())
-     ORDER BY en.enrolled_at DESC LIMIT 6'
-);
-$stmtEnrolled->execute([':uid' => $currentUser['id']]);
-$enrolledCourses = $stmtEnrolled->fetchAll();
+// ── 6. ข้อสอบที่ทำแล้ว & คะแนนเฉลี่ย ──
+try {
+    $stmtAttempts = $pdo->prepare('SELECT COUNT(*) FROM test_attempts WHERE user_id = :uid AND completed_at IS NOT NULL');
+    $stmtAttempts->execute([':uid' => $currentUserId]);
+    $attemptCount = (int)$stmtAttempts->fetchColumn();
 
-// ตารางเรียนรวมจากทุกวิชา (Combined Schedule)
-$rawSchedule = $enrollmentService->getStudentCombinedSchedule((int)$currentUser['id']);
-$weeklySchedule = [];
-foreach ($rawSchedule as $r) {
-    $day = $r['schedule_day'] ?: 'อื่นๆ';
-    $weeklySchedule[$day][] = $r;
+    $stmtAvg = $pdo->prepare('SELECT AVG(score) FROM test_attempts WHERE user_id = :uid AND completed_at IS NOT NULL AND score IS NOT NULL');
+    $stmtAvg->execute([':uid' => $currentUserId]);
+    $avgScore = round((float)($stmtAvg->fetchColumn() ?: 0), 1);
+} catch (Throwable $e) {
+    error_log("Attempts stats error: " . $e->getMessage());
+}
+
+// ── 7. ข้อสอบที่เปิดอยู่ ──
+try {
+    $stmtExams = $pdo->query(
+        "SELECT e.id, e.title, e.subject, e.grade, e.type, e.time_limit_minutes,
+                COUNT(q.id) AS question_count
+         FROM exams e
+         LEFT JOIN exam_questions q ON q.exam_id = e.id
+         WHERE e.is_published = 1 AND e.status = 'active'
+         GROUP BY e.id
+         ORDER BY e.updated_at DESC, e.id DESC
+         LIMIT 6"
+    );
+    $availableExams = $stmtExams->fetchAll();
+} catch (Throwable $e) {
+    try {
+        $stmtExams = $pdo->query(
+            "SELECT e.id, e.title, e.subject, e.type, e.time_limit_minutes,
+                    COUNT(q.id) AS question_count
+             FROM exams e
+             LEFT JOIN exam_questions q ON q.exam_id = e.id
+             WHERE e.is_published = 1 AND e.status = 'active'
+             GROUP BY e.id
+             ORDER BY e.updated_at DESC, e.id DESC
+             LIMIT 6"
+        );
+        $availableExams = $stmtExams->fetchAll();
+    } catch (Throwable $e2) {
+        $availableExams = [];
+    }
+}
+
+// ── 8. ประวัติข้อสอบล่าสุด 5 รายการ ──
+try {
+    $stmtHistory = $pdo->prepare(
+        'SELECT a.id, a.score, a.correct_count, a.total_questions, a.completed_at,
+                e.title, e.subject, e.type
+         FROM test_attempts a
+         INNER JOIN exams e ON e.id = a.exam_id
+         WHERE a.user_id = :uid AND a.completed_at IS NOT NULL
+         ORDER BY a.completed_at DESC LIMIT 5'
+    );
+    $stmtHistory->execute([':uid' => $currentUserId]);
+    $recentAttempts = $stmtHistory->fetchAll();
+} catch (Throwable $e) {
+    $recentAttempts = [];
+}
+
+// ── 9. คอร์สกำลังเรียน ──
+try {
+    $stmtEnrolled = $pdo->prepare(
+        'SELECT c.id, c.title, c.subject, c.cover_image, c.duration_hours, en.progress_percent, en.status,
+                cg.name AS class_group_name, cg.schedule_day, cg.schedule_time
+         FROM enrollments en
+         INNER JOIN courses c ON c.id = en.course_id
+         LEFT JOIN class_groups cg ON cg.id = en.class_group_id
+         WHERE en.user_id = :uid AND en.status IN ("active", "trial") AND (en.end_date IS NULL OR en.end_date >= CURDATE())
+         ORDER BY en.enrolled_at DESC LIMIT 6'
+    );
+    $stmtEnrolled->execute([':uid' => $currentUserId]);
+    $enrolledCourses = $stmtEnrolled->fetchAll();
+} catch (Throwable $e) {
+    try {
+        $stmtEnrolled = $pdo->prepare(
+            'SELECT c.id, c.title, c.subject, c.cover_image, c.duration_hours, en.progress_percent, en.status
+             FROM enrollments en
+             INNER JOIN courses c ON c.id = en.course_id
+             WHERE en.user_id = :uid AND en.status IN ("active", "trial")
+             ORDER BY en.enrolled_at DESC LIMIT 6'
+        );
+        $stmtEnrolled->execute([':uid' => $currentUserId]);
+        $enrolledCourses = $stmtEnrolled->fetchAll();
+    } catch (Throwable $e2) {
+        $enrolledCourses = [];
+    }
 }
 
 $displayName = trim(($currentUser['first_name'] ?? '') . ' ' . ($currentUser['last_name'] ?? '')) ?: 'นักเรียน';
@@ -110,27 +195,31 @@ $featuredLesson = null;
 $featuredLessonTotal = 0;
 $featuredLessonDone = 0;
 if ($featuredCourse) {
-    $lessonSummary = $pdo->prepare(
-        'SELECT COUNT(l.id) AS total_lessons,
-                SUM(CASE WHEN lp.is_completed = 1 THEN 1 ELSE 0 END) AS completed_lessons
-         FROM lessons l
-         LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = ?
-         WHERE l.course_id = ?'
-    );
-    $lessonSummary->execute([(int)$currentUser['id'], (int)$featuredCourse['id']]);
-    $lessonCounts = $lessonSummary->fetch() ?: [];
-    $featuredLessonTotal = (int)($lessonCounts['total_lessons'] ?? 0);
-    $featuredLessonDone = (int)($lessonCounts['completed_lessons'] ?? 0);
+    try {
+        $lessonSummary = $pdo->prepare(
+            'SELECT COUNT(l.id) AS total_lessons,
+                    SUM(CASE WHEN lp.is_completed = 1 THEN 1 ELSE 0 END) AS completed_lessons
+             FROM lessons l
+             LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = ?
+             WHERE l.course_id = ?'
+        );
+        $lessonSummary->execute([$currentUserId, (int)$featuredCourse['id']]);
+        $lessonCounts = $lessonSummary->fetch() ?: [];
+        $featuredLessonTotal = (int)($lessonCounts['total_lessons'] ?? 0);
+        $featuredLessonDone = (int)($lessonCounts['completed_lessons'] ?? 0);
 
-    $nextLesson = $pdo->prepare(
-        'SELECT l.id, l.title, l.duration_minutes
-         FROM lessons l
-         LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = ?
-         WHERE l.course_id = ? AND COALESCE(lp.is_completed, 0) = 0
-         ORDER BY l.sort_order, l.id LIMIT 1'
-    );
-    $nextLesson->execute([(int)$currentUser['id'], (int)$featuredCourse['id']]);
-    $featuredLesson = $nextLesson->fetch() ?: null;
+        $nextLesson = $pdo->prepare(
+            'SELECT l.id, l.title, l.duration_minutes
+             FROM lessons l
+             LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = ?
+             WHERE l.course_id = ? AND COALESCE(lp.is_completed, 0) = 0
+             ORDER BY l.sort_order, l.id LIMIT 1'
+        );
+        $nextLesson->execute([$currentUserId, (int)$featuredCourse['id']]);
+        $featuredLesson = $nextLesson->fetch() ?: null;
+    } catch (Throwable $e) {
+        error_log("Lesson summary error: " . $e->getMessage());
+    }
 }
 
 // Phase 3: Three Distinct Learning Metrics (Section 53-54)
@@ -149,7 +238,7 @@ if ($featuredCourseId > 0) {
             INNER JOIN worksheet_assignments wa ON wa.id = sub.assignment_id
             WHERE sub.student_id = ? AND wa.course_id = ? AND sub.status IN ('completed', 'submitted')
         ");
-        $stmtActScores->execute([(int)$currentUser['id'], $featuredCourseId]);
+        $stmtActScores->execute([$currentUserId, $featuredCourseId]);
         $actScores = $stmtActScores->fetchAll(PDO::FETCH_COLUMN);
     } catch (Throwable $e) {
         $actScores = [];
@@ -163,7 +252,7 @@ if ($featuredCourseId > 0) {
             INNER JOIN exams e ON e.id = ta.exam_id
             WHERE ta.user_id = ? AND e.subject = ? AND ta.completed_at IS NOT NULL
         ");
-        $stmtExamScores->execute([(int)$currentUser['id'], $featuredSubject]);
+        $stmtExamScores->execute([$currentUserId, $featuredSubject]);
         $examScores = $stmtExamScores->fetchAll(PDO::FETCH_COLUMN);
     } catch (Throwable $e) {
         $examScores = [];
@@ -179,13 +268,13 @@ if ($featuredCourseId > 0) {
     // Mastery: Average topic mastery for this course
     try {
         $stmtM = $pdo->prepare("SELECT AVG(mastery_score) FROM topic_mastery WHERE student_id = ? AND course_id = ?");
-        $stmtM->execute([(int)$currentUser['id'], $featuredCourseId]);
+        $stmtM->execute([$currentUserId, $featuredCourseId]);
         $avgM = $stmtM->fetchColumn();
         if ($avgM !== false && $avgM !== null) {
             $metricMasteryPct = (int)round((float)$avgM);
         } else {
             $stmtProf = $pdo->prepare("SELECT current_mastery FROM student_learning_profiles WHERE student_id = ? AND course_id = ?");
-            $stmtProf->execute([(int)$currentUser['id'], $featuredCourseId]);
+            $stmtProf->execute([$currentUserId, $featuredCourseId]);
             $profM = $stmtProf->fetchColumn();
             $metricMasteryPct = $profM !== false && $profM !== null ? (int)round((float)$profM) : 0;
         }
@@ -194,20 +283,26 @@ if ($featuredCourseId > 0) {
     }
 }
 
-$missionStmt = $pdo->prepare(
-    "SELECT t.id, t.title, t.subject, t.completion_type, t.ref_lesson_id, t.ref_exam_id,
-            t.points_reward, COALESCE(p.status, 'not_started') AS progress_status
-     FROM roadmap_enrollments re
-     INNER JOIN roadmaps r ON r.id = re.roadmap_id AND r.status = 'published'
-     INNER JOIN roadmap_tasks t ON t.roadmap_id = re.roadmap_id AND t.is_active = 1
-     LEFT JOIN roadmap_task_progress p ON p.task_id = t.id AND p.user_id = re.user_id
-     WHERE re.user_id = ? AND re.status = 'active'
-     ORDER BY FIELD(COALESCE(p.status, 'not_started'), 'in_progress', 'not_started', 'locked', 'completed', 'exempted'),
-              COALESCE(t.due_date, '9999-12-31'), t.sort_order, t.id
-     LIMIT 2"
-);
-$missionStmt->execute([(int)$currentUser['id']]);
-$mobileMissions = $missionStmt->fetchAll();
+// ── 10. Roadmap Missions ──
+try {
+    $missionStmt = $pdo->prepare(
+        "SELECT t.id, t.title, t.subject, t.completion_type, t.ref_lesson_id, t.ref_exam_id,
+                t.points_reward, COALESCE(p.status, 'not_started') AS progress_status
+         FROM roadmap_enrollments re
+         INNER JOIN roadmaps r ON r.id = re.roadmap_id AND r.status = 'published'
+         INNER JOIN roadmap_tasks t ON t.roadmap_id = re.roadmap_id AND t.is_active = 1
+         LEFT JOIN roadmap_task_progress p ON p.task_id = t.id AND p.user_id = re.user_id
+         WHERE re.user_id = ? AND re.status = 'active'
+         ORDER BY FIELD(COALESCE(p.status, 'not_started'), 'in_progress', 'not_started', 'locked', 'completed', 'exempted'),
+                  COALESCE(t.due_date, '9999-12-31'), t.sort_order, t.id
+         LIMIT 2"
+    );
+    $missionStmt->execute([$currentUserId]);
+    $mobileMissions = $missionStmt->fetchAll();
+} catch (Throwable $e) {
+    error_log("Roadmap mission error: " . $e->getMessage());
+    $mobileMissions = [];
+}
 
 if (!$mobileMissions && $featuredCourse) {
     $mobileMissions[] = [
@@ -226,25 +321,28 @@ if (count($mobileMissions) < 2 && !empty($availableExams)) {
     ];
 }
 
-$weekStart = new DateTimeImmutable('monday this week');
-$weekEnd = $weekStart->modify('+7 days');
-$activityStmt = $pdo->prepare(
-    'SELECT activity_date FROM (
-       SELECT DATE(COALESCE(last_watched_at, completed_at, started_at)) AS activity_date
-       FROM lesson_progress WHERE user_id = ?
-       UNION
-       SELECT DATE(completed_at) AS activity_date
-       FROM test_attempts WHERE user_id = ? AND completed_at IS NOT NULL
-     ) activity
-     WHERE activity_date >= ? AND activity_date < ?'
-);
-$activityStmt->execute([(int)$currentUser['id'], (int)$currentUser['id'], $weekStart->format('Y-m-d'), $weekEnd->format('Y-m-d')]);
-$activeWeekDays = array_fill(0, 7, false);
-foreach ($activityStmt->fetchAll(PDO::FETCH_COLUMN) as $activityDate) {
-    $dayIndex = (int)(new DateTimeImmutable((string)$activityDate))->format('N') - 1;
-    if ($dayIndex >= 0 && $dayIndex < 7) $activeWeekDays[$dayIndex] = true;
+// ── 11. Activity สัปดาห์นี้ ──
+try {
+    $weekStart = new DateTimeImmutable('monday this week');
+    $weekEnd = $weekStart->modify('+7 days');
+    $activityStmt = $pdo->prepare(
+        'SELECT activity_date FROM (
+           SELECT DATE(COALESCE(last_watched_at, completed_at, started_at)) AS activity_date
+           FROM lesson_progress WHERE user_id = ?
+           UNION
+           SELECT DATE(completed_at) AS activity_date
+           FROM test_attempts WHERE user_id = ? AND completed_at IS NOT NULL
+         ) activity
+         WHERE activity_date >= ? AND activity_date < ?'
+    );
+    $activityStmt->execute([$currentUserId, $currentUserId, $weekStart->format('Y-m-d'), $weekEnd->format('Y-m-d')]);
+    foreach ($activityStmt->fetchAll(PDO::FETCH_COLUMN) as $activityDate) {
+        $dayIndex = (int)(new DateTimeImmutable((string)$activityDate))->format('N') - 1;
+        if ($dayIndex >= 0 && $dayIndex < 7) $activeWeekDays[$dayIndex] = true;
+    }
+} catch (Throwable $e) {
+    error_log("Activity stats error: " . $e->getMessage());
 }
-$weekDayLabels = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'];
 ?>
 <!DOCTYPE html>
 <html lang="th" class="scroll-smooth">
