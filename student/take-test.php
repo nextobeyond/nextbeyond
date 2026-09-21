@@ -16,25 +16,6 @@ $stmtQ->execute([':eid' => $examId]);
 $questions = $stmtQ->fetchAll();
 if (!$questions) { header('Location: tests.php?error=no_questions'); exit; }
 
-// ใช้ attempt ที่ยังทำไม่เสร็จต่อ เพื่อไม่ให้เวลาเริ่มใหม่เมื่อ refresh
-$stmtAttempt = $pdo->prepare(
-    'SELECT id, started_at, GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())) AS elapsed_seconds
-     FROM test_attempts
-     WHERE user_id = :uid AND exam_id = :eid AND completed_at IS NULL
-     ORDER BY started_at DESC LIMIT 1'
-);
-$stmtAttempt->execute([':uid' => $currentUser['id'], ':eid' => $examId]);
-$attempt = $stmtAttempt->fetch();
-if (!$attempt) {
-    $stmtIns = $pdo->prepare('INSERT INTO test_attempts (user_id, exam_id, total_questions, started_at) VALUES (:uid, :eid, :total, NOW())');
-    $stmtIns->execute([':uid' => $currentUser['id'], ':eid' => $examId, ':total' => count($questions)]);
-    $attemptId = (int)$pdo->lastInsertId();
-    $elapsedSeconds = 0;
-} else {
-    $attemptId = (int)$attempt['id'];
-    $elapsedSeconds = (int)$attempt['elapsed_seconds'];
-}
-
 $sessionId = trim((string)($_GET['sessionId'] ?? ''));
 $liveSession = null;
 if ($sessionId !== '') {
@@ -42,15 +23,6 @@ if ($sessionId !== '') {
         $stmtSes = $pdo->prepare("SELECT * FROM classroom_sessions WHERE id = :id LIMIT 1");
         $stmtSes->execute([':id' => $sessionId]);
         $liveSession = $stmtSes->fetch();
-        if ($liveSession) {
-            $partId = 'sp-' . time() . '-' . random_int(1000, 9999);
-            $stmtSP = $pdo->prepare("
-                INSERT INTO session_participants (id, session_id, student_id, attempt_id, status, current_question, answered_count, joined_at)
-                VALUES (:pid, :sid, :uid, :attemptId, 'in_progress', 1, 0, NOW())
-                ON DUPLICATE KEY UPDATE attempt_id = :attemptId, status = 'in_progress'
-            ");
-            $stmtSP->execute([':pid' => $partId, ':sid' => $sessionId, ':uid' => $currentUser['id'], ':attemptId' => $attemptId]);
-        }
     } catch (\Throwable $e) {
         // continue if table not ready
     }
@@ -64,12 +36,55 @@ if ($liveSession) {
         $limitSeconds = 0; // No time limit in this session
     }
 } else {
-    $limitSeconds = max(0, (int)$exam['time_limit_minutes'] * 60);
+    $limitSeconds = max(0, (int)($exam['time_limit_minutes'] ?? 0) * 60);
 }
+
+// ใช้ attempt ที่ยังทำไม่เสร็จต่อ เพื่อไม่ให้เวลาเริ่มใหม่เมื่อ refresh
+$stmtAttempt = $pdo->prepare(
+    'SELECT id, started_at, GREATEST(0, TIMESTAMPDIFF(SECOND, started_at, NOW())) AS elapsed_seconds
+     FROM test_attempts
+     WHERE user_id = :uid AND exam_id = :eid AND completed_at IS NULL
+     ORDER BY started_at DESC LIMIT 1'
+);
+$stmtAttempt->execute([':uid' => $currentUser['id'], ':eid' => $examId]);
+$attempt = $stmtAttempt->fetch();
+
+// หาก attempt เดิมหมดเวลาไปแล้ว ให้ปิด attempt นั้นแล้วเริ่มใหม่
+if ($attempt && $limitSeconds > 0 && (int)$attempt['elapsed_seconds'] >= $limitSeconds) {
+    $pdo->prepare('UPDATE test_attempts SET completed_at = NOW(), score = 0, correct_count = 0 WHERE id = :aid')
+        ->execute([':aid' => $attempt['id']]);
+    $attempt = null;
+}
+
+if (!$attempt) {
+    $stmtIns = $pdo->prepare('INSERT INTO test_attempts (user_id, exam_id, total_questions, started_at) VALUES (:uid, :eid, :total, NOW())');
+    $stmtIns->execute([':uid' => $currentUser['id'], ':eid' => $examId, ':total' => count($questions)]);
+    $attemptId = (int)$pdo->lastInsertId();
+    $elapsedSeconds = 0;
+} else {
+    $attemptId = (int)$attempt['id'];
+    $elapsedSeconds = (int)$attempt['elapsed_seconds'];
+}
+
+if ($sessionId !== '' && $liveSession) {
+    try {
+        $partId = 'sp-' . time() . '-' . random_int(1000, 9999);
+        $stmtSP = $pdo->prepare("
+            INSERT INTO session_participants (id, session_id, student_id, attempt_id, status, current_question, answered_count, joined_at)
+            VALUES (:pid, :sid, :uid, :attemptId, 'in_progress', 1, 0, NOW())
+            ON DUPLICATE KEY UPDATE attempt_id = :attemptId, status = 'in_progress'
+        ");
+        $stmtSP->execute([':pid' => $partId, ':sid' => $sessionId, ':uid' => $currentUser['id'], ':attemptId' => $attemptId]);
+    } catch (\Throwable $e) {
+        // continue if table not ready
+    }
+}
+
 $remainingSeconds = $limitSeconds > 0 ? max(0, $limitSeconds - $elapsedSeconds) : 0;
 $questionsForJS = array_map(static fn(array $q): array => [
     'id' => (int)$q['id'], 'questionText' => (string)$q['question_text'], 'passage' => $q['passage'],
-    'options' => json_decode((string)$q['options'], true) ?: [], 'skill' => $q['skill'] ?: 'ทั่วไป',
+    'options' => array_values(is_array($opts = json_decode((string)$q['options'], true)) ? $opts : []),
+    'skill' => $q['skill'] ?: 'ทั่วไป',
 ], $questions);
 $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
 ?>
@@ -173,7 +188,7 @@ $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
 </form>
 <script>
 const LIVE_SESSION_ID = <?= json_encode($sessionId) ?>;
-const QUESTIONS = <?= json_encode($questionsForJS, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+const QUESTIONS = <?= json_encode($questionsForJS, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?>;
 const ATTEMPT_ID = <?= $attemptId ?>, STORAGE_KEY = 'nextbeyond-attempt-' + ATTEMPT_ID;
 let answers = {};
 try { answers = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch (_) { answers = {}; }
@@ -186,7 +201,8 @@ function renderQuestion() {
   document.getElementById('question-label').textContent = `คำถามข้อที่ ${current + 1} จาก ${QUESTIONS.length}`;
   document.getElementById('question-text').textContent = q.questionText;
   const passage = document.getElementById('passage'); passage.hidden = !q.passage; passage.textContent = q.passage || '';
-  document.getElementById('options').innerHTML = q.options.map((option, index) => {
+  const opts = Array.isArray(q.options) ? q.options : Object.values(q.options || {});
+  document.getElementById('options').innerHTML = opts.map((option, index) => {
     let state = answers[current] === index ? ' selected' : '';
     if (checked[current]) { if (index === checked[current].correctAnswer) state = ' correct'; else if (answers[current] === index) state = ' wrong'; }
     const label = String.fromCharCode(65 + index);
@@ -216,8 +232,6 @@ document.getElementById('check-btn').addEventListener('click', async () => {
     if (!response.ok || !data.ok) throw new Error(data.error || 'ตรวจคำตอบไม่ได้');
     checked[current] = data;
     renderQuestion();
-
-    }
   } catch (error) { alert(error.message); button.disabled = false; }
 });
 

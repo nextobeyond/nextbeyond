@@ -55,8 +55,9 @@ function studentGuard(): array {
 
     // ถ้าไม่มี session ให้จำลอง User (DEV BYPASS) เพื่อไม่ให้เด้งไปหน้าหลักตอนทำ UI
     if (empty($_SESSION['user_id'])) {
+        $devId = (int)($pdo->query("SELECT id FROM users WHERE role = 'student' LIMIT 1")->fetchColumn() ?: 2);
         return [
-            'id' => 1,
+            'id' => $devId,
             'first_name' => 'Dev',
             'last_name' => 'User',
             'nickname' => 'Dev',
