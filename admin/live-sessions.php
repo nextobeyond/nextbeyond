@@ -499,9 +499,9 @@ $calendarEvents = $stmtEvents->fetchAll();
       </div>
 
       <div>
-        <label class="block font-bold text-slate-800 mb-1.5">เลือกแบบทดสอบที่ใช้สอบ *</label>
-        <select name="examId" required class="w-full h-11 px-3 rounded-xl border border-slate-300 outline-none focus:border-pink-500 text-sm font-semibold bg-white transition-colors">
-          <option value="">-- กรุณาเลือกแบบทดสอบ --</option>
+        <label class="block font-bold text-slate-800 mb-1.5">เลือกแบบทดสอบที่ใช้สอบ (ไม่บังคับ)</label>
+        <select name="examId" class="w-full h-11 px-3 rounded-xl border border-slate-300 outline-none focus:border-pink-500 text-sm font-semibold bg-white transition-colors">
+          <option value="">-- ไม่กำหนดแบบทดสอบ (เน้นการสอน/บรรยายสด) --</option>
           <?php foreach ($exams as $ex): ?>
             <option value="<?= $ex['id'] ?>">
               <?= htmlspecialchars($ex['title']) ?> (<?= htmlspecialchars((string) $ex['subject']) ?>, <?= htmlspecialchars((string) $ex['grade']) ?>)

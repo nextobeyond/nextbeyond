@@ -32,7 +32,7 @@ $currentStudentId = (int) ($currentUser['id'] ?? 0);
 
 try {
     // ----------------------------------------------------
-    // GET: status (Polling for Eyes On Me, Announcement, Boss, Progress)
+    // GET: status (Polling for Eyes On Me, Announcement, Boss, Progress, Lobby)
     // ----------------------------------------------------
     if ($method === 'GET' && ($action === 'status' || isset($_GET['sessionId']))) {
         $sessionId = trim((string) ($_GET['sessionId'] ?? ''));
@@ -40,7 +40,18 @@ try {
             studentLiveRespond(['ok' => false, 'error' => 'จำเป็นต้องระบุ sessionId'], 422);
         }
 
-        $stmt = $pdo->prepare("SELECT id, status, eyes_on_me_enabled, locked_student_ids, announcement_message, boss_fight_active, boss_name, boss_theme, boss_current_hp, boss_max_hp, boss_defeated, boss_reward_points FROM classroom_sessions WHERE id = :id LIMIT 1");
+        $stmt = $pdo->prepare("
+            SELECT s.*, 
+                   COALESCE(CONCAT_WS(' ', u.first_name, u.last_name), 'คุณครู') AS teacher_name,
+                   u.avatar_url AS teacher_avatar,
+                   e.title AS exam_title, e.subject AS exam_subject,
+                   ce.location, ce.notes AS calendar_notes
+            FROM classroom_sessions s 
+            LEFT JOIN users u ON u.id = s.teacher_id
+            LEFT JOIN exams e ON e.id = s.exam_id
+            LEFT JOIN calendar_events ce ON ce.id = s.calendar_event_id
+            WHERE s.id = :id LIMIT 1
+        ");
         $stmt->execute([':id' => $sessionId]);
         $session = $stmt->fetch();
 
@@ -52,7 +63,12 @@ try {
         $isLocked = !empty($session['eyes_on_me_enabled']) || in_array((string) $currentStudentId, array_map('strval', $lockedIds), true);
 
         // Check participant status and whether attempt was reset by teacher
-        $stmtPart = $pdo->prepare("SELECT id, attempt_id, status FROM session_participants WHERE session_id = :sid AND student_id = :uid LIMIT 1");
+        $stmtPart = $pdo->prepare("
+            SELECT sp.*, ta.score, ta.completed_at
+            FROM session_participants sp 
+            LEFT JOIN test_attempts ta ON ta.id = sp.attempt_id
+            WHERE sp.session_id = :sid AND sp.student_id = :uid LIMIT 1
+        ");
         $stmtPart->execute([':sid' => $sessionId, ':uid' => $currentStudentId]);
         $part = $stmtPart->fetch();
 
@@ -79,11 +95,49 @@ try {
             }
         }
 
+        // Fetch participants for lobby display
+        $stmtParticipants = $pdo->prepare("
+            SELECT sp.student_id, sp.status, sp.joined_at, 
+                   u.first_name, u.last_name, u.avatar_url
+            FROM session_participants sp
+            JOIN users u ON u.id = sp.student_id
+            WHERE sp.session_id = :sid
+            ORDER BY sp.joined_at ASC
+            LIMIT 30
+        ");
+        $stmtParticipants->execute([':sid' => $sessionId]);
+        $allParts = $stmtParticipants->fetchAll();
+
+        // Fetch topics
+        $topics = [];
+        try {
+            $stmtTop = $pdo->prepare("SELECT topic_name FROM session_topics WHERE session_id = :sid ORDER BY sort_order, id");
+            $stmtTop->execute([':sid' => $sessionId]);
+            $topics = $stmtTop->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        } catch (\Throwable $e) {}
+
+        $examId = (int) ($session['exam_id'] ?? 0);
+        $scorePct = ($part && $part['score'] !== null) ? (float) $part['score'] : null;
+
         studentLiveRespond([
             'ok' => true,
             'success' => true,
             'sessionId' => (string) $session['id'],
+            'sessionTitle' => (string) $session['title'],
+            'sessionPin' => (string) $session['session_pin'],
             'sessionStatus' => (string) $session['status'],
+            'teacherName' => (string) $session['teacher_name'],
+            'teacherAvatar' => $session['teacher_avatar'] ? (string) $session['teacher_avatar'] : null,
+            'location' => $session['location'] ? (string) $session['location'] : null,
+            'topics' => $topics,
+            'examId' => $examId > 0 ? $examId : null,
+            'examTitle' => $examId > 0 ? (string) ($session['exam_title'] ?: 'แบบทดสอบประจำคาบ') : null,
+            'examSubject' => $examId > 0 ? (string) ($session['exam_subject'] ?: 'ทั่วไป') : null,
+            'hasTimeLimit' => (bool) $session['has_time_limit'],
+            'timeLimitMinutes' => $session['time_limit_minutes'] !== null ? (int) $session['time_limit_minutes'] : null,
+            'participantStatus' => $part ? (string) $part['status'] : null,
+            'attemptId' => ($part && $part['attempt_id']) ? (int) $part['attempt_id'] : null,
+            'scorePercentage' => $scorePct,
             'isEyesOnMeLocked' => $isLocked,
             'announcementMessage' => $session['announcement_message'] ? (string) $session['announcement_message'] : null,
             'bossFightActive' => false,
@@ -95,6 +149,13 @@ try {
             'bossRewardPoints' => (int) $session['boss_reward_points'],
             'resetAttempt' => $resetAttempt,
             'sessionClosed' => ($session['status'] === 'closed'),
+            'participantsCount' => count($allParts),
+            'participants' => array_map(fn($p) => [
+                'id' => (int)$p['student_id'],
+                'name' => trim($p['first_name'] . ' ' . $p['last_name']),
+                'avatarUrl' => $p['avatar_url'] ? (string)$p['avatar_url'] : null,
+                'status' => (string)$p['status'],
+            ], $allParts),
         ]);
     }
 
@@ -109,7 +170,18 @@ try {
             studentLiveRespond(['ok' => false, 'error' => 'กรุณากรอกรหัส PIN ให้ครบ 6 หลัก'], 422);
         }
 
-        $stmt = $pdo->prepare("SELECT s.*, COALESCE(CONCAT_WS(' ', u.first_name, u.last_name), 'คุณครู') AS teacher_name, e.title AS exam_title FROM classroom_sessions s LEFT JOIN users u ON u.id = s.teacher_id LEFT JOIN exams e ON e.id = s.exam_id WHERE s.session_pin = :pin AND s.status = 'active' LIMIT 1");
+        $stmt = $pdo->prepare("
+            SELECT s.*, 
+                   COALESCE(CONCAT_WS(' ', u.first_name, u.last_name), 'คุณครู') AS teacher_name, 
+                   e.title AS exam_title,
+                   ce.location
+            FROM classroom_sessions s 
+            LEFT JOIN users u ON u.id = s.teacher_id 
+            LEFT JOIN exams e ON e.id = s.exam_id 
+            LEFT JOIN calendar_events ce ON ce.id = s.calendar_event_id
+            WHERE s.session_pin = :pin AND s.status = 'active' 
+            LIMIT 1
+        ");
         $stmt->execute([':pin' => $pin]);
         $session = $stmt->fetch();
 
@@ -120,10 +192,6 @@ try {
         $sessionId = (string) $session['id'];
         $examId = (int) ($session['exam_id'] ?? 0);
 
-        if ($examId < 1) {
-            studentLiveRespond(['ok' => false, 'error' => 'ห้องเรียนนี้ยังไม่ได้กำหนดแบบทดสอบ'], 422);
-        }
-
         // Check or insert session_participants
         $stmtP = $pdo->prepare("SELECT id, attempt_id, status FROM session_participants WHERE session_id = :sid AND student_id = :uid LIMIT 1");
         $stmtP->execute([':sid' => $sessionId, ':uid' => $currentStudentId]);
@@ -131,7 +199,6 @@ try {
 
         // Check late join permission if participant has not joined yet
         if (!$participant && empty($session['allow_late_join'])) {
-            // If session was started more than 5 minutes ago and allow_late_join is false
             $startedTimestamp = strtotime($session['started_at']);
             if (time() - $startedTimestamp > 300) {
                 studentLiveRespond(['ok' => false, 'error' => 'ห้องเรียนนี้ไม่อนุญาตให้นักเรียนเข้าร่วมหลังจากเริ่มเซสชันไปแล้ว'], 403);
@@ -142,13 +209,15 @@ try {
         if ($participant) {
             $attemptId = $participant['attempt_id'] ? (int) $participant['attempt_id'] : null;
         } else {
-            // Find existing unfinished attempt for this exam
-            $stmtAtt = $pdo->prepare("SELECT id FROM test_attempts WHERE user_id = :uid AND exam_id = :eid AND completed_at IS NULL ORDER BY started_at DESC LIMIT 1");
-            $stmtAtt->execute([':uid' => $currentStudentId, ':eid' => $examId]);
-            $existingAtt = $stmtAtt->fetchColumn();
+            if ($examId > 0) {
+                // Find existing unfinished attempt for this exam
+                $stmtAtt = $pdo->prepare("SELECT id FROM test_attempts WHERE user_id = :uid AND exam_id = :eid AND completed_at IS NULL ORDER BY started_at DESC LIMIT 1");
+                $stmtAtt->execute([':uid' => $currentStudentId, ':eid' => $examId]);
+                $existingAtt = $stmtAtt->fetchColumn();
 
-            if ($existingAtt) {
-                $attemptId = (int) $existingAtt;
+                if ($existingAtt) {
+                    $attemptId = (int) $existingAtt;
+                }
             }
 
             $partId = 'sp-' . time() . '-' . random_int(1000, 9999);
@@ -169,13 +238,27 @@ try {
                 'title' => (string) $session['title'],
                 'sessionPin' => (string) $session['session_pin'],
                 'teacherName' => (string) $session['teacher_name'],
-                'examId' => $examId,
-                'examTitle' => (string) $session['exam_title'],
+                'examId' => $examId > 0 ? $examId : null,
+                'examTitle' => $examId > 0 ? (string) $session['exam_title'] : null,
                 'hasTimeLimit' => (bool) $session['has_time_limit'],
                 'timeLimitMinutes' => $session['time_limit_minutes'] !== null ? (int) $session['time_limit_minutes'] : null,
             ],
-            'redirectUrl' => 'take-test.php?id=' . $examId . '&sessionId=' . urlencode($sessionId),
+            'lobbyUrl' => 'live-session.php?sessionId=' . urlencode($sessionId),
+            'examUrl' => $examId > 0 ? ('take-test.php?id=' . $examId . '&sessionId=' . urlencode($sessionId)) : null,
         ]);
+    }
+
+    // ----------------------------------------------------
+    // POST: Leave session
+    // ----------------------------------------------------
+    if ($method === 'POST' && $action === 'leave') {
+        $body = studentLiveBody();
+        $sessionId = trim((string) ($body['sessionId'] ?? ''));
+        if ($sessionId !== '') {
+            $pdo->prepare("DELETE FROM session_participants WHERE session_id = :sid AND student_id = :uid AND status = 'joined'")
+                ->execute([':sid' => $sessionId, ':uid' => $currentStudentId]);
+        }
+        studentLiveRespond(['ok' => true, 'success' => true]);
     }
 
     // ----------------------------------------------------

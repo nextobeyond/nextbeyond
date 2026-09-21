@@ -131,14 +131,29 @@ $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
     <?php include 'includes/topbar.php'; ?>
 <main class="test-shell">
   <header class="test-head">
-    <div><div class="test-tag"><?= htmlspecialchars($exam['subject'] ?: 'ทั่วไป') ?> · <?= htmlspecialchars($exam['grade'] ?: 'ทุกระดับ') ?></div><h1><?= htmlspecialchars($exam['title']) ?></h1></div>
+    <div>
+      <?php if ($sessionId !== ''): ?>
+        <div style="margin-bottom:6px">
+          <a href="live-session.php?sessionId=<?= urlencode($sessionId) ?>" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#e72d82;text-decoration:none;background:rgba(231,45,130,0.08);padding:4px 10px;border-radius:8px">
+            <span>←</span> กลับหน้าห้องเรียนสด (Live Classroom)
+          </a>
+        </div>
+      <?php endif; ?>
+      <div class="test-tag"><?= htmlspecialchars($exam['subject'] ?: 'ทั่วไป') ?> · <?= htmlspecialchars($exam['grade'] ?: 'ทุกระดับ') ?></div>
+      <h1><?= htmlspecialchars($exam['title']) ?></h1>
+    </div>
     <?php if ($limitSeconds > 0): ?><div id="timer" class="test-clock" data-seconds="<?= $remainingSeconds ?>">00:00</div><?php endif; ?>
     <button type="button" class="exam-action submit-test" onclick="submitExam(false)">✓ ส่งข้อสอบ</button>
   </header>
   <div class="test-layout">
     <aside class="test-palette">
       <div class="palette-head"><span>รายการข้อสอบ</span><span><?= count($questions) ?> ข้อ</span></div><div id="palette" class="palette-grid"></div>
-      <div class="palette-legend">■ ตอบแล้ว<br>□ ยังไม่ได้ตอบ</div><a href="tests.php" style="display:inline-block;margin-top:18px;color:#9aa8bd;font-size:12px">← กลับหน้ารายการ</a>
+      <div class="palette-legend">■ ตอบแล้ว<br>□ ยังไม่ได้ตอบ</div>
+      <?php if ($sessionId !== ''): ?>
+        <a href="live-session.php?sessionId=<?= urlencode($sessionId) ?>" style="display:inline-block;margin-top:18px;color:#e72d82;font-weight:700;font-size:12px;text-decoration:none">← กลับหน้าห้องเรียนสด</a>
+      <?php else: ?>
+        <a href="tests.php" style="display:inline-block;margin-top:18px;color:#9aa8bd;font-size:12px">← กลับหน้ารายการ</a>
+      <?php endif; ?>
     </aside>
     <section class="question-panel">
       <div><span id="question-label" class="question-label"></span><span class="question-score">1 คะแนน</span></div>
