@@ -13,17 +13,344 @@ use PDO;
 use RuntimeException;
 use Throwable;
 
+function ensurePhase5Schema(PDO $pdo): void
+{
+    static $ensured = false;
+    if ($ensured) return;
+
+    \NextBeyond\Adaptive\ensurePhase4Schema($pdo);
+
+    try {
+        $t1 = $pdo->query("SHOW TABLES LIKE 'adaptive_learning_config'")->fetch();
+        $t2 = $pdo->query("SHOW TABLES LIKE 'teacher_interventions'")->fetch();
+        if ($t1 && $t2) {
+            $hasRow = $pdo->query("SELECT id FROM adaptive_learning_config WHERE id=1")->fetch();
+            if (!$hasRow) {
+                $pdo->exec("INSERT IGNORE INTO adaptive_learning_config (`id`) VALUES (1)");
+            }
+            $ensured = true;
+            return;
+        }
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `adaptive_learning_config` (
+              `id` TINYINT UNSIGNED NOT NULL DEFAULT 1,
+              `mastery_threshold` DECIMAL(5,2) NOT NULL DEFAULT 80.00,
+              `near_mastery_threshold` DECIMAL(5,2) NOT NULL DEFAULT 65.00,
+              `developing_threshold` DECIMAL(5,2) NOT NULL DEFAULT 50.00,
+              `minimum_evidence` INT UNSIGNED NOT NULL DEFAULT 8,
+              `minimum_source_diversity` INT UNSIGNED NOT NULL DEFAULT 2,
+              `recent_evidence_window` INT UNSIGNED NOT NULL DEFAULT 8,
+              `remediation_retry_limit` INT UNSIGNED NOT NULL DEFAULT 2,
+              `teacher_intervention_threshold` DECIMAL(5,2) NOT NULL DEFAULT 60.00,
+              `regression_drop_threshold` DECIMAL(5,2) NOT NULL DEFAULT 20.00,
+              `mastery_check_question_count` INT UNSIGNED NOT NULL DEFAULT 5,
+              `blocking_gap_severity` ENUM('low','moderate','high','critical') NOT NULL DEFAULT 'critical',
+              `automation_policy` ENUM('manual','teacher_approved','auto_assign') NOT NULL DEFAULT 'teacher_approved',
+              `retention_recheck_days` INT UNSIGNED NOT NULL DEFAULT 7,
+              `updated_by` INT NULL,
+              `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+        $pdo->exec("INSERT IGNORE INTO adaptive_learning_config (`id`) VALUES (1)");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `mastery_checks` (
+              `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+              `idempotency_key` VARCHAR(191) NOT NULL,
+              `student_id` INT NOT NULL,
+              `course_id` INT NOT NULL,
+              `gap_id` BIGINT UNSIGNED NULL,
+              `topic_name` VARCHAR(255) NOT NULL,
+              `skill_name` VARCHAR(150) NULL,
+              `check_type` ENUM('evidence_evaluation','explicit_activity','teacher_assessment','retention_recheck') NOT NULL,
+              `assignment_id` INT NULL,
+              `submission_id` INT NULL,
+              `mastery_score` DECIMAL(5,2) NOT NULL,
+              `recent_accuracy` DECIMAL(5,2) NOT NULL,
+              `evidence_count` INT UNSIGNED NOT NULL,
+              `source_diversity` INT UNSIGNED NOT NULL DEFAULT 0,
+              `difficulty_diversity` INT UNSIGNED NOT NULL DEFAULT 0,
+              `consistency_score` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+              `confidence` ENUM('low','medium','high') NOT NULL,
+              `trend` ENUM('improving','stable','declining') NOT NULL DEFAULT 'stable',
+              `mastery_status` ENUM('not_enough_evidence','developing','near_mastery','mastered','regression_detected') NOT NULL,
+              `recommendation` ENUM('advance','continue_practice','retry_remediation','teacher_intervention','monitor') NOT NULL,
+              `config_snapshot_json` TEXT NULL,
+              `rationale_json` TEXT NULL,
+              `evaluated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `uq_mastery_check_idempotency` (`idempotency_key`),
+              KEY `idx_mastery_student_topic` (`student_id`,`course_id`,`topic_name`,`evaluated_at`),
+              KEY `idx_mastery_gap` (`gap_id`,`evaluated_at`),
+              KEY `idx_mastery_assignment` (`assignment_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `mastery_check_assignments` (
+              `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+              `student_id` INT NOT NULL,
+              `course_id` INT NOT NULL,
+              `gap_id` BIGINT UNSIGNED NOT NULL,
+              `worksheet_id` INT NOT NULL,
+              `assignment_id` INT NOT NULL,
+              `status` ENUM('assigned','in_progress','completed','cancelled') NOT NULL DEFAULT 'assigned',
+              `created_by` INT NULL,
+              `assigned_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              `completed_at` DATETIME NULL,
+              `recheck_after` DATETIME NULL,
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `uq_mastery_check_assignment` (`assignment_id`),
+              KEY `idx_mastery_check_gap_status` (`gap_id`,`status`),
+              KEY `idx_mastery_check_student` (`student_id`,`status`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `mastery_check_questions` (
+              `mastery_check_assignment_id` BIGINT UNSIGNED NOT NULL,
+              `question_id` BIGINT UNSIGNED NOT NULL,
+              `worksheet_question_id` INT NOT NULL,
+              `order_index` INT UNSIGNED NOT NULL,
+              PRIMARY KEY (`mastery_check_assignment_id`,`question_id`),
+              KEY `idx_mcq_worksheet_question` (`worksheet_question_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `learning_decisions` (
+              `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+              `idempotency_key` VARCHAR(191) NOT NULL,
+              `student_id` INT NOT NULL,
+              `course_id` INT NOT NULL,
+              `gap_id` BIGINT UNSIGNED NULL,
+              `mastery_check_id` BIGINT UNSIGNED NULL,
+              `system_recommendation` ENUM('advance','continue_practice','retry_remediation','teacher_intervention','monitor') NOT NULL,
+              `teacher_decision` ENUM('advance','continue_practice','retry_remediation','teacher_intervention','monitor') NULL,
+              `effective_decision` ENUM('advance','continue_practice','retry_remediation','teacher_intervention','monitor') NOT NULL,
+              `override_reason` TEXT NULL,
+              `decided_by` INT NULL,
+              `rationale_json` TEXT NULL,
+              `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              `applied_at` DATETIME NULL,
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `uq_learning_decision_idempotency` (`idempotency_key`),
+              KEY `idx_decision_student` (`student_id`,`created_at`),
+              KEY `idx_decision_gap` (`gap_id`,`created_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `teacher_interventions` (
+              `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+              `student_id` INT NOT NULL,
+              `course_id` INT NOT NULL,
+              `gap_id` BIGINT UNSIGNED NULL,
+              `topic_name` VARCHAR(255) NOT NULL,
+              `skill_name` VARCHAR(150) NULL,
+              `trigger_type` ENUM('system_recommendation','teacher_manual','live_class_followup','regression','prerequisite_gap') NOT NULL,
+              `severity` ENUM('low','moderate','high','critical') NOT NULL DEFAULT 'moderate',
+              `priority_score` DECIMAL(5,2) NOT NULL DEFAULT 50.00,
+              `recommended_action` ENUM('reteach_in_class','small_group','one_on_one','extra_practice','prerequisite_review','teacher_feedback','makeup_class','onsite_support','online_support','custom') NOT NULL,
+              `assigned_teacher_id` INT NULL,
+              `status` ENUM('recommended','planned','in_progress','completed','cancelled','monitoring') NOT NULL DEFAULT 'recommended',
+              `calendar_event_id` INT NULL,
+              `scheduled_session_id` VARCHAR(64) NULL,
+              `teacher_notes` TEXT NULL,
+              `outcome` ENUM('improved','needs_more_practice','needs_another_session','prerequisite_problem_found','resolved','other') NULL,
+              `resolution_reason` TEXT NULL,
+              `mastery_before` DECIMAL(5,2) NULL,
+              `mastery_after` DECIMAL(5,2) NULL,
+              `duration_minutes` INT UNSIGNED NULL,
+              `override_decision_id` BIGINT UNSIGNED NULL,
+              `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              `started_at` DATETIME NULL,
+              `completed_at` DATETIME NULL,
+              `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              PRIMARY KEY (`id`),
+              KEY `idx_intervention_queue` (`assigned_teacher_id`,`status`,`priority_score`),
+              KEY `idx_intervention_student` (`student_id`,`status`),
+              KEY `idx_intervention_gap` (`gap_id`,`status`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `adaptive_learning_cycles` (
+              `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+              `gap_id` BIGINT UNSIGNED NOT NULL,
+              `student_id` INT NOT NULL,
+              `cycle_number` INT UNSIGNED NOT NULL,
+              `remediation_id` BIGINT UNSIGNED NULL,
+              `mastery_check_id` BIGINT UNSIGNED NULL,
+              `intervention_id` BIGINT UNSIGNED NULL,
+              `status` ENUM('practice','checking','support','resolved','closed') NOT NULL DEFAULT 'practice',
+              `started_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              `completed_at` DATETIME NULL,
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `uq_gap_cycle` (`gap_id`,`cycle_number`),
+              KEY `idx_cycle_student` (`student_id`,`status`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `adaptive_roadmap_steps` (
+              `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+              `idempotency_key` VARCHAR(191) NOT NULL,
+              `student_id` INT NOT NULL,
+              `course_id` INT NOT NULL,
+              `gap_id` BIGINT UNSIGNED NULL,
+              `intervention_id` BIGINT UNSIGNED NULL,
+              `step_type` ENUM('prerequisite_review','remediation','mastery_check','teacher_review','teacher_session','additional_practice','retention_recheck') NOT NULL,
+              `title` VARCHAR(255) NOT NULL,
+              `topic_name` VARCHAR(255) NULL,
+              `status` ENUM('available','in_progress','completed','locked','cancelled') NOT NULL DEFAULT 'available',
+              `is_blocking` TINYINT(1) NOT NULL DEFAULT 0,
+              `action_url` VARCHAR(500) NULL,
+              `due_at` DATETIME NULL,
+              `sort_order` INT NOT NULL DEFAULT 0,
+              `completed_at` DATETIME NULL,
+              `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `uq_adaptive_step_idempotency` (`idempotency_key`),
+              KEY `idx_adaptive_next` (`student_id`,`course_id`,`status`,`is_blocking`,`sort_order`),
+              KEY `idx_adaptive_gap` (`gap_id`,`status`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `gap_resolution_history` (
+              `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+              `idempotency_key` VARCHAR(191) NOT NULL,
+              `gap_id` BIGINT UNSIGNED NOT NULL,
+              `student_id` INT NOT NULL,
+              `event_type` ENUM('resolved','reopened') NOT NULL,
+              `resolution_type` ENUM('mastery_check','teacher_override','regression','manual_reopen') NOT NULL,
+              `mastery_score` DECIMAL(5,2) NULL,
+              `evidence_count` INT UNSIGNED NULL,
+              `intervention_count` INT UNSIGNED NOT NULL DEFAULT 0,
+              `performed_by` INT NULL,
+              `reason` TEXT NULL,
+              `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `uq_gap_resolution_idempotency` (`idempotency_key`),
+              KEY `idx_resolution_gap` (`gap_id`,`created_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `learning_audit_log` (
+              `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+              `idempotency_key` VARCHAR(191) NULL,
+              `student_id` INT NULL,
+              `course_id` INT NULL,
+              `gap_id` BIGINT UNSIGNED NULL,
+              `actor_id` INT NULL,
+              `actor_type` ENUM('system','teacher','admin','student') NOT NULL DEFAULT 'system',
+              `event_type` VARCHAR(80) NOT NULL,
+              `entity_type` VARCHAR(80) NULL,
+              `entity_id` VARCHAR(64) NULL,
+              `summary` VARCHAR(500) NULL,
+              `details_json` TEXT NULL,
+              `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `uq_learning_audit_idempotency` (`idempotency_key`),
+              KEY `idx_audit_student` (`student_id`,`created_at`),
+              KEY `idx_audit_gap` (`gap_id`,`created_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_gaps', 'blocking_mode', "ENUM('blocking','non_blocking') NOT NULL DEFAULT 'non_blocking'");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_gaps', 'resolved_by', "INT NULL");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_gaps', 'resolution_type', "VARCHAR(50) NULL");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_gaps', 'final_mastery', "DECIMAL(5,2) NULL");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_gaps', 'resolution_evidence_count', "INT UNSIGNED NULL");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_gaps', 'intervention_count', "INT UNSIGNED NOT NULL DEFAULT 0");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_gaps', 'cycle_number', "INT UNSIGNED NOT NULL DEFAULT 1");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_gaps', 'last_mastery_status', "VARCHAR(50) NULL");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_gaps', 'blocking_overridden_by', "INT NULL");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_gaps', 'blocking_override_reason', "TEXT NULL");
+
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_profiles', 'developing_skills_json', "TEXT NULL");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_profiles', 'mastered_topics_json', "TEXT NULL");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_profiles', 'intervention_history_json', "TEXT NULL");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'student_learning_profiles', 'goal_progress_status', "VARCHAR(50) NULL");
+
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'classroom_sessions', 'intervention_id', "BIGINT UNSIGNED NULL");
+    \NextBeyond\Adaptive\ensureColumn($pdo, 'classroom_sessions', 'gap_id', "BIGINT UNSIGNED NULL");
+
+    $ensured = true;
+}
+
 final class AdaptiveConfigService
 {
-    public function __construct(private PDO $pdo) {}
+    private static array $defaults = [
+        'id' => 1,
+        'mastery_threshold' => 80.0,
+        'near_mastery_threshold' => 65.0,
+        'developing_threshold' => 50.0,
+        'minimum_evidence' => 8,
+        'minimum_source_diversity' => 2,
+        'recent_evidence_window' => 8,
+        'remediation_retry_limit' => 2,
+        'teacher_intervention_threshold' => 60.0,
+        'regression_drop_threshold' => 20.0,
+        'mastery_check_question_count' => 5,
+        'blocking_gap_severity' => 'critical',
+        'automation_policy' => 'teacher_approved',
+        'retention_recheck_days' => 7,
+        'updated_by' => null,
+        'updated_at' => null,
+    ];
+
+    public function __construct(private PDO $pdo) { ensurePhase5Schema($this->pdo); }
+
     public function get(): array
     {
-        $row=$this->pdo->query('SELECT * FROM adaptive_learning_config WHERE id=1')->fetch(PDO::FETCH_ASSOC);
-        if(!$row)throw new RuntimeException('Phase 5 configuration is not installed');
-        foreach(['mastery_threshold','near_mastery_threshold','developing_threshold','teacher_intervention_threshold','regression_drop_threshold'] as $key)$row[$key]=(float)$row[$key];
-        foreach(['minimum_evidence','minimum_source_diversity','recent_evidence_window','remediation_retry_limit','mastery_check_question_count','retention_recheck_days'] as $key)$row[$key]=(int)$row[$key];
-        return $row;
+        $defaults = self::$defaults;
+        try {
+            $row = $this->pdo->query('SELECT * FROM adaptive_learning_config WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                $this->pdo->exec('INSERT IGNORE INTO adaptive_learning_config (`id`) VALUES (1)');
+                $row = $this->pdo->query('SELECT * FROM adaptive_learning_config WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+            }
+            if ($row) {
+                foreach (['mastery_threshold','near_mastery_threshold','developing_threshold','teacher_intervention_threshold','regression_drop_threshold'] as $key) {
+                    $row[$key] = isset($row[$key]) ? (float)$row[$key] : $defaults[$key];
+                }
+                foreach (['minimum_evidence','minimum_source_diversity','recent_evidence_window','remediation_retry_limit','mastery_check_question_count','retention_recheck_days'] as $key) {
+                    $row[$key] = isset($row[$key]) ? (int)$row[$key] : $defaults[$key];
+                }
+                return array_merge($defaults, $row);
+            }
+        } catch (Throwable $e) {
+            error_log('AdaptiveConfigService::get error: ' . $e->getMessage());
+        }
+        return $defaults;
     }
+
     public function update(array $values,int $actorId): array
     {
         $allowed=['mastery_threshold','near_mastery_threshold','developing_threshold','minimum_evidence','minimum_source_diversity','recent_evidence_window','remediation_retry_limit','teacher_intervention_threshold','regression_drop_threshold','mastery_check_question_count','blocking_gap_severity','automation_policy','retention_recheck_days'];
@@ -35,14 +362,17 @@ final class AdaptiveConfigService
         if(!in_array((string)$candidate['blocking_gap_severity'],['low','moderate','high','critical'],true))throw new InvalidArgumentException('Invalid blocking severity');
         $sets=[];$params=[':actor'=>$actorId];
         foreach($allowed as $key)if(array_key_exists($key,$values)){$sets[]="`{$key}`=:{$key}";$params[":{$key}"]=$values[$key];}
-        if($sets){$this->pdo->prepare('UPDATE adaptive_learning_config SET '.implode(',',$sets).',updated_by=:actor WHERE id=1')->execute($params);}
+        if($sets){
+            try { $this->pdo->exec('INSERT IGNORE INTO adaptive_learning_config (`id`) VALUES (1)'); } catch (Throwable $e) {}
+            $this->pdo->prepare('UPDATE adaptive_learning_config SET '.implode(',',$sets).',updated_by=:actor WHERE id=1')->execute($params);
+        }
         return $this->get();
     }
 }
 
 final class LearningAuditService
 {
-    public function __construct(private PDO $pdo) {}
+    public function __construct(private PDO $pdo) { ensurePhase5Schema($this->pdo); }
     public function record(string $event,array $context,string $summary,array $details=[],?string $idempotencyKey=null): void
     {
         $this->pdo->prepare("INSERT INTO learning_audit_log(idempotency_key,student_id,course_id,gap_id,actor_id,actor_type,event_type,entity_type,entity_id,summary,details_json)
@@ -56,7 +386,12 @@ final class MasteryCheckService
     private AdaptiveConfigService $config;
     private LearningAuditService $audit;
     public function __construct(private PDO $pdo,private ?QuestionSearchService $search=null)
-    { $this->config=new AdaptiveConfigService($pdo);$this->audit=new LearningAuditService($pdo);$this->search??=new QuestionSearchService($pdo); }
+    {
+        ensurePhase5Schema($this->pdo);
+        $this->config=new AdaptiveConfigService($pdo);
+        $this->audit=new LearningAuditService($pdo);
+        $this->search??=new QuestionSearchService($pdo);
+    }
 
     public function evaluate(int $studentId,int $courseId,string $topic,string $skill='',array $options=[]): array
     {
@@ -151,7 +486,11 @@ final class MasteryCheckService
 final class LearningDecisionService
 {
     private LearningAuditService $audit;
-    public function __construct(private PDO $pdo){$this->audit=new LearningAuditService($pdo);}
+    public function __construct(private PDO $pdo)
+    {
+        ensurePhase5Schema($this->pdo);
+        $this->audit = new LearningAuditService($pdo);
+    }
     public function applySystemDecision(array $check): array
     {
         $key='decision-mastery-check-'.$check['id'];$this->pdo->prepare("INSERT INTO learning_decisions(idempotency_key,student_id,course_id,gap_id,mastery_check_id,system_recommendation,effective_decision,rationale_json) VALUES(?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)")
@@ -199,7 +538,11 @@ final class LearningDecisionService
 final class InterventionService
 {
     private LearningAuditService $audit;
-    public function __construct(private PDO $pdo){$this->audit=new LearningAuditService($pdo);}
+    public function __construct(private PDO $pdo)
+    {
+        ensurePhase5Schema($this->pdo);
+        $this->audit = new LearningAuditService($pdo);
+    }
     public function ensureRecommended(int $gapId,array $check,int $decisionId,?int $teacherId=null,string $trigger='system_recommendation'): array
     {
         $active=$this->pdo->prepare("SELECT * FROM teacher_interventions WHERE gap_id=? AND status IN ('recommended','planned','in_progress','monitoring') ORDER BY id DESC LIMIT 1");$active->execute([$gapId]);if($row=$active->fetch(PDO::FETCH_ASSOC))return['created'=>false,'duplicate'=>true,'intervention'=>$row];$gap=$this->gap($gapId);$priority=min(100,40+(['low'=>5,'moderate'=>15,'high'=>30,'critical'=>45][$gap['severity']]??10)+($check['trend']==='declining'?15:0)+min(20,$gap['cycle_number']*5));$action=$check['mastery_score']<50?'prerequisite_review':'one_on_one';
@@ -216,7 +559,23 @@ final class InterventionService
         $this->audit->record('intervention_scheduled',['student_id'=>$i['student_id'],'course_id'=>$i['course_id'],'gap_id'=>$i['gap_id'],'actor_id'=>$teacherId,'actor_type'=>'teacher','entity_type'=>'intervention','entity_id'=>$interventionId],$title,['calendar_event_id'=>$eventId,'session_id'=>$sessionId,'duration'=>$duration],'intervention-scheduled-'.$interventionId);return['scheduled'=>true,'calendar_event_id'=>$eventId,'session_id'=>$sessionId,'session_pin'=>$pin];
     }
     public function updateOutcome(int $id,array $p,int $teacherId): array{$i=$this->get($id);$status=(string)($p['status']??'completed');$allowed=['recommended','planned','in_progress','completed','cancelled','monitoring'];if(!in_array($status,$allowed,true))throw new InvalidArgumentException('Invalid intervention status');$outcome=$p['outcome']??null;$this->pdo->prepare('UPDATE teacher_interventions SET status=?,outcome=?,teacher_notes=CONCAT_WS(\'\n\',teacher_notes,?),started_at=IF(?=\'in_progress\',COALESCE(started_at,NOW()),started_at),completed_at=IF(?=\'completed\',COALESCE(completed_at,NOW()),completed_at) WHERE id=?')->execute([$status,$outcome,$p['teacher_notes']??null,$status,$status,$id]);if($status==='completed')$this->pdo->prepare("UPDATE adaptive_roadmap_steps SET status='completed',completed_at=NOW() WHERE intervention_id=?")->execute([$id]);if($outcome==='resolved'&&!empty($p['resolution_reason']))(new LearningDecisionService($this->pdo))->manualResolve((int)$i['gap_id'],$teacherId,(string)$p['resolution_reason']);$this->syncProfileHistory((int)$i['student_id'],(int)$i['course_id']);$this->audit->record('intervention_outcome',['student_id'=>$i['student_id'],'course_id'=>$i['course_id'],'gap_id'=>$i['gap_id'],'actor_id'=>$teacherId,'actor_type'=>'teacher','entity_type'=>'intervention','entity_id'=>$id],'Intervention updated: '.$status,['outcome'=>$outcome,'notes'=>$p['teacher_notes']??null],'intervention-outcome-'.$id.'-'.$status.'-'.hash('sha256',(string)$outcome));return['updated'=>true,'intervention_id'=>$id];}
-    public function queue(array $filters=[]): array{$where=["i.status<>'cancelled'"];$params=[];if(!empty($filters['teacher_id'])){$where[]='(i.assigned_teacher_id=? OR i.assigned_teacher_id IS NULL)';$params[]=(int)$filters['teacher_id'];}if(!empty($filters['course_id'])){$where[]='i.course_id=?';$params[]=(int)$filters['course_id'];}if(!empty($filters['status'])){$where[]='i.status=?';$params[]=$filters['status'];}if(!empty($filters['severity'])){$where[]='i.severity=?';$params[]=$filters['severity'];}$sql="SELECT i.*,CONCAT_WS(' ',u.first_name,u.last_name) student_name,c.title course_title,g.confidence gap_confidence,g.evidence_count,(SELECT COUNT(*) FROM personalized_remediations r WHERE r.gap_id=i.gap_id AND r.status='completed') remediation_attempts FROM teacher_interventions i JOIN users u ON u.id=i.student_id JOIN courses c ON c.id=i.course_id LEFT JOIN student_learning_gaps g ON g.id=i.gap_id WHERE ".implode(' AND ',$where)." ORDER BY FIELD(i.status,'recommended','planned','in_progress','monitoring','completed'),i.priority_score DESC,i.created_at ASC LIMIT 200";$s=$this->pdo->prepare($sql);$s->execute($params);return$s->fetchAll(PDO::FETCH_ASSOC);}
+    public function queue(array $filters=[]): array
+    {
+        try {
+            $where=["i.status<>'cancelled'"];$params=[];
+            if(!empty($filters['teacher_id'])){$where[]='(i.assigned_teacher_id=? OR i.assigned_teacher_id IS NULL)';$params[]=(int)$filters['teacher_id'];}
+            if(!empty($filters['course_id'])){$where[]='i.course_id=?';$params[]=(int)$filters['course_id'];}
+            if(!empty($filters['status'])){$where[]='i.status=?';$params[]=$filters['status'];}
+            if(!empty($filters['severity'])){$where[]='i.severity=?';$params[]=$filters['severity'];}
+            $sql="SELECT i.*,CONCAT_WS(' ',u.first_name,u.last_name) student_name,c.title course_title,g.confidence gap_confidence,g.evidence_count,(SELECT COUNT(*) FROM personalized_remediations r WHERE r.gap_id=i.gap_id AND r.status='completed') remediation_attempts FROM teacher_interventions i JOIN users u ON u.id=i.student_id JOIN courses c ON c.id=i.course_id LEFT JOIN student_learning_gaps g ON g.id=i.gap_id WHERE ".implode(' AND ',$where)." ORDER BY FIELD(i.status,'recommended','planned','in_progress','monitoring','completed'),i.priority_score DESC,i.created_at ASC LIMIT 200";
+            $s=$this->pdo->prepare($sql);
+            $s->execute($params);
+            return $s->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            error_log('InterventionService::queue error: ' . $e->getMessage());
+            return [];
+        }
+    }
     public function get(int$id):array{$s=$this->pdo->prepare("SELECT i.*,CONCAT_WS(' ',u.first_name,u.last_name) student_name,c.title course_title,g.mastery_score,g.evidence_count,g.confidence gap_confidence,g.trend,g.blocking_mode FROM teacher_interventions i JOIN users u ON u.id=i.student_id JOIN courses c ON c.id=i.course_id LEFT JOIN student_learning_gaps g ON g.id=i.gap_id WHERE i.id=?");$s->execute([$id]);$i=$s->fetch(PDO::FETCH_ASSOC);if(!$i)throw new RuntimeException('Intervention not found');return$i;}
     private function gap(int$id):array{$s=$this->pdo->prepare('SELECT * FROM student_learning_gaps WHERE id=?');$s->execute([$id]);$g=$s->fetch(PDO::FETCH_ASSOC);if(!$g)throw new RuntimeException('Learning gap not found');return$g;}
     private function uniquePin():string{do{$pin=(string)random_int(100000,999999);$s=$this->pdo->prepare('SELECT 1 FROM classroom_sessions WHERE session_pin=?');$s->execute([$pin]);}while($s->fetchColumn());return$pin;}

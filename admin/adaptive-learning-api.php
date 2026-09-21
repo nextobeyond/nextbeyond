@@ -9,6 +9,8 @@ require_once __DIR__ . '/includes/access.php';
 require_once __DIR__ . '/../includes/phase4-adaptive-service.php';
 require_once __DIR__ . '/../includes/phase5-mastery-service.php';
 
+\NextBeyond\Mastery\ensurePhase5Schema($pdo);
+
 use NextBeyond\Adaptive\GapAnalysisService;
 use NextBeyond\Adaptive\QuestionSearchService;
 use NextBeyond\Adaptive\RemediationService;

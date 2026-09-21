@@ -6,6 +6,8 @@ require_once __DIR__ . '/../includes/phase5-mastery-service.php';
 use NextBeyond\Mastery\AdaptiveConfigService;
 use NextBeyond\Mastery\InterventionService;
 
+\NextBeyond\Mastery\ensurePhase5Schema($pdo);
+
 $pageTitle = 'คิวช่วยเหลือผู้เรียน';
 $pageDesc = 'จัดลำดับ ติดตาม และนัดหมายการช่วยเหลือแบบรายบุคคล';
 $currentPage = 'interventions.php';
@@ -14,11 +16,43 @@ $filters = [
     'severity' => trim((string)($_GET['severity'] ?? '')),
     'course_id' => (int)($_GET['course_id'] ?? 0),
 ];
-$queue = (new InterventionService($pdo))->queue($filters);
-$courses = $pdo->query("SELECT id,title FROM courses WHERE status='active' ORDER BY title")->fetchAll(PDO::FETCH_ASSOC);
-$config = (new AdaptiveConfigService($pdo))->get();
+
+try {
+    $queue = (new InterventionService($pdo))->queue($filters);
+} catch (Throwable $e) {
+    error_log('Interventions queue load error: ' . $e->getMessage());
+    $queue = [];
+}
+
+try {
+    $courses = $pdo->query("SELECT id,title FROM courses WHERE status='active' ORDER BY title")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+} catch (Throwable $e) {
+    error_log('Interventions courses load error: ' . $e->getMessage());
+    $courses = [];
+}
+
+try {
+    $config = (new AdaptiveConfigService($pdo))->get();
+} catch (Throwable $e) {
+    error_log('Interventions config load error: ' . $e->getMessage());
+    $config = [
+        'mastery_threshold' => 80.0,
+        'near_mastery_threshold' => 65.0,
+        'developing_threshold' => 50.0,
+        'minimum_evidence' => 8,
+        'minimum_source_diversity' => 2,
+        'recent_evidence_window' => 8,
+        'remediation_retry_limit' => 2,
+        'teacher_intervention_threshold' => 60.0,
+        'regression_drop_threshold' => 20.0,
+        'mastery_check_question_count' => 5,
+        'blocking_gap_severity' => 'critical',
+        'automation_policy' => 'teacher_approved',
+        'retention_recheck_days' => 7,
+    ];
+}
 ?>
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?= htmlspecialchars($pageTitle) ?> - Next Beyond</title><link rel="stylesheet" href="../assets/css/output.css?v=<?= filemtime(__DIR__.'/../assets/css/output.css') ?>"><script src="../assets/js/admin-guard.js"></script></head>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?= htmlspecialchars($pageTitle) ?> - Next Beyond</title><link rel="stylesheet" href="../assets/css/output.css?v=<?= @filemtime(__DIR__.'/../assets/css/output.css') ?: time() ?>"><script src="../assets/js/admin-guard.js"></script></head>
 <body class="bg-[#f4f7fb] text-navy-950"><div class="min-h-screen flex"><?php include __DIR__.'/includes/sidebar.php'; ?><div class="flex-1 flex flex-col min-w-0 ml-[240px] max-[1024px]:ml-0"><?php include __DIR__.'/includes/topbar.php'; ?>
 <main class="p-8 max-[640px]:p-4 max-w-[1500px] w-full mx-auto space-y-5">
   <section class="rounded-3xl bg-navy-950 text-white p-7 flex justify-between gap-5 flex-wrap"><div><p class="text-[11px] uppercase tracking-widest text-pink-300 font-black">Human intervention loop</p><h1 class="text-2xl font-black mt-1">คิวช่วยเหลือผู้เรียน</h1><p class="text-sm text-slate-300 mt-2">เรียงตามความเร่งด่วนจากหลักฐาน แนวโน้ม และจำนวนรอบการฝึก — ครูเป็นผู้ตัดสินใจเสมอ</p></div><div class="self-center px-4 py-3 rounded-2xl bg-white/10"><b class="text-2xl"><?= count($queue) ?></b><span class="block text-xs text-slate-300">รายการที่ติดตาม</span></div></section>

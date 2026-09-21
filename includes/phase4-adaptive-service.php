@@ -101,9 +101,226 @@ final class QueryIntentParser
     }
 }
 
+function ensureColumn(PDO $pdo, string $table, string $column, string $definition): void
+{
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM `{$table}` LIKE '{$column}'");
+        if ($check && $check->fetch()) return;
+        $pdo->exec("ALTER TABLE `{$table}` ADD `{$column}` {$definition}");
+    } catch (Throwable $e) {}
+}
+
+function ensurePhase4Schema(PDO $pdo): void
+{
+    static $ensured = false;
+    if ($ensured) return;
+
+    try {
+        $t1 = $pdo->query("SHOW TABLES LIKE 'question_bank_items'")->fetch();
+        $t2 = $pdo->query("SHOW TABLES LIKE 'student_learning_gaps'")->fetch();
+        if ($t1 && $t2) {
+            $ensured = true;
+            return;
+        }
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `question_bank_items` (
+                `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `organization_id` INT NULL,
+                `subject` VARCHAR(100) NULL,
+                `course_id` INT NULL,
+                `grade_level` VARCHAR(50) NULL,
+                `topic_id` INT NULL,
+                `topic_name` VARCHAR(255) NULL,
+                `subtopic_id` INT NULL,
+                `subtopic_name` VARCHAR(255) NULL,
+                `skill_id` INT NULL,
+                `skill_name` VARCHAR(150) NULL,
+                `learning_objective` TEXT NULL,
+                `question_type` VARCHAR(50) NOT NULL DEFAULT 'multipleChoice',
+                `question_text` MEDIUMTEXT NOT NULL,
+                `choices_json` MEDIUMTEXT NULL,
+                `correct_answer_json` MEDIUMTEXT NULL,
+                `explanation` MEDIUMTEXT NULL,
+                `hint` TEXT NULL,
+                `difficulty` ENUM('easy','medium','hard','expert') NOT NULL DEFAULT 'medium',
+                `tags_json` TEXT NULL,
+                `language` VARCHAR(12) NOT NULL DEFAULT 'th',
+                `source_type` ENUM('exam','worksheet','manual','ai_generated','imported') NOT NULL DEFAULT 'manual',
+                `source_record_id` BIGINT UNSIGNED NULL,
+                `review_status` ENUM('draft','ai_generated','reviewed','approved','archived','rejected') NOT NULL DEFAULT 'reviewed',
+                `quality_status` ENUM('unrated','good','needs_review') NOT NULL DEFAULT 'unrated',
+                `quality_score` DECIMAL(5,4) NOT NULL DEFAULT 0.5000,
+                `visibility` ENUM('institution','shared','private') NOT NULL DEFAULT 'institution',
+                `created_by` INT NULL,
+                `status` ENUM('active','archived') NOT NULL DEFAULT 'active',
+                `index_status` ENUM('pending','indexed','failed','not_configured') NOT NULL DEFAULT 'pending',
+                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uq_qbi_source` (`source_type`,`source_record_id`),
+                KEY `idx_qbi_search_scope` (`status`,`review_status`,`visibility`,`subject`,`grade_level`),
+                KEY `idx_qbi_topic_skill` (`topic_name`,`skill_name`,`difficulty`),
+                KEY `idx_qbi_course` (`course_id`),
+                KEY `idx_qbi_creator_visibility` (`created_by`,`visibility`),
+                FULLTEXT KEY `ft_qbi_academic_text` (`question_text`,`topic_name`,`subtopic_name`,`skill_name`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `question_embeddings` (
+                `question_id` BIGINT UNSIGNED NOT NULL,
+                `embedding_provider` VARCHAR(50) NOT NULL,
+                `embedding_model` VARCHAR(100) NOT NULL,
+                `embedding_version` VARCHAR(50) NOT NULL,
+                `content_hash` CHAR(64) NOT NULL,
+                `indexed_at` DATETIME NULL,
+                `last_error` VARCHAR(500) NULL,
+                PRIMARY KEY (`question_id`,`embedding_provider`,`embedding_model`),
+                KEY `idx_embedding_status` (`embedding_provider`,`indexed_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `question_exposures` (
+                `question_id` BIGINT UNSIGNED NOT NULL,
+                `student_id` INT NOT NULL,
+                `course_id` INT NULL,
+                `exposure_count` INT UNSIGNED NOT NULL DEFAULT 1,
+                `correct_count` INT UNSIGNED NOT NULL DEFAULT 0,
+                `last_seen_at` DATETIME NOT NULL,
+                `last_source_type` ENUM('worksheet','exam','practice','remediation','mastery_check') NOT NULL,
+                `last_source_id` VARCHAR(64) NOT NULL,
+                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (`question_id`,`student_id`),
+                KEY `idx_exposure_student` (`student_id`,`last_seen_at`),
+                KEY `idx_exposure_course` (`course_id`,`student_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `student_learning_gaps` (
+                `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `student_id` INT NOT NULL,
+                `course_id` INT NOT NULL,
+                `subject` VARCHAR(100) NOT NULL,
+                `topic_name` VARCHAR(255) NOT NULL,
+                `subtopic_name` VARCHAR(255) NULL,
+                `skill_name` VARCHAR(150) NULL,
+                `gap_score` DECIMAL(5,2) NOT NULL,
+                `severity` ENUM('low','moderate','high','critical') NOT NULL,
+                `confidence` ENUM('low','medium','high') NOT NULL,
+                `evidence_count` INT UNSIGNED NOT NULL,
+                `recent_accuracy` DECIMAL(5,2) NOT NULL,
+                `mastery_score` DECIMAL(5,2) NOT NULL,
+                `trend` ENUM('improving','stable','declining') NOT NULL DEFAULT 'stable',
+                `status` ENUM('open','remediation_assigned','in_remediation','monitoring','improving','resolved','archived') NOT NULL DEFAULT 'open',
+                `first_detected_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `last_detected_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                `resolved_at` DATETIME NULL,
+                `resolution_notes` TEXT NULL,
+                `blocking_mode` ENUM('blocking','non_blocking') NOT NULL DEFAULT 'non_blocking',
+                `resolved_by` INT NULL,
+                `resolution_type` VARCHAR(50) NULL,
+                `final_mastery` DECIMAL(5,2) NULL,
+                `resolution_evidence_count` INT UNSIGNED NULL,
+                `intervention_count` INT UNSIGNED NOT NULL DEFAULT 0,
+                `cycle_number` INT UNSIGNED NOT NULL DEFAULT 1,
+                `last_mastery_status` VARCHAR(50) NULL,
+                `blocking_overridden_by` INT NULL,
+                `blocking_override_reason` TEXT NULL,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uq_gap_active_topic` (`student_id`,`course_id`,`topic_name`,`status`),
+                KEY `idx_gap_priority` (`course_id`,`severity`,`status`,`gap_score`),
+                KEY `idx_gap_student_topic` (`student_id`,`topic_name`,`status`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `personalized_remediations` (
+                `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `gap_id` BIGINT UNSIGNED NOT NULL,
+                `student_id` INT NOT NULL,
+                `course_id` INT NOT NULL,
+                `topic_name` VARCHAR(255) NOT NULL,
+                `skill_name` VARCHAR(150) NULL,
+                `step_index` INT UNSIGNED NOT NULL DEFAULT 1,
+                `total_steps` INT UNSIGNED NOT NULL DEFAULT 1,
+                `worksheet_id` INT NULL,
+                `assignment_id` INT NULL,
+                `question_count` INT UNSIGNED NOT NULL,
+                `status` ENUM('draft','assigned','in_progress','completed','evaluated','cancelled') NOT NULL DEFAULT 'draft',
+                `approval_mode` ENUM('teacher_manual','teacher_reviewed','auto_prescribed') NOT NULL DEFAULT 'teacher_reviewed',
+                `created_by` INT NULL,
+                `created_by_name` VARCHAR(150) NULL,
+                `notes` TEXT NULL,
+                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `assigned_at` DATETIME NULL,
+                `completed_at` DATETIME NULL,
+                PRIMARY KEY (`id`),
+                KEY `idx_remediation_gap` (`gap_id`,`status`),
+                KEY `idx_remediation_student` (`student_id`,`status`),
+                KEY `idx_remediation_assignment` (`assignment_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `remediation_questions` (
+                `remediation_id` BIGINT UNSIGNED NOT NULL,
+                `question_id` BIGINT UNSIGNED NOT NULL,
+                `worksheet_question_id` INT NULL,
+                `order_index` INT UNSIGNED NOT NULL,
+                `selection_reason` VARCHAR(255) NULL,
+                `seen_before` TINYINT(1) NOT NULL DEFAULT 0,
+                PRIMARY KEY (`remediation_id`,`question_id`),
+                KEY `idx_rq_question` (`question_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `question_search_logs` (
+                `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `actor_id` INT NULL,
+                `actor_type` ENUM('teacher','admin','system','ai') NOT NULL DEFAULT 'teacher',
+                `raw_query` VARCHAR(500) NULL,
+                `parsed_filters_json` TEXT NULL,
+                `mode` ENUM('sql','semantic','hybrid') NOT NULL DEFAULT 'sql',
+                `vector_provider` VARCHAR(50) NULL,
+                `results_count` INT UNSIGNED NOT NULL DEFAULT 0,
+                `execution_ms` DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                KEY `idx_qsl_actor` (`actor_id`,`created_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    } catch (Throwable $e) {}
+
+    ensureColumn($pdo, 'student_learning_profiles', 'prerequisite_gaps_json', 'TEXT NULL');
+    ensureColumn($pdo, 'student_learning_profiles', 'open_gap_count', 'INT UNSIGNED NOT NULL DEFAULT 0');
+    ensureColumn($pdo, 'student_learning_profiles', 'active_remediation_count', 'INT UNSIGNED NOT NULL DEFAULT 0');
+    ensureColumn($pdo, 'student_learning_profiles', 'last_adaptive_cycle_at', 'DATETIME NULL');
+
+    $ensured = true;
+}
+
 final class CanonicalQuestionRepository
 {
-    public function __construct(private PDO $pdo) {}
+    public function __construct(private PDO $pdo) { ensurePhase4Schema($this->pdo); }
 
     public function syncExam(int $examId): int
     {
@@ -141,7 +358,7 @@ final class CanonicalQuestionRepository
 
 final class GapAnalysisService
 {
-    public function __construct(private PDO $pdo) {}
+    public function __construct(private PDO $pdo) { ensurePhase4Schema($this->pdo); }
 
     public function recalculateForStudent(int $studentId, ?int $courseId = null, ?string $topicName = null): array
     {
@@ -274,7 +491,10 @@ final class QuestionSearchService
 {
     private array $weights = ['semantic'=>0.35,'metadata'=>0.30,'keyword'=>0.20,'quality'=>0.15];
     public function __construct(private PDO $pdo, private ?VectorSearchProvider $vectorProvider = null)
-    { $this->vectorProvider ??= new NullVectorSearchProvider(); }
+    {
+        ensurePhase4Schema($this->pdo);
+        $this->vectorProvider ??= new NullVectorSearchProvider();
+    }
 
     public function searchQuestions(array $request): array
     {
@@ -459,7 +679,7 @@ final class QuestionSearchService
 
 final class RemediationService
 {
-    public function __construct(private PDO $pdo) {}
+    public function __construct(private PDO $pdo) { ensurePhase4Schema($this->pdo); }
 
     public function createApprovedAssignment(array $params): array
     {
