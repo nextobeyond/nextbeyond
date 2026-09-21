@@ -11,20 +11,33 @@ if (!$worksheetId) {
     exit;
 }
 
-// Ensure search index & acceptance test data are primed
-$searchEngine = new HybridSearchEngine($pdo);
-$searchEngine->seedAcceptanceTestData();
-$distribution = $searchEngine->calculateWorksheetDistribution($worksheetId);
+// Ensure search index & distribution are primed
+try {
+    $searchEngine = new HybridSearchEngine($pdo);
+    $distribution = $searchEngine->calculateWorksheetDistribution($worksheetId);
+} catch (Throwable $e) {
+    error_log('Worksheet distribution error: ' . $e->getMessage());
+    $distribution = [
+        'total' => 0,
+        'topicBreakdown' => [],
+        'difficultyBreakdown' => ['easy' => 0, 'medium' => 0, 'hard' => 0, 'expert' => 0],
+    ];
+}
 
 // Fetch worksheet
-$stmt = $pdo->prepare("
-    SELECT w.*, f.name AS folder_name
-    FROM worksheets w
-    LEFT JOIN worksheet_folders f ON f.id = w.folder_id
-    WHERE w.id = ?
-");
-$stmt->execute([$worksheetId]);
-$worksheet = $stmt->fetch();
+try {
+    $stmt = $pdo->prepare("
+        SELECT w.*, f.name AS folder_name
+        FROM worksheets w
+        LEFT JOIN worksheet_folders f ON f.id = w.folder_id
+        WHERE w.id = ?
+    ");
+    $stmt->execute([$worksheetId]);
+    $worksheet = $stmt->fetch();
+} catch (Throwable $e) {
+    error_log('Fetch worksheet error: ' . $e->getMessage());
+    $worksheet = null;
+}
 
 if (!$worksheet) {
     echo '<meta charset="utf-8"><p>ไม่พบข้อมูลใบงานนี้</p><a href="worksheets.php">กลับสู่คลังใบงาน</a>';
@@ -36,31 +49,44 @@ $pageDesc = 'รายละเอียดและตัวอย่างใ�
 $currentPage = 'worksheets.php';
 
 // Fetch questions
-$qStmt = $pdo->prepare("
-    SELECT * FROM worksheet_questions
-    WHERE worksheet_id = ?
-    ORDER BY sort_order ASC, id ASC
-");
-$qStmt->execute([$worksheetId]);
-$questions = $qStmt->fetchAll();
+try {
+    $qStmt = $pdo->prepare("
+        SELECT * FROM worksheet_questions
+        WHERE worksheet_id = ?
+        ORDER BY sort_order ASC, id ASC
+    ");
+    $qStmt->execute([$worksheetId]);
+    $questions = $qStmt->fetchAll() ?: [];
+} catch (Throwable $e) {
+    error_log('Fetch worksheet questions error: ' . $e->getMessage());
+    $questions = [];
+}
 
 foreach ($questions as &$q) {
-    if ($q['options']) {
-        $q['options'] = json_decode($q['options'], true);
+    if (!empty($q['options'])) {
+        $decoded = json_decode((string)$q['options'], true);
+        $q['options'] = is_array($decoded) ? $decoded : [];
+    } else {
+        $q['options'] = [];
     }
 }
 unset($q);
 
 // Fetch assignments / usage history
-$assignStmt = $pdo->prepare("
-    SELECT a.*, c.title AS course_title
-    FROM worksheet_assignments a
-    LEFT JOIN courses c ON c.id = a.course_id
-    WHERE a.worksheet_id = ?
-    ORDER BY a.created_at DESC
-");
-$assignStmt->execute([$worksheetId]);
-$assignments = $assignStmt->fetchAll();
+try {
+    $assignStmt = $pdo->prepare("
+        SELECT a.*, c.title AS course_title
+        FROM worksheet_assignments a
+        LEFT JOIN courses c ON c.id = a.course_id
+        WHERE a.worksheet_id = ?
+        ORDER BY a.created_at DESC
+    ");
+    $assignStmt->execute([$worksheetId]);
+    $assignments = $assignStmt->fetchAll() ?: [];
+} catch (Throwable $e) {
+    error_log('Fetch worksheet assignments error: ' . $e->getMessage());
+    $assignments = [];
+}
 
 $isAutoPrint = !empty($_GET['print']);
 ?>

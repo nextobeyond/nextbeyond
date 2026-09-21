@@ -58,6 +58,7 @@ final class HybridSearchEngine
     }
 
     public function reindexAll(): array { return $this->shared->rebuildIndex('all'); }
+    public function seedAcceptanceTestData(): void {}
 
     public function insertQuestionsToWorksheet(int $worksheetId,array $questionIds,string $position='end'): array
     {
