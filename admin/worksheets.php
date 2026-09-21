@@ -293,12 +293,16 @@ $currentPage = 'worksheets.php';
     </div>
 
     <!-- Modal Footer Actions -->
-    <div class="px-6 py-4 border-t border-[#e8ecf2] bg-white flex items-center justify-between gap-3">
+    <div class="px-6 py-4 border-t border-[#e8ecf2] bg-white flex items-center justify-between gap-3 flex-wrap">
       <a id="preview-full-detail-link" href="#" class="text-[13px] font-bold text-pink-600 hover:text-pink-700 flex items-center gap-1">
         <span>ดูหน้ารายละเอียดและสถิติเต็ม</span> →
       </a>
 
       <div class="flex items-center gap-2.5">
+        <button type="button" id="preview-btn-delete" class="h-10 px-4 rounded-xl border border-red-200 bg-red-50/60 hover:bg-red-600 hover:border-red-600 text-[13px] font-bold text-red-600 hover:text-white transition flex items-center gap-1.5" title="ลบใบงาน">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          <span>ลบใบงาน</span>
+        </button>
         <button type="button" id="preview-btn-print" class="h-10 px-4 rounded-xl border border-[#dce4ef] text-[13px] font-bold hover:bg-slate-50 transition flex items-center gap-1.5">
           <svg class="w-4 h-4 text-[#64748b]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
           <span>พิมพ์ / ส่งออก PDF</span>

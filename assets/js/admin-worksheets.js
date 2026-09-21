@@ -276,14 +276,17 @@
               <span>${formatThaiDate(ws.updated_at)}</span>
             </div>
 
-            <div class="grid grid-cols-2 gap-2">
-              <button type="button" class="btn-quick-preview h-9 px-3 rounded-xl border border-[#dce4ef] hover:bg-slate-50 text-navy-900 font-bold text-[12px] transition flex items-center justify-center gap-1.5" data-id="${ws.id}">
+            <div class="flex items-center gap-2">
+              <button type="button" class="btn-quick-preview flex-1 h-9 px-2.5 rounded-xl border border-[#dce4ef] hover:bg-slate-50 text-navy-900 font-bold text-[12px] transition flex items-center justify-center gap-1.5" data-id="${ws.id}">
                 <svg class="w-3.5 h-3.5 text-[#64748b]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                 <span>ดูตัวอย่าง</span>
               </button>
-              <button type="button" class="btn-card-assign h-9 px-3 rounded-xl bg-pink-50 hover:bg-pink-500 text-pink-600 hover:text-white font-bold text-[12px] transition flex items-center justify-center gap-1.5" data-id="${ws.id}" data-title="${escapeHtml(ws.title)}">
+              <button type="button" class="btn-card-assign flex-1 h-9 px-2.5 rounded-xl bg-pink-50 hover:bg-pink-500 text-pink-600 hover:text-white font-bold text-[12px] transition flex items-center justify-center gap-1.5" data-id="${ws.id}" data-title="${escapeHtml(ws.title)}">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                 <span>ใช้กับคลาส</span>
+              </button>
+              <button type="button" class="action-delete w-9 h-9 rounded-xl border border-red-200 bg-red-50/60 hover:bg-red-600 hover:border-red-600 text-red-500 hover:text-white transition flex items-center justify-center shrink-0" data-id="${ws.id}" data-title="${escapeHtml(ws.title)}" title="ลบใบงาน">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               </button>
             </div>
           </div>
@@ -342,6 +345,10 @@
               </button>
               <button type="button" class="action-duplicate p-1.5 rounded-lg text-[#64748b] hover:text-pink-600 hover:bg-pink-50 transition" data-id="${ws.id}" title="สร้างสำเนา">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              </button>
+              <button type="button" class="action-delete h-8 px-2.5 rounded-lg border border-red-200 bg-red-50/60 hover:bg-red-600 hover:border-red-600 text-red-600 hover:text-white font-bold text-[12px] transition flex items-center gap-1" data-id="${ws.id}" data-title="${escapeHtml(ws.title)}" title="ลบใบงาน">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <span>ลบ</span>
               </button>
             </div>
           </td>
@@ -516,24 +523,35 @@
   }
 
   // Delete Worksheet with safety warning if assigned
-  async function deleteWorksheet(id) {
-    if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบใบงานนี้?")) return;
+  async function deleteWorksheet(id, title = "") {
+    const nameStr = title ? ` "${title}"` : "";
+    if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบใบงาน${nameStr}?\n\nคำเตือน: หากลบแล้วจะไม่สามารถเรียกคืนได้`)) return;
     try {
       await fetchApi("worksheets-api.php?action=delete", {
         method: "POST",
         body: JSON.stringify({ id })
       });
       showToast("ลบใบงานเรียบร้อยแล้ว");
+      if (previewModal && !previewModal.classList.contains("hidden")) {
+        previewModal.classList.add("hidden");
+      }
       loadWorksheets();
     } catch (err) {
-      if (err.message.includes("กำลังถูกใช้งาน")) {
+      if (err.message && err.message.includes("กำลังถูกใช้งาน")) {
         if (confirm(`${err.message}\n\nคุณต้องการลบถาวรแบบบังคับ (Force Delete) หรือไม่?`)) {
-          await fetchApi("worksheets-api.php?action=delete", {
-            method: "POST",
-            body: JSON.stringify({ id, force: true })
-          });
-          showToast("ลบใบงานแบบบังคับเรียบร้อยแล้ว");
-          loadWorksheets();
+          try {
+            await fetchApi("worksheets-api.php?action=delete", {
+              method: "POST",
+              body: JSON.stringify({ id, force: true })
+            });
+            showToast("ลบใบงานแบบบังคับเรียบร้อยแล้ว");
+            if (previewModal && !previewModal.classList.contains("hidden")) {
+              previewModal.classList.add("hidden");
+            }
+            loadWorksheets();
+          } catch (forceErr) {
+            showToast(forceErr.message, "error");
+          }
         }
       } else {
         showToast(err.message, "error");
@@ -606,6 +624,13 @@
       }
     });
 
+    // Preview modal delete button
+    document.getElementById("preview-btn-delete")?.addEventListener("click", () => {
+      if (activePreviewWorksheet && activePreviewWorksheet.id) {
+        deleteWorksheet(activePreviewWorksheet.id, activePreviewWorksheet.title);
+      }
+    });
+
     // Delegation for Cards & Table actions
     document.addEventListener("click", e => {
       // Close any open card menus if clicking outside
@@ -655,7 +680,7 @@
       // Delete
       const delBtn = e.target.closest(".action-delete");
       if (delBtn) {
-        deleteWorksheet(delBtn.dataset.id);
+        deleteWorksheet(delBtn.dataset.id, delBtn.dataset.title);
         return;
       }
 

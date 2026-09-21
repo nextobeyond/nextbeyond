@@ -143,6 +143,10 @@ $isAutoPrint = !empty($_GET['print']);
             <svg class="w-4 h-4 text-pink-100" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
             <span>ใช้กับคลาส</span>
           </button>
+          <button type="button" id="btn-delete-ws" class="h-10 px-4 rounded-xl border border-red-200 bg-red-50/70 hover:bg-red-600 hover:border-red-600 text-[13px] font-bold text-red-600 hover:text-white transition flex items-center gap-2" title="ลบใบงานนี้">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            <span>ลบใบงาน</span>
+          </button>
         </div>
       </div>
 
@@ -531,6 +535,42 @@ $isAutoPrint = !empty($_GET['print']);
         window.location.href = `worksheet-detail.php?id=${d.id}`;
       } else {
         alert(d.error || "เกิดข้อผิดพลาด");
+      }
+    } catch (e) {
+      alert(e.message);
+    }
+  });
+
+  // Delete worksheet button
+  document.getElementById("btn-delete-ws")?.addEventListener("click", async () => {
+    if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบใบงานนี้? การดำเนินการนี้ไม่สามารถเรียกคืนได้")) return;
+    try {
+      const res = await fetch("worksheets-api.php?action=delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: wsId })
+      });
+      const d = await res.json();
+      if (d.success) {
+        alert("ลบใบงานเรียบร้อยแล้ว");
+        window.location.href = "worksheets.php";
+      } else if (d.error && d.error.includes("กำลังถูกใช้งาน")) {
+        if (confirm(`${d.error}\n\nคุณต้องการลบถาวรแบบบังคับ (Force Delete) หรือไม่?`)) {
+          const forceRes = await fetch("worksheets-api.php?action=delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: wsId, force: true })
+          });
+          const forceData = await forceRes.json();
+          if (forceData.success) {
+            alert("ลบใบงานแบบบังคับเรียบร้อยแล้ว");
+            window.location.href = "worksheets.php";
+          } else {
+            alert(forceData.error || "ลบใบงานไม่สำเร็จ");
+          }
+        }
+      } else {
+        alert(d.error || "เกิดข้อผิดพลาดในการลบใบงาน");
       }
     } catch (e) {
       alert(e.message);
