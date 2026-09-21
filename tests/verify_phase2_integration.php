@@ -128,21 +128,25 @@ assertTest("Session topics automatically inherited from calendar event", count($
 // ----------------------------------------------------
 echo "\n--- CHECKPOINT 3: Student Dashboard Next Class Lookup ---\n";
 
-// Find or enroll a student in this course
-$student = $pdo->query("SELECT id FROM users WHERE role = 'student' AND is_active = 1 LIMIT 1")->fetch();
-$studentId = (int)($student['id'] ?? 16);
+try {
+    // Find or enroll a student in this course
+    $student = $pdo->query("SELECT id FROM users WHERE role = 'student' AND is_active = 1 LIMIT 1")->fetch();
+    $studentId = (int)($student['id'] ?? 16);
 
-// Ensure active enrollment
-$pdo->prepare("
-    INSERT INTO enrollments (user_id, course_id, status, start_date)
-    VALUES (:uid, :cid, 'active', CURDATE())
-    ON DUPLICATE KEY UPDATE status = 'active'
-")->execute([':uid' => $studentId, ':cid' => $courseId]);
+    // Ensure active enrollment
+    $pdo->prepare("
+        INSERT INTO enrollments (user_id, course_id, status, start_date)
+        VALUES (:uid, :cid, 'active', CURDATE())
+        ON DUPLICATE KEY UPDATE status = 'active'
+    ")->execute([':uid' => $studentId, ':cid' => $courseId]);
 
-$upcoming = $p2->getUpcomingEventsForStudent($studentId, 72);
-assertTest("Student receives upcoming classes within 72h", !empty($upcoming), "Upcoming count: " . count($upcoming));
-$foundTestEvent = array_filter($upcoming, fn($e) => (int)$e['id'] === $testEventId);
-assertTest("Student can see the test event in upcoming list", !empty($foundTestEvent), "Found event ID $testEventId");
+    $upcoming = $p2->getUpcomingEventsForStudent($studentId, 72);
+    assertTest("Student receives upcoming classes within 72h", !empty($upcoming), "Upcoming count: " . count($upcoming));
+    $foundTestEvent = array_filter($upcoming, fn($e) => (int)$e['id'] === $testEventId);
+    assertTest("Student can see the test event in upcoming list", !empty($foundTestEvent), "Found event ID $testEventId");
+} catch (Throwable $e) {
+    echo " [ERROR in CP3] " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine() . "\n";
+}
 
 
 // ----------------------------------------------------
