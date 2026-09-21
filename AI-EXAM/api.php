@@ -161,44 +161,21 @@ if ($storedFile !== '') {
 }
 
 function getBestModels($apiKey) {
-    $blacklist = ['deep-research', 'vision', 'embedding', 'aqa', 'tts', 'stt', 'imagen'];
-    $url = "https://generativelanguage.googleapis.com/v1beta/models?key={$apiKey}";
-    
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    $response = curl_exec($ch);
-    curl_close($ch);
+    if (function_exists('aiGetCandidateModels')) {
+        return aiGetCandidateModels($apiKey);
+    }
 
-    $models = [];
-    if ($response) {
-        $data = json_decode($response, true);
-        if (isset($data['models'])) {
-            $available = [];
-            foreach ($data['models'] as $m) {
-                if (isset($m['supportedGenerationMethods']) && in_array('generateContent', $m['supportedGenerationMethods'])) {
-                    $name = str_replace('models/', '', $m['name']);
-                    $isBad = false;
-                    foreach ($blacklist as $bad) {
-                        if (stripos($name, $bad) !== false) {
-                            $isBad = true; break;
-                        }
-                    }
-                    if (!$isBad) {
-                        $available[] = $name;
-                    }
-                }
-            }
-            $proModels = array_filter($available, function($m) { return stripos($m, 'pro') !== false; });
-            $flashModels = array_filter($available, function($m) { return stripos($m, 'flash') !== false; });
-            rsort($proModels);
-            rsort($flashModels);
-            $models = array_merge($proModels, $flashModels);
-        }
-    }
-    if (empty($models)) {
-        $models = ["gemini-1.5-pro", "gemini-1.5-flash"];
-    }
-    return $models;
+    return [
+        'gemini-flash-latest',
+        'gemini-pro-latest',
+        'gemini-2.5-flash',
+        'gemini-2.5-pro',
+        'gemini-3.8-flash',
+        'gemini-3.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro'
+    ];
 }
 
 $candidateModels = getBestModels($apiKey);
@@ -225,9 +202,15 @@ function callGemini($modelName, $apiKey, $payload, $temperature) {
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'x-goog-api-key: ' . $apiKey
+    ]);
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);

@@ -976,9 +976,9 @@ try {
 ]";
 
         // Call Gemini
-        $candidateModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+        $candidateModels = aiGetCandidateModels($apiKey, $pdo);
         $resultText = null;
-        $lastError = null;
+        $attemptErrors = [];
 
         foreach ($candidateModels as $model) {
             $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
@@ -999,17 +999,22 @@ try {
             $ch = curl_init($apiUrl);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
             curl_setopt($ch, CURLOPT_TIMEOUT, 90);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'x-goog-api-key: ' . $apiKey
+            ]);
 
             $rawRes = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr = curl_error($ch);
             curl_close($ch);
 
             if ($httpCode === 200 && $rawRes) {
-                $resData = json_decode($rawRes, true);
+                $resData = json_decode((string)$rawRes, true);
                 $parts = $resData['candidates'][0]['content']['parts'] ?? [];
                 $txt = '';
                 foreach ($parts as $p) {
@@ -1025,22 +1030,35 @@ try {
                         'error' => 'Gemini API Key ในระบบไม่ถูกต้อง หรือหมดอายุ (API key not valid) กรุณาไปที่เมนู "ตั้งค่าระบบ" > แท็บ "AI API Key" เพื่อกรอกและบันทึก API Key ใหม่จาก Google AI Studio'
                     ], 401);
                 }
-                $lastError = "Model {$model} returned HTTP {$httpCode}: " . substr((string)$rawRes, 0, 150);
+                $errMsg = '';
+                if ($curlErr) {
+                    $errMsg = "curl: {$curlErr}";
+                } else {
+                    $errData = json_decode((string)$rawRes, true);
+                    $errMsg = $errData['error']['message'] ?? substr((string)$rawRes, 0, 120);
+                }
+                $attemptErrors[] = "{$model} (HTTP {$httpCode}: {$errMsg})";
+                error_log("Gemini generate_ai model {$model} failed [HTTP {$httpCode}]: {$errMsg}");
             }
         }
 
         if (!$resultText) {
-            jsonRespond(['error' => 'การเรียกใช้งาน AI ไม่สำเร็จ: ' . ($lastError ?: 'โปรดลองใหม่อีกครั้ง')], 500);
+            $detail = implode(' | ', array_slice($attemptErrors, 0, 3));
+            jsonRespond(['error' => 'การเรียกใช้งาน AI ไม่สำเร็จ: ' . ($detail ?: 'โปรดลองใหม่อีกครั้ง')], 500);
         }
 
+        // Clean markdown codeblocks if wrapped
+        $cleanText = preg_replace('/^```(?:json)?\s*/i', '', trim($resultText));
+        $cleanText = preg_replace('/\s*```$/', '', $cleanText);
+
         // Parse extracted JSON
-        $start = strpos($resultText, '[');
-        $end = strrpos($resultText, ']');
+        $start = strpos($cleanText, '[');
+        $end = strrpos($cleanText, ']');
         if ($start !== false && $end !== false) {
-            $jsonStr = substr($resultText, $start, $end - $start + 1);
+            $jsonStr = substr($cleanText, $start, $end - $start + 1);
             $decodedQuestions = json_decode($jsonStr, true);
         } else {
-            $decodedQuestions = json_decode($resultText, true);
+            $decodedQuestions = json_decode($cleanText, true);
         }
 
         if (!is_array($decodedQuestions) || empty($decodedQuestions)) {
