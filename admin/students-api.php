@@ -26,7 +26,7 @@ try {
 
     if ($m === 'GET') {
         $rows = $pdo->query("
-            SELECT u.id, u.email, u.first_name, u.last_name, u.nickname, u.grade, u.phone, u.is_active, u.created_at,
+            SELECT u.id, u.email, u.first_name, u.last_name, u.nickname, u.avatar_url, u.grade, u.phone, u.is_active, u.created_at,
                    COUNT(DISTINCT CASE WHEN e.status IN ('active', 'trial') THEN e.id END) AS enrollment_count,
                    COUNT(DISTINCT a.id) AS attempt_count,
                    ROUND(AVG(a.score), 2) AS average_score
@@ -60,6 +60,7 @@ try {
             $st['class_groups'] = array_values(array_filter(array_column($stEn, 'class_group_name')));
             $st['enrollments_detail'] = $stEn;
             $st['grade'] = $st['grade'] ?: 'ม.5';
+            $st['avatar_url'] = !empty($st['avatar_url']) ? (string)$st['avatar_url'] : null;
         }
         unset($st);
 

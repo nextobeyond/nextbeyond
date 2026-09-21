@@ -7,6 +7,17 @@
   const search = document.getElementById("teachers-search");
   const errorBox = document.getElementById("teacher-form-error");
   const esc = value => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
+  const resolveAvatarUrl = url => {
+    if (!url) return "";
+    if (url.startsWith("data:") || url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+    let clean = url.replace(/^\/+/, "");
+    if (clean.startsWith("../")) {
+      clean = clean.substring(3);
+    }
+    return "../" + clean;
+  };
   let teachers = [];
 
   const COMMON_SUBJECTS = [
@@ -159,10 +170,20 @@
       else metaParts.push('<span class="text-[#94a3b8]">ไม่ได้ระบุอีเมล</span>');
       if (item.phone) metaParts.push(esc(item.phone));
 
+      const teacherAvatar = resolveAvatarUrl(item.avatarUrl);
+      const avatarHtml = teacherAvatar
+        ? `<div class="w-11 h-11 rounded-full overflow-hidden shrink-0 border border-slate-200 bg-pink-50 relative flex items-center justify-center shadow-2xs">
+            <img src="${esc(teacherAvatar)}" alt="${esc(displayName)}" class="w-full h-full object-cover" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+            <div class="w-full h-full bg-pink-50 text-pink-500 font-black text-[13px] items-center justify-center hidden">
+              ${initials(item)}
+            </div>
+          </div>`
+        : `<div class="w-11 h-11 rounded-full bg-pink-50 text-pink-500 flex items-center justify-center font-black text-[13px] shrink-0">${initials(item)}</div>`;
+
       return `<tr class="hover:bg-[#f8fafc]">
         <td class="px-6 py-4">
           <div class="flex items-center gap-3">
-            <div class="w-11 h-11 rounded-full bg-pink-50 text-pink-500 flex items-center justify-center font-black text-[13px]">${initials(item)}</div>
+            ${avatarHtml}
             <div>
               <div class="font-bold text-[14px]">
                 ${esc(displayName)}${nicknameBadge}

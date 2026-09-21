@@ -121,10 +121,35 @@ $students = $matrixData['students'] ?? [];
                   <tr class="hover:bg-slate-50/60 transition-colors">
                     <!-- Student Column (Sticky Left) -->
                     <td class="p-4 sticky left-0 z-10 bg-white hover:bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                      <?php
+                      $rawStAvatar = (string)($st['avatar_url'] ?? '');
+                      $stAvatar = '';
+                      if (!empty($rawStAvatar)) {
+                          if (str_starts_with($rawStAvatar, 'data:') || str_starts_with($rawStAvatar, 'http://') || str_starts_with($rawStAvatar, 'https://')) {
+                              $stAvatar = $rawStAvatar;
+                          } else {
+                              $clean = ltrim($rawStAvatar, '/');
+                              if (str_starts_with($clean, '../')) {
+                                  $clean = substr($clean, 3);
+                              }
+                              $stAvatar = '../' . $clean;
+                          }
+                      }
+                      $stInitial = mb_substr(!empty($st['nickname']) ? $st['nickname'] : $st['name'], 0, 1);
+                      ?>
                       <div class="flex items-center gap-2.5">
-                        <div class="w-7 h-7 rounded-full bg-pink-100 text-pink-600 font-bold text-xs flex items-center justify-center shrink-0">
-                          <?= mb_substr($st['name'], 0, 1) ?>
-                        </div>
+                        <?php if (!empty($stAvatar)): ?>
+                          <div class="w-7 h-7 rounded-full overflow-hidden shrink-0 border border-slate-200 bg-pink-50 relative flex items-center justify-center">
+                            <img src="<?= htmlspecialchars($stAvatar) ?>" alt="<?= htmlspecialchars($st['name']) ?>" class="w-full h-full object-cover" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+                            <div class="w-full h-full bg-pink-100 text-pink-600 font-bold text-xs items-center justify-center hidden">
+                              <?= htmlspecialchars($stInitial) ?>
+                            </div>
+                          </div>
+                        <?php else: ?>
+                          <div class="w-7 h-7 rounded-full bg-pink-100 text-pink-600 font-bold text-xs flex items-center justify-center shrink-0">
+                            <?= htmlspecialchars($stInitial) ?>
+                          </div>
+                        <?php endif; ?>
                         <div class="truncate">
                           <a href="student-detail.php?id=<?= $st['id'] ?>" class="font-bold text-navy-950 hover:text-pink-600 transition-colors">
                             <?= htmlspecialchars($st['name']) ?>

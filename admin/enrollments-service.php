@@ -760,14 +760,14 @@ class EnrollmentService {
             $stWhere .= " AND grade = ?";
             $params[] = $grade;
         }
-        $stStmt = $this->pdo->prepare("SELECT id, first_name, last_name, nickname, grade, email FROM users WHERE {$stWhere} ORDER BY grade ASC, first_name ASC");
+        $stStmt = $this->pdo->prepare("SELECT id, first_name, last_name, nickname, grade, email, avatar_url FROM users WHERE {$stWhere} ORDER BY grade ASC, first_name ASC");
         $stStmt->execute($params);
         $students = $stStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Fetch all active enrollments
         $enMap = [];
         $ens = $this->pdo->query("
-            SELECT e.user_id, e.course_id, e.status, e.access_type, cg.name AS class_group_name
+            SELECT e.user_id, e.course_id, e.status, e.access_type, e.learning_mode, cg.name AS class_group_name
             FROM enrollments e
             LEFT JOIN class_groups cg ON cg.id = e.class_group_id
             WHERE e.status IN ('active', 'trial')
@@ -775,18 +775,30 @@ class EnrollmentService {
 
         foreach ($ens as $row) {
             $enMap[$row['user_id']][$row['course_id']] = [
+                'has_access' => true,
                 'status' => $row['status'],
                 'access_type' => $row['access_type'],
-                'class_group' => $row['class_group_name']
+                'learning_mode' => $row['learning_mode'] ?? 'online',
+                'class_group_name' => $row['class_group_name']
             ];
         }
 
+        $formattedStudents = [];
         $matrixRows = [];
         foreach ($students as $st) {
             $accesses = [];
             foreach ($courses as $c) {
                 $accesses[$c['id']] = $enMap[$st['id']][$c['id']] ?? null;
             }
+            $formattedStudents[] = [
+                'id' => (int)$st['id'],
+                'name' => trim($st['first_name'] . ' ' . $st['last_name']),
+                'nickname' => $st['nickname'],
+                'grade' => $st['grade'] ?: 'ม.5',
+                'email' => $st['email'],
+                'avatar_url' => $st['avatar_url'] ?? '',
+                'courses' => $accesses
+            ];
             $matrixRows[] = [
                 'student' => $st,
                 'accesses' => $accesses
@@ -795,6 +807,7 @@ class EnrollmentService {
 
         return [
             'courses' => $courses,
+            'students' => $formattedStudents,
             'rows' => $matrixRows
         ];
     }

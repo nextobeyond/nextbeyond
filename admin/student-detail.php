@@ -138,9 +138,34 @@ $allCourses = $pdo->query("SELECT id, title, subject, level, price FROM courses 
       <!-- Student Profile Overview Card (Section 3) -->
       <div class="bg-white rounded-3xl border border-[#e8ecf2] p-6 shadow-sm flex items-center justify-between gap-6 flex-wrap">
         <div class="flex items-center gap-4 min-w-[260px]">
-          <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-pink-500 to-indigo-600 text-white font-black text-2xl flex items-center justify-center shadow-md shrink-0">
-            <?= mb_substr($student['first_name'], 0, 1) ?>
-          </div>
+          <?php
+          $rawAvatar = (string)($student['avatar_url'] ?? '');
+          $detailAvatar = '';
+          if (!empty($rawAvatar)) {
+              if (str_starts_with($rawAvatar, 'data:') || str_starts_with($rawAvatar, 'http://') || str_starts_with($rawAvatar, 'https://')) {
+                  $detailAvatar = $rawAvatar;
+              } else {
+                  $clean = ltrim($rawAvatar, '/');
+                  if (str_starts_with($clean, '../')) {
+                      $clean = substr($clean, 3);
+                  }
+                  $detailAvatar = '../' . $clean;
+              }
+          }
+          $initialChar = mb_substr(!empty($student['nickname']) ? $student['nickname'] : $student['first_name'], 0, 1);
+          ?>
+          <?php if (!empty($detailAvatar)): ?>
+            <div class="w-16 h-16 rounded-2xl overflow-hidden shadow-md shrink-0 border border-slate-200 bg-slate-100 relative flex items-center justify-center">
+              <img src="<?= htmlspecialchars($detailAvatar) ?>" alt="<?= htmlspecialchars($student['first_name']) ?>" class="w-full h-full object-cover" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+              <div class="w-full h-full bg-gradient-to-tr from-pink-500 to-indigo-600 text-white font-black text-2xl items-center justify-center hidden">
+                <?= htmlspecialchars($initialChar) ?>
+              </div>
+            </div>
+          <?php else: ?>
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-pink-500 to-indigo-600 text-white font-black text-2xl flex items-center justify-center shadow-md shrink-0">
+              <?= htmlspecialchars($initialChar) ?>
+            </div>
+          <?php endif; ?>
           <div>
             <div class="flex items-center gap-2 flex-wrap mb-1">
               <h1 class="text-[22px] font-black text-navy-950">

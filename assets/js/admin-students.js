@@ -71,6 +71,18 @@
     '"': "&quot;"
   }[c]));
 
+  const resolveAvatarUrl = url => {
+    if (!url) return "";
+    if (url.startsWith("data:") || url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+    let clean = url.replace(/^\/+/, "");
+    if (clean.startsWith("../")) {
+      clean = clean.substring(3);
+    }
+    return "../" + clean;
+  };
+
   async function api(url, options = {}) {
     const res = await fetch(url, {
       ...options,
@@ -176,6 +188,20 @@
       const enCount = Number(st.enrollment_count || 0);
       const classGroups = st.class_groups || [];
       const grade = esc(st.grade || "ม.5");
+      const rawInitial = st.nickname ? st.nickname.trim() : (st.first_name ? st.first_name.trim() : "?");
+      const initial = esc(Array.from(rawInitial)[0] || "?");
+      const avatarSrc = resolveAvatarUrl(st.avatar_url);
+
+      const avatarHtml = avatarSrc
+        ? `<div class="w-9 h-9 rounded-full overflow-hidden shrink-0 border border-slate-200/80 bg-pink-50 relative flex items-center justify-center shadow-2xs">
+            <img src="${esc(avatarSrc)}" alt="${esc(st.first_name)}" class="w-full h-full object-cover" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+            <div class="w-full h-full bg-pink-100 text-pink-600 font-bold text-sm items-center justify-center hidden">
+              ${initial}
+            </div>
+          </div>`
+        : `<div class="w-9 h-9 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-sm shrink-0">
+            ${initial}
+          </div>`;
 
       return `
         <tr class="hover:bg-slate-50/70 transition-colors ${isSelected ? "bg-pink-50/30" : ""}">
@@ -184,9 +210,7 @@
           </td>
           <td class="p-4">
             <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-sm shrink-0">
-                ${esc(st.nickname ? st.nickname.charAt(0) : st.first_name.charAt(0))}
-              </div>
+              ${avatarHtml}
               <div>
                 <a href="student-detail.php?id=${st.id}" class="font-bold text-navy-950 hover:text-pink-600 transition-colors">
                   ${esc(st.first_name)} ${esc(st.last_name)}
