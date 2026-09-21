@@ -176,7 +176,10 @@ $sourceLabels = [
           <?php else: ?>
             <div class="space-y-2.5">
               <?php foreach ($strongTopics as $t): ?>
-                <?php $mScore = round((float)$t['mastery_score'], 1); ?>
+                <?php
+                  $mScore = round((float)$t['mastery_score'], 1);
+                  $tCourseId = (int)($t['course_id'] ?? $selectedCourseId ?? 0);
+                ?>
                 <div class="p-3 rounded-2xl bg-emerald-50/40 border border-emerald-100 space-y-1.5">
                   <div class="flex items-center justify-between gap-2">
                     <span class="font-bold text-xs text-navy-950 truncate"><?= htmlspecialchars($t['topic_name']) ?></span>
@@ -187,9 +190,9 @@ $sourceLabels = [
                   </div>
                   <div class="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
                     <span>หลักฐาน: <?= (int)$t['actual_evidence_count'] ?> รายการ</span>
-                    <span class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold uppercase">
-                      ความเชื่อมั่น: <?= $t['confidence'] === 'high' ? 'สูง' : ($t['confidence'] === 'medium' ? 'ปานกลาง' : 'เริ่มต้น') ?>
-                    </span>
+                    <a href="learning-path.php?<?= $tCourseId ? 'course_id=' . $tCourseId . '&' : '' ?>topic=<?= urlencode($t['topic_name']) ?>" class="font-bold text-pink-600 hover:text-pink-700 inline-flex items-center gap-0.5">
+                      <span>ดูในเส้นทางการเรียน</span> &rarr;
+                    </a>
                   </div>
                 </div>
               <?php endforeach; ?>
@@ -216,7 +219,10 @@ $sourceLabels = [
           <?php else: ?>
             <div class="space-y-2.5">
               <?php foreach ($developingTopics as $t): ?>
-                <?php $mScore = round((float)$t['mastery_score'], 1); ?>
+                <?php
+                  $mScore = round((float)$t['mastery_score'], 1);
+                  $tCourseId = (int)($t['course_id'] ?? $selectedCourseId ?? 0);
+                ?>
                 <div class="p-3 rounded-2xl bg-amber-50/40 border border-amber-100 space-y-1.5">
                   <div class="flex items-center justify-between gap-2">
                     <span class="font-bold text-xs text-navy-950 truncate"><?= htmlspecialchars($t['topic_name']) ?></span>
@@ -227,9 +233,9 @@ $sourceLabels = [
                   </div>
                   <div class="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
                     <span>หลักฐาน: <?= (int)$t['actual_evidence_count'] ?> รายการ</span>
-                    <span class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-semibold uppercase">
-                      ความเชื่อมั่น: <?= $t['confidence'] === 'high' ? 'สูง' : ($t['confidence'] === 'medium' ? 'ปานกลาง' : 'เริ่มต้น') ?>
-                    </span>
+                    <a href="learning-path.php?<?= $tCourseId ? 'course_id=' . $tCourseId . '&' : '' ?>topic=<?= urlencode($t['topic_name']) ?>" class="font-bold text-pink-600 hover:text-pink-700 inline-flex items-center gap-0.5">
+                      <span>ดูในเส้นทางการเรียน</span> &rarr;
+                    </a>
                   </div>
                 </div>
               <?php endforeach; ?>
@@ -256,7 +262,10 @@ $sourceLabels = [
           <?php else: ?>
             <div class="space-y-2.5">
               <?php foreach ($reviewTopics as $t): ?>
-                <?php $mScore = round((float)$t['mastery_score'], 1); ?>
+                <?php
+                  $mScore = round((float)$t['mastery_score'], 1);
+                  $tCourseId = (int)($t['course_id'] ?? $selectedCourseId ?? 0);
+                ?>
                 <div class="p-3 rounded-2xl bg-rose-50/40 border border-rose-100 space-y-1.5">
                   <div class="flex items-center justify-between gap-2">
                     <span class="font-bold text-xs text-navy-950 truncate"><?= htmlspecialchars($t['topic_name']) ?></span>
@@ -267,9 +276,9 @@ $sourceLabels = [
                   </div>
                   <div class="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
                     <span>หลักฐาน: <?= (int)$t['actual_evidence_count'] ?> รายการ</span>
-                    <span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 font-semibold uppercase">
-                      ความเชื่อมั่น: <?= $t['confidence'] === 'high' ? 'สูง' : ($t['confidence'] === 'medium' ? 'ปานกลาง' : 'เริ่มต้น') ?>
-                    </span>
+                    <a href="learning-path.php?<?= $tCourseId ? 'course_id=' . $tCourseId . '&' : '' ?>topic=<?= urlencode($t['topic_name']) ?>" class="font-bold text-pink-600 hover:text-pink-700 inline-flex items-center gap-0.5">
+                      <span>ดูในเส้นทางการเรียน</span> &rarr;
+                    </a>
                   </div>
                 </div>
               <?php endforeach; ?>

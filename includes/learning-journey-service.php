@@ -392,10 +392,10 @@ class LearningJourneyService
         $stmt = $this->pdo->prepare("
             SELECT * FROM learning_paths
             WHERE user_id = :user_id AND (course_id = :course_id OR course_id IS NULL)
-            ORDER BY (course_id = :course_id) DESC, id DESC
+            ORDER BY (course_id = :order_course_id) DESC, id DESC
             LIMIT 1
         ");
-        $stmt->execute([':user_id' => $studentId, ':course_id' => $courseId]);
+        $stmt->execute([':user_id' => $studentId, ':course_id' => $courseId, ':order_course_id' => $courseId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) return null;
 
