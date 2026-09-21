@@ -467,15 +467,289 @@
     }).join("");
   }
 
+  // ── Assignment Modal State & Logic ─────────────────────────────────
+  let assignSelectedStudentIds = new Set();
+  let assignCourseStudents = [];
+  let assignStudentSearchQuery = "";
+  let assignIsLoadingStudents = false;
+
+  function resetAssignmentModal() {
+    assignSelectedStudentIds.clear();
+    assignCourseStudents = [];
+    assignStudentSearchQuery = "";
+    assignIsLoadingStudents = false;
+
+    const searchInput = document.getElementById("assign-student-search");
+    if (searchInput) searchInput.value = "";
+
+    const selectAllCheck = document.getElementById("assign-select-all");
+    if (selectAllCheck) {
+      selectAllCheck.checked = false;
+      selectAllCheck.indeterminate = false;
+    }
+
+    const radioAll = document.querySelector('input[name="target_type"][value="all"]');
+    if (radioAll) radioAll.checked = true;
+
+    const section = document.getElementById("assign-students-section");
+    if (section) section.classList.add("hidden");
+
+    const errBox = document.getElementById("assign-error");
+    if (errBox) errBox.classList.add("hidden");
+
+    updateTargetTypeHighlight();
+    validateAssignSubmitButton();
+  }
+
+  function updateTargetTypeHighlight() {
+    const selectedRadio = document.querySelector('input[name="target_type"]:checked');
+    const isSelected = selectedRadio?.value === "selected";
+
+    const labelAll = document.getElementById("label-target-all");
+    const labelSelected = document.getElementById("label-target-selected");
+
+    if (labelAll && labelSelected) {
+      if (isSelected) {
+        labelSelected.classList.add("border-pink-500", "bg-pink-50/20", "text-pink-600");
+        labelAll.classList.remove("border-pink-500", "bg-pink-50/20", "text-pink-600");
+      } else {
+        labelAll.classList.add("border-pink-500", "bg-pink-50/20", "text-pink-600");
+        labelSelected.classList.remove("border-pink-500", "bg-pink-50/20", "text-pink-600");
+      }
+    }
+  }
+
+  function validateAssignSubmitButton() {
+    const btnSubmit = document.getElementById("btn-submit-assign");
+    if (!btnSubmit) return;
+
+    const targetType = document.querySelector('input[name="target_type"]:checked')?.value || "all";
+    if (targetType === "selected") {
+      if (assignSelectedStudentIds.size === 0) {
+        btnSubmit.disabled = true;
+        btnSubmit.classList.add("opacity-50", "cursor-not-allowed");
+      } else {
+        btnSubmit.disabled = false;
+        btnSubmit.classList.remove("opacity-50", "cursor-not-allowed");
+      }
+    } else {
+      btnSubmit.disabled = false;
+      btnSubmit.classList.remove("opacity-50", "cursor-not-allowed");
+    }
+  }
+
+  async function fetchClassStudents() {
+    const courseId = document.getElementById("assign-course-select")?.value || "";
+    const className = document.getElementById("assign-class-name")?.value || "";
+    const worksheetId = document.getElementById("assign-worksheet-id")?.value || "";
+
+    const loadingEl = document.getElementById("assign-students-loading");
+    const emptyEl = document.getElementById("assign-students-empty");
+    const emptyText = document.getElementById("assign-students-empty-text");
+    const errorEl = document.getElementById("assign-students-error");
+    const listEl = document.getElementById("assign-students-list");
+    const selectAllBar = document.getElementById("assign-select-all-bar");
+
+    // If no course and no class name specified
+    if (!courseId && !className.trim()) {
+      assignCourseStudents = [];
+      assignSelectedStudentIds.clear();
+      if (loadingEl) loadingEl.classList.add("hidden");
+      if (errorEl) errorEl.classList.add("hidden");
+      if (listEl) listEl.classList.add("hidden");
+      if (selectAllBar) selectAllBar.classList.add("hidden");
+      if (emptyEl) {
+        emptyEl.classList.remove("hidden");
+        if (emptyText) emptyText.textContent = "กรุณาเลือกคอร์สเรียนเพื่อดูรายชื่อนักเรียน";
+      }
+      renderAssignmentStudents();
+      validateAssignSubmitButton();
+      return;
+    }
+
+    assignIsLoadingStudents = true;
+    if (loadingEl) loadingEl.classList.remove("hidden");
+    if (emptyEl) emptyEl.classList.add("hidden");
+    if (errorEl) errorEl.classList.add("hidden");
+    if (listEl) listEl.classList.add("hidden");
+    if (selectAllBar) selectAllBar.classList.add("hidden");
+
+    try {
+      const url = `worksheets-api.php?action=get_class_students&course_id=${encodeURIComponent(courseId)}&class_name=${encodeURIComponent(className)}&worksheet_id=${encodeURIComponent(worksheetId)}`;
+      const res = await fetchApi(url);
+
+      assignCourseStudents = res.students || [];
+      assignSelectedStudentIds.clear();
+
+      if (loadingEl) loadingEl.classList.add("hidden");
+
+      if (assignCourseStudents.length === 0) {
+        if (emptyEl) {
+          emptyEl.classList.remove("hidden");
+          if (emptyText) emptyText.textContent = "ยังไม่มีนักเรียนในคลาสนี้";
+        }
+        if (listEl) listEl.classList.add("hidden");
+        if (selectAllBar) selectAllBar.classList.add("hidden");
+      } else {
+        if (emptyEl) emptyEl.classList.add("hidden");
+        if (listEl) listEl.classList.remove("hidden");
+        if (selectAllBar) selectAllBar.classList.remove("hidden");
+        renderAssignmentStudents();
+      }
+    } catch (err) {
+      if (loadingEl) loadingEl.classList.add("hidden");
+      if (emptyEl) emptyEl.classList.add("hidden");
+      if (listEl) listEl.classList.add("hidden");
+      if (selectAllBar) selectAllBar.classList.add("hidden");
+      if (errorEl) errorEl.classList.remove("hidden");
+    } finally {
+      assignIsLoadingStudents = false;
+      validateAssignSubmitButton();
+    }
+  }
+
+  function getFilteredAssignmentStudents() {
+    const query = assignStudentSearchQuery.toLowerCase();
+    if (!query) return assignCourseStudents;
+    return assignCourseStudents.filter(st => {
+      const fullName = `${st.first_name || ""} ${st.last_name || ""}`.toLowerCase();
+      const nickname = (st.nickname || "").toLowerCase();
+      const code = (st.student_code || "").toLowerCase();
+      const email = (st.email || "").toLowerCase();
+      const grade = (st.grade || "").toLowerCase();
+      return fullName.includes(query) || nickname.includes(query) || code.includes(query) || email.includes(query) || grade.includes(query);
+    });
+  }
+
+  function renderAssignmentStudents() {
+    const filtered = getFilteredAssignmentStudents();
+    const countBadge = document.getElementById("assign-selected-count-badge");
+    const filteredCount = document.getElementById("assign-students-filtered-count");
+    const selectAllCheck = document.getElementById("assign-select-all");
+    const chipsContainer = document.getElementById("assign-selected-chips");
+    const listEl = document.getElementById("assign-students-list");
+
+    // Update Counter Badge
+    if (countBadge) {
+      countBadge.textContent = `เลือกแล้ว ${assignSelectedStudentIds.size} คน`;
+      if (assignSelectedStudentIds.size > 0) {
+        countBadge.classList.add("bg-pink-100", "text-pink-700", "border-pink-300");
+        countBadge.classList.remove("bg-pink-50", "text-pink-600");
+      } else {
+        countBadge.classList.remove("bg-pink-100", "text-pink-700", "border-pink-300");
+        countBadge.classList.add("bg-pink-50", "text-pink-600");
+      }
+    }
+
+    // Update Filtered Count
+    if (filteredCount) {
+      filteredCount.textContent = `${filtered.length} คน`;
+    }
+
+    // Update Select All Checkbox
+    if (selectAllCheck) {
+      if (filtered.length > 0 && filtered.every(s => assignSelectedStudentIds.has(s.id))) {
+        selectAllCheck.checked = true;
+        selectAllCheck.indeterminate = false;
+      } else if (filtered.some(s => assignSelectedStudentIds.has(s.id))) {
+        selectAllCheck.checked = false;
+        selectAllCheck.indeterminate = true;
+      } else {
+        selectAllCheck.checked = false;
+        selectAllCheck.indeterminate = false;
+      }
+    }
+
+    // Render Selected Chips
+    if (chipsContainer) {
+      if (assignSelectedStudentIds.size === 0) {
+        chipsContainer.classList.add("hidden");
+        chipsContainer.innerHTML = "";
+      } else {
+        chipsContainer.classList.remove("hidden");
+        const selectedList = assignCourseStudents.filter(s => assignSelectedStudentIds.has(s.id));
+        const maxChips = 3;
+        const visibleChips = selectedList.slice(0, maxChips);
+        const remainingCount = selectedList.length - maxChips;
+
+        let chipsHtml = visibleChips.map(st => `
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-pink-50 border border-pink-200 text-[12px] font-bold text-pink-700">
+            <span>${escapeHtml(st.first_name)}</span>
+            <button type="button" class="btn-remove-student-chip text-pink-400 hover:text-pink-700 text-sm leading-none font-bold" data-id="${st.id}">&times;</button>
+          </span>
+        `).join("");
+
+        if (remainingCount > 0) {
+          chipsHtml += `
+            <span class="inline-flex items-center px-2 py-0.5 rounded-lg bg-slate-100 text-[12px] font-bold text-slate-600">
+              +อีก ${remainingCount} คน
+            </span>
+          `;
+        }
+
+        chipsContainer.innerHTML = chipsHtml;
+      }
+    }
+
+    // Render List Items
+    if (listEl) {
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div class="py-6 text-center text-xs text-slate-400">
+            ${assignCourseStudents.length === 0 ? "ไม่มีนักเรียนในคลาสนี้" : `ไม่พบนักเรียนที่ตรงกับ "${escapeHtml(assignStudentSearchQuery)}"`}
+          </div>
+        `;
+      } else {
+        listEl.innerHTML = filtered.map(st => {
+          const isSelected = assignSelectedStudentIds.has(st.id);
+          const initial = (st.first_name || "?").charAt(0).toUpperCase();
+          const avatarHtml = st.avatar_url
+            ? `<div class="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-pink-200 bg-white">
+                 <img src="${escapeHtml(st.avatar_url)}" alt="${escapeHtml(st.first_name)}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                 <div class="w-full h-full bg-pink-100 text-pink-600 font-bold text-xs items-center justify-center hidden">${initial}</div>
+               </div>`
+            : `<div class="w-8 h-8 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-xs shrink-0">${initial}</div>`;
+
+          return `
+            <label class="student-row-label flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-slate-100/80 transition-colors ${isSelected ? 'bg-pink-50/70' : ''}" data-id="${st.id}">
+              <input type="checkbox" class="student-item-check w-4 h-4 rounded text-pink-600 focus:ring-pink-500 border-slate-300 cursor-pointer" data-id="${st.id}" ${isSelected ? 'checked' : ''}>
+              ${avatarHtml}
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-[13px] font-bold text-navy-950 truncate">${escapeHtml(st.first_name)} ${escapeHtml(st.last_name)}</span>
+                  ${st.nickname ? `<span class="text-[11px] font-medium text-slate-500">(${escapeHtml(st.nickname)})</span>` : ''}
+                  ${st.grade ? `<span class="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded">${escapeHtml(st.grade)}</span>` : ''}
+                </div>
+                <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                  <span>Student ID: <strong class="text-slate-600 font-mono">${escapeHtml(st.student_code)}</strong></span>
+                  ${st.class_group_names ? `<span>•</span><span class="truncate text-slate-500 font-medium">${escapeHtml(st.class_group_names)}</span>` : ''}
+                </div>
+              </div>
+              ${st.is_assigned ? `
+                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full shrink-0">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  มอบหมายแล้ว
+                </span>
+              ` : ''}
+            </label>
+          `;
+        }).join("");
+      }
+    }
+
+    validateAssignSubmitButton();
+  }
+
   // Open Class Assignment Dialog
   async function openAssignment(id, title) {
+    resetAssignmentModal();
     document.getElementById("assign-worksheet-id").value = id;
     document.getElementById("assign-worksheet-title").textContent = title;
 
     // Load available courses for select
     const courseSelect = document.getElementById("assign-course-select");
     try {
-      const res = await fetch("curriculum-api");
+      const res = await fetch("curriculum-api.php");
       if (res.ok) {
         const d = await res.json();
         if (Array.isArray(d.courses)) {
@@ -748,28 +1022,132 @@
       }
     });
 
-    // Assign form submit
+    // ── Target Type Radio Toggle ─────────────────────────────
+    document.querySelectorAll('input[name="target_type"]').forEach(radio => {
+      radio.addEventListener("change", e => {
+        const val = e.target.value;
+        const section = document.getElementById("assign-students-section");
+        updateTargetTypeHighlight();
+        if (val === "selected") {
+          section?.classList.remove("hidden");
+          fetchClassStudents();
+        } else {
+          section?.classList.add("hidden");
+          assignSelectedStudentIds.clear();
+        }
+        validateAssignSubmitButton();
+      });
+    });
+
+    // ── Course Select Change ──────────────────────────────────
+    document.getElementById("assign-course-select")?.addEventListener("change", () => {
+      const targetType = document.querySelector('input[name="target_type"]:checked')?.value;
+      assignSelectedStudentIds.clear();
+      if (targetType === "selected") {
+        fetchClassStudents();
+      }
+      validateAssignSubmitButton();
+    });
+
+    // ── Student Search Input ──────────────────────────────────
+    document.getElementById("assign-student-search")?.addEventListener("input", e => {
+      assignStudentSearchQuery = e.target.value.trim();
+      renderAssignmentStudents();
+    });
+
+    // ── Select All Checkbox ───────────────────────────────────
+    document.getElementById("assign-select-all")?.addEventListener("change", e => {
+      const filtered = getFilteredAssignmentStudents();
+      if (e.target.checked) {
+        filtered.forEach(s => assignSelectedStudentIds.add(s.id));
+      } else {
+        filtered.forEach(s => assignSelectedStudentIds.delete(s.id));
+      }
+      renderAssignmentStudents();
+    });
+
+    // ── Student List Checkbox Changes ─────────────────────────
+    document.getElementById("assign-students-list")?.addEventListener("change", e => {
+      const check = e.target.closest(".student-item-check");
+      if (!check) return;
+      const id = parseInt(check.dataset.id, 10);
+      if (check.checked) {
+        assignSelectedStudentIds.add(id);
+      } else {
+        assignSelectedStudentIds.delete(id);
+      }
+      renderAssignmentStudents();
+    });
+
+    // ── Selected Chip Remove ──────────────────────────────────
+    document.getElementById("assign-selected-chips")?.addEventListener("click", e => {
+      const btn = e.target.closest(".btn-remove-student-chip");
+      if (!btn) return;
+      const id = parseInt(btn.dataset.id, 10);
+      assignSelectedStudentIds.delete(id);
+      renderAssignmentStudents();
+    });
+
+    // ── Retry Students Button ─────────────────────────────────
+    document.getElementById("btn-retry-students")?.addEventListener("click", () => {
+      fetchClassStudents();
+    });
+
+    // ── Assign Form Submit ────────────────────────────────────
     const assignForm = document.getElementById("assign-form");
     assignForm.addEventListener("submit", async e => {
       e.preventDefault();
       const errBox = document.getElementById("assign-error");
       errBox.classList.add("hidden");
-      const data = Object.fromEntries(new FormData(assignForm));
+
+      const targetType = document.querySelector('input[name="target_type"]:checked')?.value || "all";
+      if (targetType === "selected" && assignSelectedStudentIds.size === 0) {
+        errBox.textContent = "กรุณาเลือกนักเรียนอย่างน้อย 1 คน";
+        errBox.classList.remove("hidden");
+        return;
+      }
+
+      const payload = {
+        worksheet_id: document.getElementById("assign-worksheet-id")?.value,
+        course_id: document.getElementById("assign-course-select")?.value || null,
+        class_name: document.getElementById("assign-class-name")?.value.trim(),
+        target_type: targetType,
+        student_ids: targetType === "selected" ? Array.from(assignSelectedStudentIds) : [],
+        due_date: document.getElementById("assign-due-date")?.value || null
+      };
+
+      const submitBtn = document.getElementById("btn-submit-assign");
+      const originalText = submitBtn.textContent;
+      submitBtn.disabled = true;
+      submitBtn.textContent = "กำลังบันทึก...";
+
       try {
-        await fetchApi("worksheets-api.php?action=assign", {
+        const res = await fetchApi("worksheets-api.php?action=assign", {
           method: "POST",
-          body: JSON.stringify(data)
+          body: JSON.stringify(payload)
         });
         assignModal.classList.add("hidden");
-        showToast("มอบหมายใบงานให้คลาสเรียบร้อยแล้ว");
+        resetAssignmentModal();
+        showToast(res.message || "มอบหมายใบงานให้คลาสเรียบร้อยแล้ว");
         loadWorksheets();
       } catch (err) {
         errBox.textContent = err.message;
         errBox.classList.remove("hidden");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+        validateAssignSubmitButton();
       }
     });
-    document.getElementById("btn-close-assign").addEventListener("click", () => assignModal.classList.add("hidden"));
-    document.getElementById("btn-cancel-assign").addEventListener("click", () => assignModal.classList.add("hidden"));
+
+    document.getElementById("btn-close-assign")?.addEventListener("click", () => {
+      assignModal.classList.add("hidden");
+      resetAssignmentModal();
+    });
+    document.getElementById("btn-cancel-assign")?.addEventListener("click", () => {
+      assignModal.classList.add("hidden");
+      resetAssignmentModal();
+    });
 
     // Manual Create Modal
     document.getElementById("btn-create-manual").addEventListener("click", () => {

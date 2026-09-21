@@ -352,14 +352,76 @@ $currentPage = 'worksheets.php';
       <div>
         <label class="block text-[13px] font-bold text-navy-900 mb-1.5">กลุ่มเป้าหมาย</label>
         <div class="grid grid-cols-2 gap-3">
-          <label class="flex items-center gap-2 p-3 border border-[#dce4ef] rounded-xl cursor-pointer hover:border-pink-400 transition">
+          <label class="flex items-center gap-2 p-3 border border-[#dce4ef] rounded-xl cursor-pointer hover:border-pink-400 transition" id="label-target-all">
             <input type="radio" name="target_type" value="all" checked class="text-pink-600 focus:ring-pink-500">
             <span class="text-[13px] font-bold text-navy-950">นักเรียนทั้งคลาส</span>
           </label>
-          <label class="flex items-center gap-2 p-3 border border-[#dce4ef] rounded-xl cursor-pointer hover:border-pink-400 transition">
+          <label class="flex items-center gap-2 p-3 border border-[#dce4ef] rounded-xl cursor-pointer hover:border-pink-400 transition" id="label-target-selected">
             <input type="radio" name="target_type" value="selected" class="text-pink-600 focus:ring-pink-500">
             <span class="text-[13px] font-bold text-navy-950">เลือกเฉพาะบุคคล</span>
           </label>
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- INDIVIDUAL STUDENT SELECTOR (Appears when 'selected')    -->
+      <!-- ======================================================= -->
+      <div id="assign-students-section" class="hidden space-y-2.5 pt-3 pb-2 border-t border-[#f1f5f9]">
+        <div class="flex items-center justify-between">
+          <label class="text-[13px] font-bold text-navy-900 flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <span>เลือกนักเรียน</span>
+          </label>
+          <span id="assign-selected-count-badge" class="text-xs font-bold text-pink-600 bg-pink-50 border border-pink-200/60 px-2.5 py-0.5 rounded-full">
+            เลือกแล้ว 0 คน
+          </span>
+        </div>
+
+        <!-- Selected Student Chips Preview -->
+        <div id="assign-selected-chips" class="hidden flex-wrap gap-1.5 max-h-16 overflow-y-auto"></div>
+
+        <!-- Search Input -->
+        <div class="relative">
+          <input type="text" id="assign-student-search" placeholder="ค้นหาชื่อนักเรียน..." class="w-full h-10 pl-9 pr-3.5 bg-slate-50 border border-[#dce4ef] rounded-xl text-[13px] text-navy-950 focus:bg-white focus:border-pink-500 outline-none transition">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+
+        <!-- Select All Bar -->
+        <div id="assign-select-all-bar" class="flex items-center justify-between px-3 py-1.5 bg-slate-50/80 rounded-lg border border-slate-100 text-[12px]">
+          <label class="flex items-center gap-2 cursor-pointer select-none font-bold text-slate-700">
+            <input type="checkbox" id="assign-select-all" class="w-4 h-4 rounded text-pink-600 focus:ring-pink-500 border-slate-300 cursor-pointer">
+            <span>เลือกทั้งหมด</span>
+          </label>
+          <span id="assign-students-filtered-count" class="text-slate-400 font-medium">0 คน</span>
+        </div>
+
+        <!-- Scrollable Student List -->
+        <div id="assign-students-list" class="max-h-[200px] overflow-y-auto space-y-1 pr-1 border border-slate-200/80 rounded-xl p-1.5 bg-slate-50/30 divide-y divide-slate-100">
+          <!-- Dynamically populated rows -->
+        </div>
+
+        <!-- Loading State inside Student Selector -->
+        <div id="assign-students-loading" class="hidden py-6 text-center">
+          <div class="inline-block w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+          <p class="text-xs text-slate-400 mt-2 font-medium">กำลังโหลดรายชื่อนักเรียน...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="assign-students-empty" class="hidden py-6 text-center bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+          <svg class="w-8 h-8 text-slate-300 mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+          <p id="assign-students-empty-text" class="text-xs font-bold text-slate-500">ยังไม่มีนักเรียนในคลาสนี้</p>
+        </div>
+
+        <!-- Error State with Retry Button -->
+        <div id="assign-students-error" class="hidden py-4 text-center bg-red-50/50 rounded-xl border border-red-200">
+          <p class="text-xs text-red-500 font-bold mb-2">ไม่สามารถโหลดรายชื่อนักเรียนได้ กรุณาลองใหม่อีกครั้ง</p>
+          <button type="button" id="btn-retry-students" class="px-3 py-1 bg-pink-50 hover:bg-pink-100 text-pink-600 text-xs font-bold rounded-lg transition border border-pink-200">ลองใหม่</button>
         </div>
       </div>
 

@@ -266,7 +266,8 @@ class Phase3MasteryService
         // 1. If assigned explicitly to selected students
         if ($a['target_type'] === 'selected') {
             $sids = json_decode((string)$a['student_ids'], true) ?: [];
-            return in_array($studentId, $sids, true);
+            $sids = array_map('intval', $sids);
+            return in_array((int)$studentId, $sids, true);
         }
 
         // 2. If assigned to a specific class group
@@ -363,7 +364,8 @@ class Phase3MasteryService
 
             if ($targetType === 'selected') {
                 $sids = json_decode((string)$r['student_ids'], true) ?: [];
-                if (in_array($studentId, $sids, true)) $hasAccess = true;
+                $sids = array_map('intval', $sids);
+                if (in_array((int)$studentId, $sids, true)) $hasAccess = true;
             } else {
                 if (!empty($r['class_group_id']) && in_array((int)$r['class_group_id'], $classGroupIds, true)) {
                     $hasAccess = true;

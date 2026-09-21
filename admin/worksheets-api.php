@@ -819,6 +819,119 @@ try {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // 8.5 GET STUDENTS ENROLLED IN CLASS / COURSE
+    // ─────────────────────────────────────────────────────────────
+    if ($action === 'get_class_students' || $action === 'class_students') {
+        $courseId = !empty($_GET['course_id']) ? (int)$_GET['course_id'] : null;
+        $classGroupId = !empty($_GET['class_group_id']) ? (int)$_GET['class_group_id'] : null;
+        $className = trim((string)($_GET['class_name'] ?? ''));
+        $worksheetId = !empty($_GET['worksheet_id']) ? (int)$_GET['worksheet_id'] : null;
+
+        if (!$courseId && $classGroupId) {
+            $cgStmt = $pdo->prepare("SELECT course_id FROM class_groups WHERE id = ?");
+            $cgStmt->execute([$classGroupId]);
+            $courseId = (int)$cgStmt->fetchColumn() ?: null;
+        }
+
+        // If no course_id, but class_name is given, try finding matching class_group
+        if (!$courseId && !$classGroupId && $className !== '') {
+            $cgStmt = $pdo->prepare("SELECT id, course_id FROM class_groups WHERE name = ? OR code = ? LIMIT 1");
+            $cgStmt->execute([$className, $className]);
+            $cgRow = $cgStmt->fetch();
+            if ($cgRow) {
+                $classGroupId = (int)$cgRow['id'];
+                $courseId = (int)$cgRow['course_id'];
+            }
+        }
+
+        // If neither course_id nor class_group_id is specified, return empty array
+        if (!$courseId && !$classGroupId) {
+            jsonRespond([
+                'success' => true,
+                'course_id' => null,
+                'total' => 0,
+                'students' => []
+            ]);
+        }
+
+        $sql = "
+            SELECT u.id, u.first_name, u.last_name, u.nickname, u.email, u.grade, u.avatar_url,
+                   CONCAT('NB', LPAD(u.id, 3, '0')) AS student_code,
+                   GROUP_CONCAT(DISTINCT cg.name SEPARATOR ', ') AS class_group_names
+            FROM enrollments e
+            JOIN users u ON u.id = e.user_id AND u.role = 'student' AND (u.is_active IS NULL OR u.is_active = 1)
+            LEFT JOIN class_groups cg ON cg.id = e.class_group_id
+            WHERE e.status IN ('active', 'trial')
+              AND (e.end_date IS NULL OR e.end_date >= CURDATE())
+        ";
+        $params = [];
+
+        if ($classGroupId) {
+            $sql .= " AND e.class_group_id = :cgid";
+            $params[':cgid'] = $classGroupId;
+        } elseif ($courseId) {
+            $sql .= " AND e.course_id = :cid";
+            $params[':cid'] = $courseId;
+        }
+
+        $sql .= " GROUP BY u.id ORDER BY u.first_name ASC, u.last_name ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Check if students are already assigned this worksheet
+        $alreadyAssignedMap = [];
+        if ($worksheetId && !empty($students)) {
+            $aStmt = $pdo->prepare("
+                SELECT target_type, student_ids, course_id
+                FROM worksheet_assignments
+                WHERE worksheet_id = :wid AND status = 'active'
+            ");
+            $aStmt->execute([':wid' => $worksheetId]);
+            $assignments = $aStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($assignments as $a) {
+                if ($a['target_type'] === 'all') {
+                    if (empty($a['course_id']) || ($courseId && (int)$a['course_id'] === $courseId)) {
+                        foreach ($students as $st) {
+                            $alreadyAssignedMap[(int)$st['id']] = true;
+                        }
+                    }
+                } elseif ($a['target_type'] === 'selected') {
+                    $sids = json_decode((string)$a['student_ids'], true) ?: [];
+                    foreach ($sids as $sid) {
+                        $alreadyAssignedMap[(int)$sid] = true;
+                    }
+                }
+            }
+        }
+
+        $formatted = array_map(function($st) use ($alreadyAssignedMap) {
+            $id = (int)$st['id'];
+            return [
+                'id' => $id,
+                'first_name' => (string)$st['first_name'],
+                'last_name' => (string)$st['last_name'],
+                'nickname' => (string)($st['nickname'] ?? ''),
+                'email' => (string)($st['email'] ?? ''),
+                'grade' => (string)($st['grade'] ?? ''),
+                'avatar_url' => (string)($st['avatar_url'] ?? ''),
+                'student_code' => (string)($st['student_code'] ?? ('NB' . str_pad((string)$id, 3, '0', STR_PAD_LEFT))),
+                'class_group_names' => (string)($st['class_group_names'] ?? ''),
+                'is_assigned' => !empty($alreadyAssignedMap[$id])
+            ];
+        }, $students);
+
+        jsonRespond([
+            'success' => true,
+            'course_id' => $courseId,
+            'class_group_id' => $classGroupId,
+            'total' => count($formatted),
+            'students' => $formatted
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // 9. ASSIGN WORKSHEET TO CLASS / COURSE / STUDENT (Phase 3 Extended)
     // ─────────────────────────────────────────────────────────────
     if ($action === 'assign') {
@@ -835,8 +948,10 @@ try {
         $sessionId = !empty($data['session_id']) ? (string)$data['session_id'] : null;
         $epId = !empty($data['ep_id']) ? (int) $data['ep_id'] : null;
         $className = trim((string) ($data['class_name'] ?? ''));
-        $targetType = ($data['target_type'] ?? '') === 'selected' ? 'selected' : 'all';
-        $studentIds = isset($data['student_ids']) && is_array($data['student_ids']) ? $data['student_ids'] : null;
+        $targetTypeRaw = (string)($data['target_type'] ?? 'all');
+        $targetType = ($targetTypeRaw === 'selected' || $targetTypeRaw === 'students') ? 'selected' : 'all';
+        $studentIdsRaw = $data['student_ids'] ?? ($data['studentIds'] ?? null);
+        $studentIds = is_array($studentIdsRaw) ? array_values(array_unique(array_filter(array_map('intval', $studentIdsRaw)))) : null;
         $dueDate = !empty($data['due_date']) ? date('Y-m-d H:i:s', strtotime($data['due_date'])) : null;
         $activityType = (string)($data['activity_type'] ?? 'worksheet');
         $title = trim((string)($data['title'] ?? ''));
@@ -847,11 +962,76 @@ try {
         $assignerName = trim(($consoleUser['first_name'] ?? 'Admin') . ' ' . ($consoleUser['last_name'] ?? ''));
         $assignerId = (int) ($consoleUser['id'] ?? 1);
 
+        // Validation for Individual Student Assignment
+        if ($targetType === 'selected') {
+            if (empty($studentIds)) {
+                jsonRespond(['error' => 'กรุณาเลือกนักเรียนอย่างน้อย 1 คน'], 400);
+            }
+        }
+
+        // Duplicate Protection
+        $skippedCount = 0;
+        if ($worksheetId) {
+            if ($targetType === 'selected') {
+                $existingStmt = $pdo->prepare("
+                    SELECT target_type, student_ids, course_id
+                    FROM worksheet_assignments
+                    WHERE worksheet_id = :wid AND status = 'active'
+                ");
+                $existingStmt->execute([':wid' => $worksheetId]);
+                $existingAssigns = $existingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                $alreadyAssignedIds = [];
+                foreach ($existingAssigns as $ea) {
+                    if ($ea['target_type'] === 'all' && (!empty($ea['course_id']) && $courseId && (int)$ea['course_id'] === $courseId)) {
+                        $alreadyAssignedIds = array_merge($alreadyAssignedIds, $studentIds);
+                    } elseif ($ea['target_type'] === 'selected') {
+                        $eaSids = json_decode((string)$ea['student_ids'], true) ?: [];
+                        $alreadyAssignedIds = array_merge($alreadyAssignedIds, array_map('intval', $eaSids));
+                    }
+                }
+                $alreadyAssignedIds = array_unique($alreadyAssignedIds);
+
+                $newStudentIds = array_values(array_diff($studentIds, $alreadyAssignedIds));
+                $skippedCount = count($studentIds) - count($newStudentIds);
+
+                if (empty($newStudentIds)) {
+                    jsonRespond([
+                        'success' => true,
+                        'is_duplicate' => true,
+                        'duplicate_skipped' => count($studentIds),
+                        'message' => 'นักเรียนที่เลือกทั้งหมดได้รับมอบหมายใบงานนี้อยู่แล้ว'
+                    ]);
+                }
+                $studentIds = $newStudentIds;
+            } else {
+                // Whole class duplicate protection
+                if ($courseId) {
+                    $dupCheck = $pdo->prepare("
+                        SELECT id FROM worksheet_assignments
+                        WHERE worksheet_id = ? AND course_id = ? AND target_type = 'all' AND status = 'active'
+                        LIMIT 1
+                    ");
+                    $dupCheck->execute([$worksheetId, $courseId]);
+                    $existingId = $dupCheck->fetchColumn();
+                    if ($existingId) {
+                        jsonRespond([
+                            'success' => true,
+                            'is_duplicate' => true,
+                            'assignment_id' => (int)$existingId,
+                            'message' => 'คลาสนี้ได้รับมอบหมายใบงานนี้อยู่แล้ว'
+                        ]);
+                    }
+                }
+            }
+        }
+
         $assignId = $p3->createAssignment([
             'worksheet_id'     => $worksheetId ?: null,
             'exam_id'          => $examId,
             'course_id'        => $courseId,
             'class_group_id'   => $classGroupId,
+            'class_name'       => $className,
             'session_id'       => $sessionId,
             'activity_type'    => $activityType,
             'title'            => $title,
@@ -869,10 +1049,20 @@ try {
             $pdo->prepare("UPDATE worksheets SET usage_count = usage_count + 1 WHERE id = ?")->execute([$worksheetId]);
         }
 
+        $successMsg = 'มอบหมายใบงานให้คลาสเรียบร้อยแล้ว';
+        if ($targetType === 'selected') {
+            $successMsg = 'มอบหมายใบงานเรียบร้อยแล้ว (' . count($studentIds) . ' คน)';
+            if ($skippedCount > 0) {
+                $successMsg .= " (อีก {$skippedCount} คนได้รับมอบหมายไปก่อนหน้านี้แล้ว)";
+            }
+        }
+
         jsonRespond([
             'success' => true,
             'assignment_id' => $assignId,
-            'message' => 'มอบหมายกิจกรรมการเรียนรู้เรียบร้อยแล้ว'
+            'assigned_count' => $targetType === 'selected' ? count($studentIds) : null,
+            'skipped_count' => $skippedCount,
+            'message' => $successMsg
         ]);
     }
 
