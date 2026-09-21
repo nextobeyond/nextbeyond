@@ -2,6 +2,44 @@
 $pageTitle = 'โปรไฟล์ของฉัน';
 $currentPage = 'profile.php';
 require_once __DIR__ . '/includes/guard.php';
+
+// AJAX auto-upload handler
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['action'] ?? '') === 'upload_avatar_ajax') {
+    header('Content-Type: application/json; charset=utf-8');
+    ensureUserColumns($pdo);
+    $uploadDir = __DIR__ . '/../assets/uploads/avatars';
+    if (!is_dir($uploadDir)) @mkdir($uploadDir, 0777, true);
+    @chmod($uploadDir, 0777);
+    
+    $avatarUrl = '';
+    $avatarBase64 = trim((string) ($_POST['avatar_base64'] ?? ''));
+    if ($avatarBase64 !== '' && preg_match('/^data:image\/(jpeg|png|webp);base64,(.+)$/', $avatarBase64, $matches)) {
+        $ext = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
+        $decoded = base64_decode($matches[2], true);
+        if ($decoded && strlen($decoded) > 0) {
+            $filename = 'avatar-' . (int)$currentUser['id'] . '-' . time() . '.' . $ext;
+            $targetPath = $uploadDir . '/' . $filename;
+            foreach (glob($uploadDir . '/avatar-' . (int)$currentUser['id'] . '-*') ?: [] as $old) {
+                @unlink($old);
+            }
+            if (@file_put_contents($targetPath, $decoded) !== false) {
+                @chmod($targetPath, 0666);
+                $avatarUrl = '/assets/uploads/avatars/' . $filename;
+            } else {
+                $avatarUrl = $avatarBase64;
+            }
+        }
+    }
+    if ($avatarUrl !== '') {
+        $pdo->prepare('UPDATE users SET avatar_url = ? WHERE id = ?')->execute([$avatarUrl, $currentUser['id']]);
+        $_SESSION['avatar_url'] = $avatarUrl;
+        echo json_encode(['success' => true, 'avatar_url' => $avatarUrl], JSON_UNESCAPED_UNICODE);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'ไม่สามารถบันทึกรูปภาพได้'], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
 $message = '';
 $error = '';
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -285,6 +323,39 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 if (avatarFallback) {
                     avatarFallback.classList.add('hidden');
                 }
+
+                // แสดงสถานะและบันทึกอัตโนมัติทันที
+                let statusEl = document.getElementById('avatarUploadStatus');
+                if (!statusEl) {
+                    statusEl = document.createElement('div');
+                    statusEl.id = 'avatarUploadStatus';
+                    avatarInput.parentElement.appendChild(statusEl);
+                }
+                statusEl.className = 'text-xs mt-2 font-bold text-pink-600 flex items-center gap-1.5';
+                statusEl.innerHTML = '<span>⏳ กำลังบันทึกรูปโปรไฟล์...</span>';
+
+                const fd = new FormData();
+                fd.append('action', 'upload_avatar_ajax');
+                fd.append('avatar_base64', compressed);
+
+                fetch('profile.php', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res && res.success) {
+                        statusEl.className = 'text-xs mt-2 font-bold text-emerald-600 flex items-center gap-1.5';
+                        statusEl.innerHTML = '<span>✓ บันทึกรูปโปรไฟล์เรียบร้อยแล้ว!</span>';
+                    } else {
+                        statusEl.className = 'text-xs mt-2 font-medium text-slate-500';
+                        statusEl.textContent = 'เลือกรูปแล้ว (อย่าลืมกดปุ่มบันทึกการเปลี่ยนแปลงด้านล่าง)';
+                    }
+                })
+                .catch(() => {
+                    statusEl.className = 'text-xs mt-2 font-medium text-slate-500';
+                    statusEl.textContent = 'เลือกรูปแล้ว (อย่าลืมกดปุ่มบันทึกการเปลี่ยนแปลงด้านล่าง)';
+                });
             };
             img.src = evt.target.result;
         };

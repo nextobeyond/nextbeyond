@@ -154,18 +154,25 @@ $allCourses = $pdo->query("SELECT id, title, subject, level, price FROM courses 
           }
           $initialChar = mb_substr(!empty($student['nickname']) ? $student['nickname'] : $student['first_name'], 0, 1);
           ?>
-          <?php if (!empty($detailAvatar)): ?>
-            <div class="w-16 h-16 rounded-2xl overflow-hidden shadow-md shrink-0 border border-slate-200 bg-slate-100 relative flex items-center justify-center">
-              <img src="<?= htmlspecialchars($detailAvatar) ?>" alt="<?= htmlspecialchars($student['first_name']) ?>" class="w-full h-full object-cover" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
-              <div class="w-full h-full bg-gradient-to-tr from-pink-500 to-indigo-600 text-white font-black text-2xl items-center justify-center hidden">
-                <?= htmlspecialchars($initialChar) ?>
-              </div>
+          <div class="flex flex-col items-center shrink-0">
+            <div id="detail-avatar-container" class="w-16 h-16 rounded-2xl overflow-hidden shadow-md shrink-0 border border-slate-200 bg-slate-100 relative flex items-center justify-center">
+              <?php if (!empty($detailAvatar)): ?>
+                <img id="detail-avatar-img" src="<?= htmlspecialchars($detailAvatar) ?>" alt="<?= htmlspecialchars($student['first_name']) ?>" class="w-full h-full object-cover" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+                <div id="detail-avatar-fallback" class="w-full h-full bg-gradient-to-tr from-pink-500 to-indigo-600 text-white font-black text-2xl items-center justify-center hidden">
+                  <?= htmlspecialchars($initialChar) ?>
+                </div>
+              <?php else: ?>
+                <div id="detail-avatar-fallback" class="w-full h-full bg-gradient-to-tr from-pink-500 to-indigo-600 text-white font-black text-2xl flex items-center justify-center">
+                  <?= htmlspecialchars($initialChar) ?>
+                </div>
+              <?php endif; ?>
             </div>
-          <?php else: ?>
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-pink-500 to-indigo-600 text-white font-black text-2xl flex items-center justify-center shadow-md shrink-0">
-              <?= htmlspecialchars($initialChar) ?>
-            </div>
-          <?php endif; ?>
+            <button type="button" onclick="document.getElementById('admin-avatar-input').click()" class="mt-1.5 text-[11px] font-bold text-pink-600 hover:text-pink-700 flex items-center gap-1 cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              <span id="admin-avatar-btn-text">เปลี่ยนรูป</span>
+            </button>
+            <input type="file" id="admin-avatar-input" accept="image/png, image/jpeg, image/webp" class="hidden">
+          </div>
           <div>
             <div class="flex items-center gap-2 flex-wrap mb-1">
               <h1 class="text-[22px] font-black text-navy-950">
@@ -1408,5 +1415,63 @@ $allCourses = $pdo->query("SELECT id, title, subject, level, price FROM courses 
     </form>
   </div>
 </div>
+<script>
+(() => {
+  const fileInput = document.getElementById('admin-avatar-input');
+  if (!fileInput) return;
+  fileInput.addEventListener('change', function() {
+    const file = this.files && this.files[0];
+    if (!file) return;
+    const btnText = document.getElementById('admin-avatar-btn-text');
+    if (btnText) btnText.textContent = 'กำลังบันทึก...';
+
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      const img = new Image();
+      img.onload = async function() {
+        const maxDim = 500;
+        const size = Math.min(img.width, img.height);
+        const sx = (img.width - size) / 2;
+        const sy = (img.height - size) / 2;
+        const destSize = Math.min(maxDim, size);
+        const canvas = document.createElement('canvas');
+        canvas.width = destSize;
+        canvas.height = destSize;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, destSize, destSize);
+        const compressed = canvas.toDataURL('image/jpeg', 0.88);
+
+        try {
+          const res = await fetch('students-api.php?action=upload_avatar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              student_id: <?= (int)$student['id'] ?>,
+              avatar_base64: compressed
+            })
+          });
+          const data = await res.json();
+          if (data && data.success) {
+            const container = document.getElementById('detail-avatar-container');
+            if (container) {
+              container.innerHTML = `<img src="${compressed}" alt="Avatar" class="w-full h-full object-cover">`;
+            }
+            if (btnText) btnText.textContent = '✓ สำเร็จ!';
+            setTimeout(() => { if (btnText) btnText.textContent = 'เปลี่ยนรูป'; }, 3000);
+          } else {
+            alert('ไม่สามารถอัปโหลดรูปภาพได้: ' + (data.error || 'เกิดข้อผิดพลาด'));
+            if (btnText) btnText.textContent = 'เปลี่ยนรูป';
+          }
+        } catch (err) {
+          alert('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + err.message);
+          if (btnText) btnText.textContent = 'เปลี่ยนรูป';
+        }
+      };
+      img.src = evt.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+})();
+</script>
 </body>
 </html>

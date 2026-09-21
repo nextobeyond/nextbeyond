@@ -80,7 +80,10 @@
     if (clean.startsWith("../")) {
       clean = clean.substring(3);
     }
-    return "../" + clean;
+    const path = window.location.pathname;
+    const match = path.match(/^(\/[^\/]+)\/admin\//i);
+    const prefix = match ? match[1] + "/" : "/";
+    return prefix + clean;
   };
 
   async function api(url, options = {}) {
@@ -194,7 +197,7 @@
 
       const avatarHtml = avatarSrc
         ? `<div class="w-9 h-9 rounded-full overflow-hidden shrink-0 border border-slate-200/80 bg-pink-50 relative flex items-center justify-center shadow-2xs">
-            <img src="${esc(avatarSrc)}" alt="${esc(st.first_name)}" class="w-full h-full object-cover" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+            <img src="${esc(avatarSrc)}" alt="${esc(st.first_name)}" class="w-full h-full object-cover" onerror="if(!this.dataset.retried && !this.src.startsWith('data:')){this.dataset.retried='1'; this.src=(this.src.includes('/assets/') ? '../' + this.src.substring(this.src.indexOf('assets/')) : this.src); return;} this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
             <div class="w-full h-full bg-pink-100 text-pink-600 font-bold text-sm items-center justify-center hidden">
               ${initial}
             </div>

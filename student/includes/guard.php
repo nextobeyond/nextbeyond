@@ -19,13 +19,18 @@ function ensureUserColumns(PDO $pdo): void {
     try {
         $cols = [];
         foreach ($pdo->query('SHOW COLUMNS FROM users')->fetchAll() as $c) {
-            $cols[(string)$c['Field']] = true;
+            $cols[(string)$c['Field']] = $c;
         }
         if (!isset($cols['nickname'])) {
             $pdo->exec("ALTER TABLE `users` ADD COLUMN `nickname` VARCHAR(100) NULL AFTER `last_name`");
         }
         if (!isset($cols['avatar_url'])) {
             $pdo->exec("ALTER TABLE `users` ADD COLUMN `avatar_url` MEDIUMTEXT NULL AFTER `role`");
+        } else {
+            $type = strtolower((string)($cols['avatar_url']['Type'] ?? ''));
+            if (!str_contains($type, 'text')) {
+                $pdo->exec("ALTER TABLE `users` MODIFY COLUMN `avatar_url` MEDIUMTEXT NULL");
+            }
         }
     } catch (Throwable $e) {
         // Silently ignore if table alters are restricted
@@ -40,10 +45,6 @@ function studentAvatarUrl(?string $url): string {
     $clean = ltrim($url, '/');
     if (str_starts_with($clean, '../')) {
         $clean = substr($clean, 3);
-    }
-    $localFile = __DIR__ . '/../../' . $clean;
-    if (!file_exists($localFile)) {
-        return '';
     }
     return '../' . $clean;
 }

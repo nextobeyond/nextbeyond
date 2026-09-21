@@ -20,7 +20,28 @@ function body(): array {
     return $d;
 }
 
+function ensureAvatarColumn(PDO $pdo): void {
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+    try {
+        $cols = [];
+        foreach ($pdo->query('SHOW COLUMNS FROM users')->fetchAll() as $c) {
+            $cols[(string)$c['Field']] = $c;
+        }
+        if (!isset($cols['avatar_url'])) {
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `avatar_url` MEDIUMTEXT NULL AFTER `role`");
+        } else {
+            $type = strtolower((string)($cols['avatar_url']['Type'] ?? ''));
+            if (!str_contains($type, 'text')) {
+                $pdo->exec("ALTER TABLE `users` MODIFY COLUMN `avatar_url` MEDIUMTEXT NULL");
+            }
+        }
+    } catch (Throwable $e) {}
+}
+
 try {
+    ensureAvatarColumn($pdo);
     $service = new EnrollmentService($pdo);
     $m = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -73,6 +94,69 @@ try {
     }
 
     if ($m === 'POST') {
+        if (($_GET['action'] ?? '') === 'upload_avatar') {
+            $studentId = (int)($_POST['student_id'] ?? ($_GET['student_id'] ?? 0));
+            $base64 = '';
+            if (!$studentId) {
+                $rawBody = json_decode(file_get_contents('php://input'), true);
+                $studentId = (int)($rawBody['student_id'] ?? 0);
+                $base64 = trim((string)($rawBody['avatar_base64'] ?? ''));
+            } else {
+                $base64 = trim((string)($_POST['avatar_base64'] ?? ''));
+            }
+
+            if (!$studentId) out(['error' => 'ไม่พบรหัสนักเรียน'], 400);
+
+            ensureAvatarColumn($pdo);
+            $uploadDir = __DIR__ . '/../assets/uploads/avatars';
+            if (!is_dir($uploadDir)) @mkdir($uploadDir, 0777, true);
+            @chmod($uploadDir, 0777);
+
+            $avatarUrl = '';
+            if (!empty($base64)) {
+                if (preg_match('/^data:image\/(jpeg|png|webp);base64,(.+)$/', $base64, $matches)) {
+                    $ext = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
+                    $decoded = base64_decode($matches[2], true);
+                    if ($decoded && strlen($decoded) > 0) {
+                        $filename = 'avatar-' . $studentId . '-' . time() . '.' . $ext;
+                        $targetPath = $uploadDir . '/' . $filename;
+                        foreach (glob($uploadDir . '/avatar-' . $studentId . '-*') ?: [] as $old) {
+                            @unlink($old);
+                        }
+                        if (@file_put_contents($targetPath, $decoded) !== false) {
+                            @chmod($targetPath, 0666);
+                            $avatarUrl = '/assets/uploads/avatars/' . $filename;
+                        } else {
+                            $avatarUrl = $base64;
+                        }
+                    }
+                }
+            } elseif (!empty($_FILES['avatar']) && ($_FILES['avatar']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+                $file = $_FILES['avatar'];
+                $origExt = strtolower(pathinfo((string)$file['name'], PATHINFO_EXTENSION));
+                $ext = in_array($origExt, ['jpg', 'jpeg', 'png', 'webp'], true) ? ($origExt === 'jpeg' ? 'jpg' : $origExt) : 'jpg';
+                $filename = 'avatar-' . $studentId . '-' . time() . '.' . $ext;
+                $targetPath = $uploadDir . '/' . $filename;
+                foreach (glob($uploadDir . '/avatar-' . $studentId . '-*') ?: [] as $old) {
+                    @unlink($old);
+                }
+                if (@move_uploaded_file($file['tmp_name'], $targetPath)) {
+                    @chmod($targetPath, 0666);
+                    $avatarUrl = '/assets/uploads/avatars/' . $filename;
+                } else {
+                    $raw = @file_get_contents($file['tmp_name']);
+                    if ($raw) {
+                        $avatarUrl = 'data:image/' . ($ext === 'jpg' ? 'jpeg' : $ext) . ';base64,' . base64_encode($raw);
+                    }
+                }
+            }
+
+            if ($avatarUrl === '') out(['error' => 'กรุณาเลือกไฟล์รูปภาพที่ถูกต้อง'], 422);
+
+            $pdo->prepare("UPDATE users SET avatar_url = ? WHERE id = ? AND role = 'student'")->execute([$avatarUrl, $studentId]);
+            out(['success' => true, 'avatar_url' => $avatarUrl]);
+        }
+
         $d = body();
         $first = trim((string)($d['firstName'] ?? ''));
         $last = trim((string)($d['lastName'] ?? ''));
