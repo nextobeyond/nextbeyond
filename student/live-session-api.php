@@ -265,43 +265,82 @@ try {
     // POST: deal_damage (Boss Fight Hit)
     // ----------------------------------------------------
     if ($method === 'POST' && $action === 'deal_damage') {
-        $body = studentLiveBody();
+        $body      = studentLiveBody();
         $sessionId = trim((string) ($body['sessionId'] ?? ''));
-        $damage = max(1, min(50, (int) ($body['damage'] ?? 10)));
+        $damage    = max(1, min(50, (int) ($body['damage'] ?? 10)));
 
         if ($sessionId === '') {
             studentLiveRespond(['ok' => false, 'error' => 'จำเป็นต้องระบุ sessionId'], 422);
         }
 
-        $stmt = $pdo->prepare("SELECT boss_fight_active, boss_current_hp, boss_max_hp, boss_combat_log, boss_defeated, boss_reward_points FROM classroom_sessions WHERE id = :id");
-        $stmt->execute([':id' => $sessionId]);
-        $ses = $stmt->fetch();
+        // P0.3: Backend damage verification — confirm a correct answer exists
+        // The client sends the questionId it just answered correctly;
+        // we verify it in test_answers before accepting the damage.
+        $claimedQuestionId = (int) ($body['questionId'] ?? 0);
+        if ($claimedQuestionId > 0) {
+            $stmtVerify = $pdo->prepare("
+                SELECT COUNT(*) FROM test_answers ta
+                JOIN session_participants sp ON sp.attempt_id = ta.attempt_id
+                WHERE sp.session_id   = :sid
+                  AND sp.student_id   = :uid
+                  AND ta.question_id  = :qid
+                  AND ta.is_correct   = 1
+            ");
+            $stmtVerify->execute([
+                ':sid' => $sessionId,
+                ':uid' => $currentStudentId,
+                ':qid' => $claimedQuestionId,
+            ]);
+            if ((int) $stmtVerify->fetchColumn() === 0) {
+                studentLiveRespond(['ok' => false, 'error' => 'ไม่พบคำตอบที่ถูกต้องสำหรับคำถามนี้ (ไม่อนุญาตให้ส่ง Damage)'], 403);
+            }
+        }
 
-        if (!$ses || empty($ses['boss_fight_active'])) {
+        // Confirm boss fight is active for this session
+        $stmtChk = $pdo->prepare("SELECT boss_fight_active FROM classroom_sessions WHERE id = :id LIMIT 1");
+        $stmtChk->execute([':id' => $sessionId]);
+        $bossActive = $stmtChk->fetchColumn();
+        if (!$bossActive) {
             studentLiveRespond(['ok' => true, 'success' => false, 'message' => 'บอสไฟท์ยังไม่เปิดใช้งาน']);
         }
 
-        $curHp = (int) $ses['boss_current_hp'];
-        $newHp = max(0, $curHp - $damage);
-        $isDefeated = $newHp === 0;
-
+        // P0.2: Atomic HP decrement — eliminates race condition
         $studentName = trim(($currentUser['first_name'] ?? '') . ' ' . ($currentUser['last_name'] ?? '')) ?: 'นักเรียน';
+
+        $stmtHit = $pdo->prepare("
+            UPDATE classroom_sessions
+            SET boss_current_hp = GREATEST(0, boss_current_hp - :dmg),
+                updated_at = NOW()
+            WHERE id = :id AND boss_fight_active = 1
+        ");
+        $stmtHit->execute([':dmg' => $damage, ':id' => $sessionId]);
+
+        // Re-fetch authoritative state after atomic update
+        $stmt = $pdo->prepare("SELECT boss_current_hp, boss_combat_log, boss_defeated, boss_reward_points FROM classroom_sessions WHERE id = :id");
+        $stmt->execute([':id' => $sessionId]);
+        $ses = $stmt->fetch();
+
+        if (!$ses) {
+            studentLiveRespond(['ok' => false, 'error' => 'ไม่พบเซสชัน'], 404);
+        }
+
+        $newHp      = (int) $ses['boss_current_hp'];
+        $isDefeated = $newHp === 0;
 
         $log = json_decode((string) ($ses['boss_combat_log'] ?? '[]'), true) ?: [];
         array_unshift($log, [
-            'id' => 'hit-' . microtime(true),
-            'studentId' => (string) $currentStudentId,
+            'id'          => 'hit-' . microtime(true),
+            'studentId'   => (string) $currentStudentId,
             'studentName' => $studentName,
-            'damage' => $damage,
-            'timestamp' => date('c'),
+            'damage'      => $damage,
+            'timestamp'   => date('c'),
         ]);
         $log = array_slice($log, 0, 50);
 
-        $pdo->prepare("UPDATE classroom_sessions SET boss_current_hp = :nhp, boss_defeated = :def, boss_combat_log = :log WHERE id = :id")->execute([
-            ':nhp' => $newHp,
-            ':def' => $isDefeated ? 1 : ($ses['boss_defeated'] ? 1 : 0),
+        $pdo->prepare("UPDATE classroom_sessions SET boss_defeated = :def, boss_combat_log = :log WHERE id = :id")->execute([
+            ':def' => ($isDefeated || $ses['boss_defeated']) ? 1 : 0,
             ':log' => json_encode($log, JSON_UNESCAPED_UNICODE),
-            ':id' => $sessionId,
+            ':id'  => $sessionId,
         ]);
 
         if ($isDefeated && empty($ses['boss_defeated'])) {
@@ -309,9 +348,9 @@ try {
         }
 
         studentLiveRespond([
-            'ok' => true,
-            'success' => true,
-            'damageDealt' => $damage,
+            'ok'           => true,
+            'success'      => true,
+            'damageDealt'  => $damage,
             'bossCurrentHp' => $newHp,
             'bossDefeated' => $isDefeated,
         ]);

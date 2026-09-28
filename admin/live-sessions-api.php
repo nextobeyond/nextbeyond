@@ -29,6 +29,7 @@ function liveSessionBody(): array
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $currentUserId = (int) ($consoleUser['id'] ?? 0);
+$currentUserRole = (string) ($consoleUser['role'] ?? 'teacher');
 
 try {
     // ----------------------------------------------------
@@ -79,14 +80,19 @@ try {
             }
             $totalQuestions = count($questions);
 
-            // Fetch participants
+            // P0.4: Fetch participants — single JOIN with aggregated answer count (no correlated subquery)
             $stmtP = $pdo->prepare("
                 SELECT sp.*, u.first_name, u.last_name, u.email, u.avatar_url,
                        ta.score, ta.correct_count, ta.total_questions, ta.completed_at, ta.started_at,
-                       (SELECT COUNT(*) FROM test_answers WHERE attempt_id = ta.id) AS db_answers_count
+                       COALESCE(ans.db_answers_count, 0) AS db_answers_count
                 FROM session_participants sp
                 JOIN users u ON u.id = sp.student_id
                 LEFT JOIN test_attempts ta ON ta.id = sp.attempt_id
+                LEFT JOIN (
+                    SELECT attempt_id, COUNT(*) AS db_answers_count
+                    FROM test_answers
+                    GROUP BY attempt_id
+                ) ans ON ans.attempt_id = ta.id
                 WHERE sp.session_id = :sid
                 ORDER BY sp.joined_at ASC
             ");
@@ -282,6 +288,9 @@ try {
                 liveSessionRespond(['error' => 'จำเป็นต้องระบุ sessionId'], 422);
             }
 
+            // P0.1: Verify caller owns this session (admin bypass allowed)
+            authorizeSessionControl($pdo, $sessionId, $currentUserId, $currentUserRole);
+
             if ($action === 'reset_student_attempt') {
                 $studentId = (int) ($body['studentId'] ?? 0);
                 if ($studentId < 1) {
@@ -330,30 +339,39 @@ try {
 
             if ($action === 'teacher_strike') {
                 $damage = max(1, (int) ($body['damage'] ?? 25));
-                $stmt = $pdo->prepare("SELECT boss_current_hp, boss_max_hp, boss_combat_log, boss_defeated FROM classroom_sessions WHERE id = :id");
+
+                // P0.2: Atomic HP update — no race condition
+                $stmtHit = $pdo->prepare("
+                    UPDATE classroom_sessions
+                    SET boss_current_hp = GREATEST(0, boss_current_hp - :dmg),
+                        updated_at = NOW()
+                    WHERE id = :id AND boss_fight_active = 1
+                ");
+                $stmtHit->execute([':dmg' => $damage, ':id' => $sessionId]);
+
+                // Re-fetch authoritative state
+                $stmt = $pdo->prepare("SELECT boss_current_hp, boss_max_hp, boss_combat_log, boss_defeated, boss_reward_points FROM classroom_sessions WHERE id = :id");
                 $stmt->execute([':id' => $sessionId]);
                 $ses = $stmt->fetch();
                 if (!$ses) liveSessionRespond(['error' => 'ไม่พบเซสชัน'], 404);
 
-                $curHp = (int) $ses['boss_current_hp'];
-                $newHp = max(0, $curHp - $damage);
+                $newHp     = (int) $ses['boss_current_hp'];
                 $isDefeated = $newHp === 0;
 
                 $log = json_decode((string) ($ses['boss_combat_log'] ?? '[]'), true) ?: [];
                 array_unshift($log, [
-                    'id' => 'hit-' . microtime(true),
-                    'studentId' => 'teacher',
+                    'id'          => 'hit-' . microtime(true),
+                    'studentId'   => 'teacher',
                     'studentName' => 'คุณครู (Teacher Strike)',
-                    'damage' => $damage,
-                    'timestamp' => date('c'),
+                    'damage'      => $damage,
+                    'timestamp'   => date('c'),
                 ]);
                 $log = array_slice($log, 0, 50);
 
-                $pdo->prepare("UPDATE classroom_sessions SET boss_current_hp = :nhp, boss_defeated = :def, boss_combat_log = :log WHERE id = :id")->execute([
-                    ':nhp' => $newHp,
-                    ':def' => $isDefeated ? 1 : ($ses['boss_defeated'] ? 1 : 0),
+                $pdo->prepare("UPDATE classroom_sessions SET boss_defeated = :def, boss_combat_log = :log WHERE id = :id")->execute([
+                    ':def' => ($isDefeated || $ses['boss_defeated']) ? 1 : 0,
                     ':log' => json_encode($log, JSON_UNESCAPED_UNICODE),
-                    ':id' => $sessionId,
+                    ':id'  => $sessionId,
                 ]);
 
                 if ($isDefeated && empty($ses['boss_defeated'])) {
@@ -361,10 +379,10 @@ try {
                 }
 
                 liveSessionRespond([
-                    'success' => true,
+                    'success'     => true,
                     'damageDealt' => $damage,
-                    'currentHp' => $newHp,
-                    'isDefeated' => $isDefeated,
+                    'currentHp'   => $newHp,
+                    'isDefeated'  => $isDefeated,
                 ]);
             }
 
@@ -478,6 +496,9 @@ try {
             liveSessionRespond(['error' => 'จำเป็นต้องระบุ sessionId'], 422);
         }
 
+        // P0.1: Verify caller owns this session (admin bypass allowed)
+        authorizeSessionControl($pdo, $sessionId, $currentUserId, $currentUserRole);
+
         $fields = [];
         $params = [':id' => $sessionId];
 
@@ -576,6 +597,7 @@ try {
     if ($method === 'DELETE') {
         $action = trim((string) ($_GET['action'] ?? ''));
         if ($action === 'delete_all_closed') {
+            // delete_all_closed: scoped to own sessions only (admin deletes their own too)
             $pdo->beginTransaction();
             $pdo->prepare("DELETE sp FROM session_participants sp JOIN classroom_sessions cs ON cs.id = sp.session_id WHERE cs.status = 'closed' AND cs.teacher_id = :tid")->execute([':tid' => $currentUserId]);
             $pdo->prepare("DELETE FROM classroom_sessions WHERE status = 'closed' AND teacher_id = :tid")->execute([':tid' => $currentUserId]);
@@ -588,13 +610,12 @@ try {
             liveSessionRespond(['error' => 'จำเป็นต้องระบุ sessionId'], 422);
         }
 
+        // P0.1: Verify caller owns this session before deletion (admin bypass)
+        authorizeSessionControl($pdo, $sessionId, $currentUserId, $currentUserRole);
+
         $pdo->beginTransaction();
         $pdo->prepare("DELETE FROM session_participants WHERE session_id = :sid")->execute([':sid' => $sessionId]);
-        $pdo->prepare("DELETE FROM classroom_sessions WHERE id = :sid AND (teacher_id = :tid OR :isAdmin = 1)")->execute([
-            ':sid' => $sessionId,
-            ':tid' => $currentUserId,
-            ':isAdmin' => ($consoleUser['role'] === 'admin' ? 1 : 0),
-        ]);
+        $pdo->prepare("DELETE FROM classroom_sessions WHERE id = :sid")->execute([':sid' => $sessionId]);
         $pdo->commit();
 
         liveSessionRespond(['success' => true]);

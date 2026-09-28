@@ -170,6 +170,48 @@ function generateSessionPin(PDO $pdo): string
     return (string) (time() % 900000 + 100000);
 }
 
+/**
+ * P0.1 — Session Ownership Guard
+ *
+ * Verifies that $requesterId owns the session before any write/control operation.
+ * Admin users (role = 'admin') are permitted to control any session.
+ *
+ * @param  PDO    $pdo
+ * @param  string $sessionId   The target session ID
+ * @param  int    $requesterId The user performing the action (teacher/admin)
+ * @param  string $role        The requester's role ('admin' bypasses ownership check)
+ * @return array               The session row fetched from DB
+ * @throws RuntimeException    HTTP 403/404 via liveSessionRespond() — never returns on error
+ */
+function authorizeSessionControl(PDO $pdo, string $sessionId, int $requesterId, string $role = ''): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT id, teacher_id, status FROM classroom_sessions WHERE id = :id LIMIT 1"
+    );
+    $stmt->execute([':id' => $sessionId]);
+    $session = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$session) {
+        http_response_code(404);
+        echo json_encode(['error' => 'ไม่พบ Live Session ที่ระบุ'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    // Admin bypass: admins can control any session (for monitoring/support)
+    if ($role === 'admin') {
+        return $session;
+    }
+
+    // Strict ownership: teacher may only control their own session
+    if ((int) $session['teacher_id'] !== $requesterId) {
+        http_response_code(403);
+        echo json_encode(['error' => 'ไม่มีสิทธิ์ควบคุม Session นี้'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    return $session;
+}
+
 function closeOtherActiveSessions(PDO $pdo, int $teacherId, string $exceptSessionId = ''): void
 {
     if ($exceptSessionId !== '') {
