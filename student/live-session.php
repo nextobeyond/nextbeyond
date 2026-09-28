@@ -226,6 +226,415 @@ if ($currentActiveSession) {
       70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
       100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
+
+    /* PIN entry — friendly, branded and intentionally simple for young learners. */
+    .live-entry-stage {
+      position: relative;
+      isolation: isolate;
+      width: 100%;
+      max-width: 1040px;
+      margin-inline: auto;
+      font-family: "IBM Plex Sans Thai", Inter, sans-serif;
+    }
+    .live-entry-stage::before,
+    .live-entry-stage::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      border-radius: 999px;
+      pointer-events: none;
+    }
+    .live-entry-stage::before {
+      width: 180px;
+      height: 180px;
+      top: -56px;
+      right: -72px;
+      background: #ffe3ef;
+    }
+    .live-entry-stage::after {
+      width: 110px;
+      height: 110px;
+      bottom: -36px;
+      left: -42px;
+      background: #dce9ff;
+    }
+    .live-entry-card {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.78fr) minmax(420px, 1.22fr);
+      min-height: 590px;
+      overflow: hidden;
+      border: 1px solid #dbe5f3;
+      border-radius: 32px;
+      background: #ffffff;
+      box-shadow: 0 24px 70px rgba(19, 48, 99, 0.12);
+    }
+    .live-entry-hero {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 46px 42px 32px;
+      color: #ffffff;
+      background: #123f9c;
+    }
+    .live-entry-hero::before {
+      content: "";
+      position: absolute;
+      width: 260px;
+      height: 260px;
+      top: -124px;
+      right: -116px;
+      border: 42px solid rgba(255, 255, 255, 0.08);
+      border-radius: 50%;
+    }
+    .live-entry-hero::after {
+      content: "";
+      position: absolute;
+      width: 340px;
+      height: 170px;
+      left: -55px;
+      bottom: -108px;
+      border-radius: 50% 50% 0 0;
+      background: #ffcc48;
+      transform: rotate(-6deg);
+    }
+    .live-hero-label {
+      position: relative;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: max-content;
+      min-height: 32px;
+      padding: 0 13px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+    .live-hero-label-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ffcf4a;
+      box-shadow: 0 0 0 4px rgba(255, 207, 74, 0.15);
+    }
+    .live-entry-hero h2 {
+      position: relative;
+      z-index: 2;
+      max-width: 320px;
+      margin-top: 28px;
+      color: #ffffff;
+      font-size: clamp(28px, 3vw, 40px);
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.035em;
+    }
+    .live-entry-hero p {
+      position: relative;
+      z-index: 2;
+      max-width: 300px;
+      margin-top: 12px;
+      color: #dce8ff;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.65;
+    }
+    .live-owl-wrap {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex: 1;
+      align-items: flex-end;
+      justify-content: center;
+      min-height: 260px;
+    }
+    .live-owl-wrap img {
+      width: min(270px, 90%);
+      max-height: 300px;
+      object-fit: contain;
+      object-position: bottom center;
+      filter: drop-shadow(0 18px 18px rgba(4, 22, 65, 0.22));
+    }
+    .live-entry-form-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 48px clamp(36px, 5vw, 70px);
+    }
+    .live-entry-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #e72d82;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .live-entry-kicker svg {
+      width: 20px;
+      height: 20px;
+    }
+    .live-entry-form-panel h1 {
+      margin-top: 10px;
+      color: #0b1f43;
+      font-size: clamp(27px, 3vw, 38px);
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.035em;
+    }
+    .live-entry-welcome {
+      margin-top: 9px;
+      color: #60708a;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.6;
+    }
+    .live-entry-form {
+      margin-top: 31px;
+    }
+    .live-pin-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 11px;
+      color: #243758;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .live-pin-label span:last-child {
+      color: #8b98ac;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .pin-code-field {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      cursor: text;
+    }
+    .pin-code-field input {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      outline: 0;
+      opacity: 0.01;
+      cursor: text;
+    }
+    .pin-slot {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 72px;
+      border: 2px solid #d9e2ef;
+      border-radius: 15px;
+      background: #f9fbfe;
+      color: #0b1f43;
+      font-family: Inter, sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      transition: border-color .18s ease, background-color .18s ease, transform .18s ease, box-shadow .18s ease;
+    }
+    .pin-slot::after {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #c9d4e4;
+    }
+    .pin-slot.is-filled {
+      border-color: #aebfda;
+      background: #ffffff;
+    }
+    .pin-slot.is-filled::after { display: none; }
+    .pin-code-field.is-focused .pin-slot.is-next {
+      border-color: #e72d82;
+      background: #fff8fb;
+      box-shadow: 0 0 0 4px rgba(231, 45, 130, 0.1);
+      transform: translateY(-2px);
+    }
+    .live-join-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 56px;
+      margin-top: 18px;
+      border: 0;
+      border-radius: 16px;
+      background: #e72d82;
+      color: #ffffff;
+      box-shadow: 0 10px 22px rgba(231, 45, 130, 0.22);
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform .18s ease, background-color .18s ease, box-shadow .18s ease;
+    }
+    .live-join-button:hover:not(:disabled) {
+      background: #d72174;
+      box-shadow: 0 13px 26px rgba(231, 45, 130, 0.28);
+      transform: translateY(-2px);
+    }
+    .live-join-button:disabled {
+      cursor: wait;
+      opacity: .72;
+    }
+    .live-join-button svg {
+      width: 19px;
+      height: 19px;
+    }
+    .live-join-error {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 11px 13px;
+      border: 1px solid #fecdd3;
+      border-radius: 12px;
+      background: #fff1f2;
+      color: #be123c;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: left;
+    }
+    .live-join-error.hidden { display: none; }
+    .live-entry-help {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      margin-top: 14px;
+      color: #7b889d;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .live-entry-help svg {
+      width: 15px;
+      height: 15px;
+      color: #93a2b8;
+    }
+    .live-entry-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 30px;
+      padding-top: 22px;
+      border-top: 1px solid #edf1f7;
+    }
+    .live-entry-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: #5f6f87;
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .live-entry-step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      flex: 0 0 auto;
+      border-radius: 8px;
+      background: #edf3ff;
+      color: #1949aa;
+      font-size: 10px;
+      font-weight: 900;
+    }
+    .live-sessions-quicklist {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #edf1f7;
+    }
+    .live-sessions-quicklist > p {
+      margin-bottom: 10px;
+      color: #243758;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .live-session-quickitem {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid #e2e9f3;
+      border-radius: 13px;
+      background: #f9fbfe;
+      text-align: left;
+    }
+    .live-session-quickitem + .live-session-quickitem { margin-top: 7px; }
+    .live-session-quickitem a {
+      flex: 0 0 auto;
+      padding: 7px 12px;
+      border-radius: 10px;
+      background: #123f9c;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    @media (max-width: 900px) {
+      .live-entry-card { grid-template-columns: minmax(220px, .68fr) minmax(390px, 1.32fr); }
+      .live-entry-hero { padding-inline: 28px; }
+      .live-entry-form-panel { padding-inline: 34px; }
+    }
+    @media (max-width: 720px) {
+      .student-live-bg { align-items: flex-start !important; }
+      .live-entry-stage::before,
+      .live-entry-stage::after { display: none; }
+      .live-entry-card {
+        display: flex;
+        min-height: 0;
+        flex-direction: column;
+        border-radius: 24px;
+      }
+      .live-entry-hero {
+        min-height: 178px;
+        padding: 25px 24px 20px;
+      }
+      .live-entry-hero h2 {
+        max-width: 220px;
+        margin-top: 15px;
+        font-size: 24px;
+      }
+      .live-entry-hero p { display: none; }
+      .live-owl-wrap {
+        position: absolute;
+        right: 9px;
+        bottom: -6px;
+        min-height: 0;
+        width: 145px;
+      }
+      .live-owl-wrap img { width: 140px; max-height: 150px; }
+      .live-entry-hero::after {
+        width: 220px;
+        height: 100px;
+        right: -90px;
+        left: auto;
+        bottom: -75px;
+      }
+      .live-entry-form-panel { padding: 28px 21px 24px; }
+      .live-entry-form-panel h1 { font-size: 25px; }
+      .live-entry-form { margin-top: 24px; }
+      .pin-code-field { gap: 6px; }
+      .pin-slot { height: 52px; border-radius: 12px; font-size: 24px; }
+      .live-entry-steps { margin-top: 24px; }
+      .live-entry-step { flex-direction: column; gap: 5px; text-align: center; white-space: normal; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pin-slot,
+      .live-join-button { transition: none; }
+    }
   </style>
 </head>
 <body class="student-portal bg-[#f4f7fb] text-navy-950 font-sans antialiased">
@@ -245,7 +654,7 @@ if ($currentActiveSession) {
   <div class="flex-1 flex flex-col min-w-0 ml-[240px] max-[1024px]:ml-0">
     <?php include 'includes/topbar.php'; ?>
     <main class="flex-1 p-4 sm:p-8 flex items-center justify-center student-live-bg">
-      <div class="max-w-2xl w-full space-y-6">
+      <div class="<?= $currentActiveSession ? 'max-w-2xl' : 'max-w-5xl' ?> w-full space-y-6">
 
         <?php if ($currentActiveSession): ?>
           <!-- ============================================================= -->
@@ -438,104 +847,96 @@ if ($currentActiveSession) {
           <!-- ============================================================= -->
           <!-- MODE 2: PIN ENTRY & DISCOVERY (กรอกรหัสเข้าร่วมห้องเรียนสด)      -->
           <!-- ============================================================= -->
-          <div class="card-lobby p-6 sm:p-8 rounded-3xl text-center space-y-6">
-            
-            <div class="space-y-2">
-              <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-pink-500 via-rose-500 to-indigo-500 text-white flex items-center justify-center text-4xl mx-auto shadow-xl shadow-pink-500/25">
-                🎮
+          <div class="live-entry-stage">
+            <section class="live-entry-card" aria-labelledby="live-entry-title">
+              <div class="live-entry-hero">
+                <div class="live-hero-label">
+                  <span class="live-hero-label-dot" aria-hidden="true"></span>
+                  ห้องเรียนสด
+                </div>
+                <h2>วันนี้เราจะเรียนรู้อะไรกันนะ?</h2>
+                <p>เตรียมตัวให้พร้อม แล้วใช้รหัสจากคุณครูเพื่อเข้าห้องเรียนได้เลย</p>
+                <div class="live-owl-wrap" aria-hidden="true">
+                  <img src="../assets/images/next-owl.png" alt="" width="457" height="500">
+                </div>
               </div>
 
-              <div class="pt-1">
-                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-50 text-pink-600 font-extrabold text-[11px] mb-1.5 border border-pink-100">
-                  <span>✨</span> <span>LIVE CLASSROOM SESSION</span> <span>✨</span>
+              <div class="live-entry-form-panel">
+                <div class="live-entry-kicker">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                  </svg>
+                  พร้อมเข้าเรียน
                 </div>
-                <h1 class="text-2xl sm:text-3xl font-black text-navy-950 tracking-tight">
-                  เข้าร่วมห้องเรียนสด
-                </h1>
-                <p class="text-xs sm:text-sm text-slate-500 font-medium max-w-xs mx-auto">
-                  สวัสดี <strong><?= htmlspecialchars($studentFirstName) ?></strong>! 👋<br>
-                  กรอกรหัส PIN 6 หลักที่คุณครูฉายหน้าห้องเพื่อเข้าห้องเรียน
+                <h1 id="live-entry-title">ใส่รหัสจากคุณครู</h1>
+                <p class="live-entry-welcome">
+                  สวัสดี <strong><?= htmlspecialchars($studentFirstName) ?></strong> กรอกรหัส 6 หลักที่คุณครูให้มาได้เลย
                 </p>
-              </div>
-            </div>
 
-            <!-- PIN Form Area -->
-            <form id="join-pin-form" class="space-y-4">
-              <div id="join-error" class="hidden p-3.5 rounded-2xl bg-rose-50 text-rose-600 text-xs font-bold border border-rose-200"></div>
+                <form id="join-pin-form" class="live-entry-form">
+                  <div id="join-error" class="live-join-error hidden" role="alert"></div>
 
-              <div class="space-y-2">
-                <label for="session-pin" class="block text-xs font-black uppercase text-slate-600 tracking-wider">
-                  🔑 รหัส PIN 6 หลัก (Room PIN)
-                </label>
-                
-                <div class="relative">
-                  <input
-                    id="session-pin"
-                    name="sessionPin"
-                    type="text"
-                    inputmode="numeric"
-                    pattern="[0-9]*"
-                    maxlength="6"
-                    required
-                    autocomplete="off"
-                    placeholder="000000"
-                    value="<?= htmlspecialchars($reqPin) ?>"
-                    class="pin-input-field w-full text-center text-3xl sm:text-4xl font-mono font-black h-18 sm:h-20 rounded-2xl border-2 border-slate-300 outline-none text-navy-950"
-                    autofocus
-                  >
-                </div>
-              </div>
+                  <label for="session-pin" class="live-pin-label">
+                    <span>รหัสเข้าห้องเรียน</span>
+                    <span>ตัวเลข 6 หลัก</span>
+                  </label>
 
-              <button
-                type="submit"
-                id="btn-join-session"
-                class="btn-join-gamified w-full h-14 rounded-2xl font-black text-base flex items-center justify-center gap-2.5 cursor-pointer shadow-lg"
-              >
-                <span>🚀 เข้าสู่ห้องเรียนสด</span>
-              </button>
-            </form>
+                  <div id="pin-code-field" class="pin-code-field">
+                    <input
+                      id="session-pin"
+                      name="sessionPin"
+                      type="text"
+                      inputmode="numeric"
+                      pattern="[0-9]*"
+                      maxlength="6"
+                      required
+                      autocomplete="one-time-code"
+                      aria-describedby="pin-help"
+                      value="<?= htmlspecialchars($reqPin) ?>"
+                      autofocus
+                    >
+                    <?php for ($pinIndex = 0; $pinIndex < 6; $pinIndex++): ?>
+                      <span class="pin-slot" aria-hidden="true"></span>
+                    <?php endfor; ?>
+                  </div>
 
-            <!-- Active Sessions of Today (if any) -->
-            <?php if (!empty($todaySessions)): ?>
-              <div class="pt-4 border-t border-slate-100 text-left space-y-2.5">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-black text-slate-700 uppercase tracking-wider">🔴 ห้องเรียนสดที่กำลังเปิดสอนอยู่</span>
-                </div>
-                <div class="space-y-2">
-                  <?php foreach ($todaySessions as $ts): ?>
-                    <div class="p-3 rounded-2xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 flex items-center justify-between gap-3 transition">
-                      <div>
-                        <h4 class="text-xs font-bold text-slate-900"><?= htmlspecialchars($ts['title']) ?></h4>
-                        <p class="text-[11px] text-slate-500">ครูผู้สอน: <?= htmlspecialchars($ts['teacher_name']) ?> • PIN: <strong class="font-mono font-bold text-slate-800">#<?= htmlspecialchars($ts['session_pin']) ?></strong></p>
+                  <button type="submit" id="btn-join-session" class="live-join-button">
+                    <span>เข้าห้องเรียน</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-5-5 5 5-5 5"/>
+                    </svg>
+                  </button>
+
+                  <p id="pin-help" class="live-entry-help">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 10v6m0-9h.01"/>
+                    </svg>
+                    ยังไม่มีรหัส? ยกมือถามคุณครูได้เลย
+                  </p>
+                </form>
+
+                <?php if (!empty($todaySessions)): ?>
+                  <div class="live-sessions-quicklist">
+                    <p>ห้องที่กำลังเปิดอยู่</p>
+                    <?php foreach ($todaySessions as $ts): ?>
+                      <div class="live-session-quickitem">
+                        <div class="min-w-0">
+                          <h3 class="truncate text-xs font-bold text-slate-900"><?= htmlspecialchars($ts['title']) ?></h3>
+                          <span class="text-[10px] text-slate-500">คุณครู <?= htmlspecialchars($ts['teacher_name']) ?></span>
+                        </div>
+                        <a href="live-session.php?sessionId=<?= urlencode($ts['id']) ?>">เข้าร่วม</a>
                       </div>
-                      <a href="live-session.php?sessionId=<?= urlencode($ts['id']) ?>" class="px-3.5 py-1.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs transition shrink-0 cursor-pointer">
-                        เข้าร่วม
-                      </a>
-                    </div>
-                  <?php endforeach; ?>
-                </div>
+                    <?php endforeach; ?>
+                  </div>
+                <?php else: ?>
+                  <div class="live-entry-steps" aria-label="ขั้นตอนเข้าห้องเรียน">
+                    <div class="live-entry-step"><span class="live-entry-step-number">1</span><span>รับรหัสจากครู</span></div>
+                    <div class="live-entry-step"><span class="live-entry-step-number">2</span><span>กรอกให้ครบ 6 หลัก</span></div>
+                    <div class="live-entry-step"><span class="live-entry-step-number">3</span><span>กดเข้าห้องเรียน</span></div>
+                  </div>
+                <?php endif; ?>
               </div>
-            <?php endif; ?>
-
-            <!-- Kid-Friendly Guidance Badges -->
-            <div class="grid grid-cols-2 gap-2.5 pt-4 border-t border-slate-100 text-[11px] text-slate-600">
-              <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-2.5 text-left">
-                <span class="text-xl shrink-0">👀</span>
-                <div>
-                  <strong class="block text-slate-800 font-bold">Eyes On Me</strong>
-                  <span class="text-[10px] text-slate-500">รอฟังคุณครูอธิบายเมื่อจอล็อก</span>
-                </div>
-              </div>
-
-              <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-2.5 text-left">
-                <span class="text-xl shrink-0">⚡</span>
-                <div>
-                  <strong class="block text-slate-800 font-bold">รู้ผลสอบสด</strong>
-                  <span class="text-[10px] text-slate-500">ส่งแล้วตรวจผลคะแนนทันที</span>
-                </div>
-              </div>
-            </div>
-
+            </section>
           </div>
         <?php endif; ?>
 
@@ -596,24 +997,44 @@ if ($currentActiveSession) {
     const input = document.getElementById("session-pin");
     const btn = document.getElementById("btn-join-session");
     const errBox = document.getElementById("join-error");
+    const pinField = document.getElementById("pin-code-field");
+    const pinSlots = Array.from(pinField?.querySelectorAll(".pin-slot") || []);
+
+    const renderPin = () => {
+      const normalizedPin = input.value.replace(/[^0-9]/g, "").slice(0, 6);
+      if (input.value !== normalizedPin) input.value = normalizedPin;
+      const digits = normalizedPin.split("");
+      pinSlots.forEach((slot, index) => {
+        slot.textContent = digits[index] || "";
+        slot.classList.toggle("is-filled", Boolean(digits[index]));
+        slot.classList.toggle("is-next", index === Math.min(digits.length, 5) && digits.length < 6);
+      });
+    };
 
     input.addEventListener("input", (e) => {
       e.target.value = e.target.value.replace(/[^0-9]/g, "");
+      errBox.classList.add("hidden");
+      renderPin();
     });
+    input.addEventListener("focus", () => pinField?.classList.add("is-focused"));
+    input.addEventListener("blur", () => pinField?.classList.remove("is-focused"));
+    pinField?.addEventListener("click", () => input.focus());
+    renderPin();
+    if (document.activeElement === input) pinField?.classList.add("is-focused");
 
     form.onsubmit = async (e) => {
       e.preventDefault();
       errBox.classList.add("hidden");
       const pin = input.value.trim();
       if (pin.length !== 6) {
-        errBox.textContent = "กรุณากรอกรหัส PIN ให้ครบ 6 หลัก";
+        errBox.textContent = "กรอกรหัสให้ครบ 6 หลักก่อนนะ";
         errBox.classList.remove("hidden");
         input.focus();
         return;
       }
 
       btn.disabled = true;
-      btn.innerHTML = `<span class="animate-pulse">⏳ กำลังเชื่อมต่อห้องเรียนสด...</span>`;
+      btn.innerHTML = `<span class="animate-pulse">กำลังพาเข้าห้องเรียน...</span>`;
 
       try {
         const res = await fetch("live-session-api.php?action=join", {
@@ -624,14 +1045,14 @@ if ($currentActiveSession) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "ไม่สามารถเข้าร่วมห้องเรียนได้");
         
-        btn.innerHTML = `<span>🎉 เชื่อมต่อสำเร็จ! เข้าสู่ห้องเรียน...</span>`;
+        btn.innerHTML = `<span>เชื่อมต่อแล้ว กำลังเข้าห้องเรียน...</span>`;
         // Navigate to the Live Classroom Lobby (NOT take-test.php!)
         window.location.href = data.lobbyUrl || ("live-session.php?sessionId=" + encodeURIComponent(data.session.id));
       } catch (err) {
         errBox.textContent = err.message;
         errBox.classList.remove("hidden");
         btn.disabled = false;
-        btn.innerHTML = `<span>🚀 เข้าสู่ห้องเรียนสด</span>`;
+        btn.innerHTML = `<span>ลองเข้าห้องเรียนอีกครั้ง</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-5-5 5 5-5 5"/></svg>`;
         input.select();
       }
     };
