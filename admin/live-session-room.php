@@ -304,6 +304,33 @@ $currentPage = 'live-sessions.php';
             <span class="text-xs font-bold text-pink-950">มอบหมายงานหลังเรียน</span>
             <span class="text-[10px] text-pink-700">Worksheet / Homework</span>
           </button>
+
+          <!-- 10. Pulse Question / Kahoot Mode (P1.1) -->
+          <button type="button" data-open-modal="pulse_question" class="p-4 rounded-2xl bg-violet-50/90 hover:bg-violet-100 border border-violet-200 flex flex-col items-center justify-center space-y-2 cursor-pointer shadow-xs group transition-all">
+            <div class="w-10 h-10 rounded-2xl bg-violet-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <span class="text-xs font-bold text-violet-950">Pulse Question</span>
+            <span class="text-[10px] text-violet-700">ยิงคำถาม Kahoot</span>
+          </button>
+
+          <!-- 11. AI Classroom Radar (P2.1) -->
+          <button type="button" id="btn-open-radar" data-open-modal="ai_radar" class="p-4 rounded-2xl bg-rose-50/90 hover:bg-rose-100 border border-rose-200 flex flex-col items-center justify-center space-y-2 cursor-pointer shadow-xs group transition-all">
+            <div class="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6a6 6 0 100 12A6 6 0 0012 6z"/></svg>
+            </div>
+            <span class="text-xs font-bold text-rose-950">AI Radar</span>
+            <span class="text-[10px] text-rose-700">วิเคราะห์จุดสับสน</span>
+          </button>
+
+          <!-- 12. Session Report (P1.4) -->
+          <a href="live-session-report.php?sessionId=<?= urlencode($sessionId) ?>" target="_blank" class="p-4 rounded-2xl bg-teal-50/90 hover:bg-teal-100 border border-teal-200 flex flex-col items-center justify-center space-y-2 cursor-pointer shadow-xs group transition-all">
+            <div class="w-10 h-10 rounded-2xl bg-teal-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <span class="text-xs font-bold text-teal-950">รายงานสรุปผล</span>
+            <span class="text-[10px] text-teal-700">ดาวน์โหลด CSV</span>
+          </a>
         </div>
 
         <!-- SECTION 6: Live Student Progress Pills -->
@@ -338,6 +365,261 @@ $currentPage = 'live-sessions.php';
     </div>
   </div>
 </div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     P1.1 PULSE QUESTION MODAL (Kahoot Mode)
+     ══════════════════════════════════════════════════════════════ -->
+<div id="pulse-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+  <div class="bg-white rounded-3xl w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh]">
+    <div class="flex items-center justify-between p-5 border-b border-slate-100">
+      <div>
+        <h3 class="font-bold text-slate-900">⚡ Pulse Question — Kahoot Mode</h3>
+        <p class="text-xs text-slate-500 mt-0.5">ยิงคำถามสด นักเรียนตอบพร้อมกัน</p>
+      </div>
+      <button id="btn-close-pulse" class="text-slate-400 hover:text-slate-600 font-black text-lg p-1 cursor-pointer">✕</button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5 space-y-4">
+
+      <!-- Active Question Display -->
+      <div id="pulse-active-section" class="hidden space-y-3">
+        <div class="p-4 rounded-2xl bg-violet-50 border border-violet-200">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-bold text-violet-700">📊 คำถามที่กำลัง Live อยู่</span>
+            <span id="pulse-expires-badge" class="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full"></span>
+          </div>
+          <p id="pulse-active-text" class="text-sm font-bold text-slate-800 mt-1"></p>
+        </div>
+        <div id="pulse-results-grid" class="grid grid-cols-2 gap-2"></div>
+        <div class="flex gap-2">
+          <button id="btn-close-pulse-q" class="flex-1 px-4 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold cursor-pointer transition-colors">🔒 ปิดรับคำตอบ</button>
+          <button id="btn-clear-pulse" class="px-4 py-2.5 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 text-sm font-bold cursor-pointer transition-colors">🗑 ล้าง</button>
+        </div>
+      </div>
+
+      <!-- New Question Form -->
+      <div id="pulse-new-section" class="space-y-3">
+        <div>
+          <label class="text-xs font-bold text-slate-700 block mb-1">คำถาม</label>
+          <textarea id="pulse-q-text" rows="2" placeholder="พิมพ์คำถามที่นี่..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-2" id="pulse-options-grid">
+          <div><label class="text-[10px] font-bold text-slate-500 mb-0.5 block">ตัวเลือก A</label><input id="pulse-opt-A" placeholder="ตัวเลือก A" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"></div>
+          <div><label class="text-[10px] font-bold text-slate-500 mb-0.5 block">ตัวเลือก B</label><input id="pulse-opt-B" placeholder="ตัวเลือก B" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"></div>
+          <div><label class="text-[10px] font-bold text-slate-500 mb-0.5 block">ตัวเลือก C (ไม่บังคับ)</label><input id="pulse-opt-C" placeholder="ตัวเลือก C" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"></div>
+          <div><label class="text-[10px] font-bold text-slate-500 mb-0.5 block">ตัวเลือก D (ไม่บังคับ)</label><input id="pulse-opt-D" placeholder="ตัวเลือก D" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-bold text-slate-700 block mb-1">คำตอบที่ถูก (ไม่บังคับ)</label>
+            <select id="pulse-correct-key" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm">
+              <option value="">-- Poll (ไม่มีเฉลย) --</option>
+              <option value="A">A</option><option value="B">B</option>
+              <option value="C">C</option><option value="D">D</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-bold text-slate-700 block mb-1">เวลา (วินาที)</label>
+            <select id="pulse-duration" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm">
+              <option value="">ไม่จำกัด</option>
+              <option value="30">30 วิ</option><option value="60" selected>60 วิ</option>
+              <option value="90">90 วิ</option><option value="120">2 นาที</option>
+            </select>
+          </div>
+        </div>
+        <button id="btn-push-pulse" class="w-full px-4 py-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold cursor-pointer transition-colors flex items-center justify-center gap-2">
+          ⚡ ยิงคำถามสด
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     P2.1 AI RADAR MODAL
+     ══════════════════════════════════════════════════════════════ -->
+<div id="radar-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+  <div class="bg-white rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
+    <div class="flex items-center justify-between p-5 border-b border-slate-100">
+      <div>
+        <h3 class="font-bold text-slate-900">🎯 AI Classroom Radar</h3>
+        <p class="text-xs text-slate-500 mt-0.5">วิเคราะห์จุดสับสนของห้องเรียนด้วย AI</p>
+      </div>
+      <button id="btn-close-radar" class="text-slate-400 hover:text-slate-600 font-black text-lg p-1 cursor-pointer">✕</button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <div id="radar-loading" class="hidden text-center py-10">
+        <div class="w-10 h-10 border-4 border-rose-200 border-t-rose-500 rounded-full animate-spin mx-auto mb-3"></div>
+        <p class="text-sm text-slate-500">AI กำลังวิเคราะห์ข้อมูลห้องเรียน...</p>
+      </div>
+      <div id="radar-empty" class="text-center py-10">
+        <div class="text-4xl mb-3">🎯</div>
+        <p class="text-sm text-slate-600 font-semibold">กด "วิเคราะห์ด้วย AI" เพื่อเริ่มต้น</p>
+        <p class="text-xs text-slate-400 mt-1">ระบบจะรวมข้อมูลคำตอบผิดและ UC signals แล้วส่งให้ Gemini AI วิเคราะห์</p>
+        <button id="btn-run-radar" class="mt-4 px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm cursor-pointer transition-colors">🤖 วิเคราะห์ด้วย AI</button>
+      </div>
+      <div id="radar-result" class="hidden space-y-4">
+        <!-- Risk Badge -->
+        <div id="radar-risk-badge" class="flex items-center gap-3 p-4 rounded-2xl border"></div>
+        <!-- Confusion Clusters -->
+        <div>
+          <h4 class="text-sm font-bold text-slate-800 mb-2">🔴 จุดที่ห้องเรียนสับสน</h4>
+          <div id="radar-clusters" class="space-y-2"></div>
+        </div>
+        <!-- Teacher Actions -->
+        <div>
+          <h4 class="text-sm font-bold text-slate-800 mb-2">📋 แนะนำสำหรับครู</h4>
+          <div id="radar-actions" class="space-y-2"></div>
+        </div>
+        <!-- Remediation Button -->
+        <div class="pt-2 border-t border-slate-100 flex gap-2">
+          <button id="btn-approve-all-remediation" class="flex-1 px-4 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-sm font-bold cursor-pointer transition-colors">🔧 สร้างแผนซ่อมเสริมอัตโนมัติ</button>
+          <button id="btn-rerun-radar" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold cursor-pointer transition-colors">🔄 วิเคราะห์ใหม่</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const SID = <?= json_encode($sessionId) ?>;
+  const PULSE_API = '../admin/live-pulse-api.php';
+  const RADAR_API = '../admin/live-classroom-radar-api.php';
+  const REMED_API = '../admin/live-remediation-api.php';
+
+  // ── PULSE QUESTION ─────────────────────────────────────────────
+  const pulseModal = document.getElementById('pulse-modal');
+  document.querySelectorAll('[data-open-modal="pulse_question"]').forEach(btn => {
+    btn.addEventListener('click', () => { pulseModal.classList.remove('hidden'); loadPulseStatus(); });
+  });
+  document.getElementById('btn-close-pulse').addEventListener('click', () => pulseModal.classList.add('hidden'));
+
+  async function loadPulseStatus() {
+    const res = await fetch(`${PULSE_API}?action=status&sessionId=${SID}`).then(r=>r.json()).catch(()=>({}));
+    const activeSection = document.getElementById('pulse-active-section');
+    const newSection = document.getElementById('pulse-new-section');
+    if (res.active && res.question) {
+      activeSection.classList.remove('hidden');
+      newSection.classList.add('hidden');
+      document.getElementById('pulse-active-text').textContent = res.question.text;
+      const exp = res.question.expiresAt ? new Date(res.question.expiresAt) : null;
+      document.getElementById('pulse-expires-badge').textContent = exp ? `หมดเวลา ${exp.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}` : 'ไม่จำกัดเวลา';
+      loadPulseResults(res.question.id);
+    } else {
+      activeSection.classList.add('hidden');
+      newSection.classList.remove('hidden');
+    }
+  }
+
+  async function loadPulseResults(qId) {
+    const res = await fetch(`${PULSE_API}?action=results&sessionId=${SID}&questionId=${qId}`).then(r=>r.json()).catch(()=>({}));
+    const grid = document.getElementById('pulse-results-grid');
+    if (!res.results) return;
+    const colors = {A:'bg-blue-100 border-blue-300 text-blue-800',B:'bg-rose-100 border-rose-300 text-rose-800',C:'bg-amber-100 border-amber-300 text-amber-800',D:'bg-emerald-100 border-emerald-300 text-emerald-800'};
+    grid.innerHTML = Object.entries(res.results).map(([k,v]) => `
+      <div class="p-3 rounded-xl border ${colors[k]||'bg-slate-50 border-slate-200 text-slate-700'}">
+        <div class="flex justify-between items-center">
+          <span class="font-bold text-sm">${k}: ${v.label||'?'}</span>
+          <span class="text-lg font-black">${v.pct||0}%</span>
+        </div>
+        <div class="mt-1.5 h-2 bg-white/60 rounded-full overflow-hidden">
+          <div class="h-full rounded-full bg-current opacity-60 transition-all" style="width:${v.pct||0}%"></div>
+        </div>
+        <span class="text-[10px] font-semibold">${v.count||0} คน</span>
+      </div>`).join('');
+  }
+
+  document.getElementById('btn-push-pulse').addEventListener('click', async () => {
+    const text = document.getElementById('pulse-q-text').value.trim();
+    const optA = document.getElementById('pulse-opt-A').value.trim();
+    const optB = document.getElementById('pulse-opt-B').value.trim();
+    if (!text || !optA || !optB) { alert('กรุณากรอกคำถามและตัวเลือก A, B อย่างน้อย'); return; }
+    const opts = {};
+    ['A','B','C','D'].forEach(k => { const v=document.getElementById(`pulse-opt-${k}`).value.trim(); if(v) opts[k]=v; });
+    const body = { sessionId:SID, questionText:text, options:opts };
+    const ck = document.getElementById('pulse-correct-key').value;
+    if (ck) body.correctKey = ck;
+    const dur = document.getElementById('pulse-duration').value;
+    if (dur) body.durationSeconds = parseInt(dur);
+    const btn = document.getElementById('btn-push-pulse');
+    btn.disabled=true; btn.textContent='⏳ กำลังส่ง...';
+    const res = await fetch(`${PULSE_API}?action=push`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).catch(e=>({error:e.message}));
+    btn.disabled=false; btn.innerHTML='⚡ ยิงคำถามสด';
+    if (res.error) { alert('Error: '+res.error); return; }
+    loadPulseStatus();
+  });
+
+  document.getElementById('btn-close-pulse-q').addEventListener('click', async () => {
+    await fetch(`${PULSE_API}?action=close`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:SID})});
+    loadPulseStatus();
+  });
+  document.getElementById('btn-clear-pulse').addEventListener('click', async () => {
+    if (!confirm('ล้างคำถาม Pulse ทั้งหมดใน session นี้?')) return;
+    await fetch(`${PULSE_API}?action=clear&sessionId=${SID}`, {method:'DELETE'});
+    loadPulseStatus();
+  });
+
+  // ── AI RADAR ───────────────────────────────────────────────────
+  const radarModal = document.getElementById('radar-modal');
+  document.querySelectorAll('[data-open-modal="ai_radar"], #btn-open-radar').forEach(btn => {
+    btn.addEventListener('click', () => radarModal.classList.remove('hidden'));
+  });
+  document.getElementById('btn-close-radar').addEventListener('click', () => radarModal.classList.add('hidden'));
+
+  async function runRadar() {
+    document.getElementById('radar-empty').classList.add('hidden');
+    document.getElementById('radar-result').classList.add('hidden');
+    document.getElementById('radar-loading').classList.remove('hidden');
+    const res = await fetch(`${RADAR_API}?action=radar&sessionId=${SID}`).then(r=>r.json()).catch(()=>({}));
+    document.getElementById('radar-loading').classList.add('hidden');
+    if (!res.ok || !res.radar) {
+      document.getElementById('radar-empty').classList.remove('hidden');
+      document.getElementById('radar-empty').querySelector('p').textContent = res.message || 'ยังไม่มีข้อมูลเพียงพอ';
+      return;
+    }
+    renderRadar(res.radar);
+  }
+
+  function renderRadar(r) {
+    const resultDiv = document.getElementById('radar-result');
+    resultDiv.classList.remove('hidden');
+    // Risk badge
+    const riskColors = {low:'bg-green-50 border-green-300 text-green-800',medium:'bg-amber-50 border-amber-300 text-amber-800',high:'bg-rose-50 border-rose-300 text-rose-800'};
+    const riskEmoji = {low:'🟢',medium:'🟡',high:'🔴'};
+    document.getElementById('radar-risk-badge').className = `flex items-center gap-3 p-4 rounded-2xl border ${riskColors[r.overallRisk]||riskColors.medium}`;
+    document.getElementById('radar-risk-badge').innerHTML = `<span class="text-2xl">${riskEmoji[r.overallRisk]||'⚠️'}</span><div><p class="font-bold text-sm">${r.overallRisk==='high'?'ความเสี่ยงสูง':r.overallRisk==='medium'?'ความเสี่ยงปานกลาง':'ห้องเรียนเข้าใจดี'}</p><p class="text-xs mt-0.5">${r.riskReason||''}</p></div>`;
+    // Clusters
+    const clusters = document.getElementById('radar-clusters');
+    clusters.innerHTML = (r.confusionClusters||[]).map(c => `
+      <div class="p-3 rounded-xl border border-rose-100 bg-rose-50">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-sm text-rose-900">${c.topic}</span>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${c.severity==='high'?'bg-rose-200 text-rose-800':c.severity==='medium'?'bg-amber-100 text-amber-800':'bg-slate-100 text-slate-600'}">${c.studentCount} คน</span>
+        </div>
+        <p class="text-xs text-slate-600 mt-1">${c.signal}</p>
+        <p class="text-xs text-rose-700 font-semibold mt-1">💡 ${c.quickFix}</p>
+      </div>`).join('') || '<p class="text-sm text-slate-400">ไม่พบจุดสับสนที่ชัดเจน</p>';
+    // Actions
+    const actions = document.getElementById('radar-actions');
+    actions.innerHTML = (r.teacherActions||[]).map(a => `
+      <div class="flex gap-2 items-start p-3 rounded-xl bg-slate-50 border border-slate-200">
+        <span class="text-sm mt-0.5">${a.priority==='immediate'?'🔥':a.priority==='soon'?'📌':'💭'}</span>
+        <div><p class="text-sm font-semibold text-slate-800">${a.action}</p><p class="text-xs text-slate-500 mt-0.5">${a.reason}</p></div>
+      </div>`).join('');
+  }
+
+  document.getElementById('btn-run-radar').addEventListener('click', runRadar);
+  document.getElementById('btn-rerun-radar').addEventListener('click', runRadar);
+  document.getElementById('btn-approve-all-remediation').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-approve-all-remediation');
+    btn.disabled=true; btn.textContent='⏳ กำลังสร้าง...';
+    const res = await fetch(`${REMED_API}?action=approve_all&sessionId=${SID}`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({teacherNote:'จาก AI Radar'})}).then(r=>r.json()).catch(()=>({}));
+    btn.disabled=false; btn.innerHTML='🔧 สร้างแผนซ่อมเสริมอัตโนมัติ';
+    if (res.ok) alert(`✅ สร้างแผนซ่อมเสริมสำเร็จ ${res.processed} กลุ่ม\nดูได้ที่ Interventions`);
+    else alert('Error: '+(res.error||'Unknown'));
+  });
+})();
+</script>
 
 </body>
 </html>
