@@ -39,7 +39,7 @@ require_once __DIR__ . '/includes/guard.php';
       </section>
 
     </main>
-    <?php include 'includes/bottom-nav.php'; ?>
+
   </div>
 </div>
 </body>

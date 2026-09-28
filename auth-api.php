@@ -184,6 +184,71 @@ try {
         authRespond(['success' => true, 'user' => ['id' => $userId, 'email' => $email, 'name' => $firstName . ' ' . $lastName, 'role' => 'student']], 201);
     }
 
+    if ($action === 'forgot-password') {
+        $email = trim(strtolower((string) ($data['email'] ?? '')));
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            authRespond(['error' => 'อีเมลไม่ถูกต้อง'], 400);
+        }
+        
+        $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :email LIMIT 1');
+        $stmt->execute([':email' => $email]);
+        $user = $stmt->fetch();
+        
+        if (!$user) {
+            authRespond(['error' => 'ไม่พบบัญชีผู้ใช้นี้ในระบบ'], 404);
+        }
+        
+        $token = bin2hex(random_bytes(32));
+        $expires = date('Y-m-d H:i:s', time() + 3600); // 1 hour
+        
+        $insert = $pdo->prepare('INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (:user_id, :token_hash, :expires_at)');
+        $insert->execute([
+            ':user_id' => $user['id'],
+            ':token_hash' => hash('sha256', $token),
+            ':expires_at' => $expires
+        ]);
+        
+        $resetLink = 'auth.php?action=reset-password&token=' . $token;
+        authRespond(['success' => true, 'message' => 'Token generated', 'resetLink' => $resetLink]);
+    }
+
+    if ($action === 'reset-password') {
+        $token = trim((string) ($data['token'] ?? ''));
+        $password = (string) ($data['password'] ?? '');
+        
+        if ($token === '' || $password === '') {
+            authRespond(['error' => 'ข้อมูลไม่ครบถ้วน'], 400);
+        }
+        
+        $tokenHash = hash('sha256', $token);
+        
+        $stmt = $pdo->prepare('SELECT user_id, expires_at, used_at FROM password_reset_tokens WHERE token_hash = :token_hash LIMIT 1');
+        $stmt->execute([':token_hash' => $tokenHash]);
+        $resetData = $stmt->fetch();
+        
+        if (!$resetData || $resetData['used_at'] !== null) {
+            authRespond(['error' => 'ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้อง หรือถูกใช้งานไปแล้ว'], 400);
+        }
+        
+        if (strtotime($resetData['expires_at']) < time()) {
+            authRespond(['error' => 'ลิงก์รีเซ็ตรหัสผ่านหมดอายุแล้ว กรุณาทำรายการใหม่'], 400);
+        }
+        
+        $pdo->beginTransaction();
+        
+        $update = $pdo->prepare('UPDATE users SET password_hash = :hash WHERE id = :id');
+        $update->execute([
+            ':hash' => password_hash($password, PASSWORD_DEFAULT),
+            ':id' => $resetData['user_id']
+        ]);
+        
+        $markUsed = $pdo->prepare('UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = :token_hash');
+        $markUsed->execute([':token_hash' => $tokenHash]);
+        
+        $pdo->commit();
+        authRespond(['success' => true]);
+    }
+
     if ($action === 'logout') {
         $_SESSION = [];
         session_destroy();

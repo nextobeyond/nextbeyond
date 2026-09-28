@@ -175,7 +175,7 @@ $cssVersion = (string)filemtime(__DIR__ . '/../assets/css/student-exam.css');
   <div id="no-results" class="exam-empty" hidden>ไม่พบข้อสอบที่ตรงกับการค้นหา</div>
   </div>
 </main>
-<?php include 'includes/bottom-nav.php'; ?>
+
 </div>
 </div>
 <script>

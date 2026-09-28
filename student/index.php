@@ -364,81 +364,7 @@ try {
 
     <main class="flex-1 p-8 max-[640px]:p-4">
 
-      <section class="student-mobile-home" aria-label="หน้าแรกนักเรียนบนมือถือ">
-        <div class="mobile-home-intro">
-          <p>สวัสดี <?= htmlspecialchars($firstName) ?> 👋</p>
-          <h1>ก้าวต่อไปของคุณ</h1>
-          <span>เรียนทีละก้าว ไปให้ไกลกว่าเดิม</span>
-        </div>
-
-        <article class="mobile-learning-hero">
-          <div class="mobile-hero-orbit" aria-hidden="true"></div>
-          <div class="mobile-hero-copy">
-            <?php if ($primaryNextAction): ?>
-              <span class="mobile-hero-label">เรียนต่อจากเดิม</span>
-              <h2><?= htmlspecialchars($primaryNextAction['course_title']) ?></h2>
-              <p><?= htmlspecialchars($primaryNextAction['title']) ?></p>
-              <div class="mobile-progress"><i style="width:<?= $featuredProgress ?>%"></i></div>
-              <small><?= htmlspecialchars($primaryNextAction['topic'] ?: ($featuredLessonTotal > 0 ? 'เรียนแล้ว ' . $featuredLessonDone . ' จาก ' . $featuredLessonTotal . ' บท' : 'ภารกิจถัดไป')) ?></small>
-              <a href="<?= htmlspecialchars(resolveStudentActionUrl($primaryNextAction['action_url'])) ?>" class="mobile-primary">▶ เรียนต่อ</a>
-            <?php elseif ($featuredCourse): ?>
-              <span class="mobile-hero-label">เรียนต่อจากเดิม</span>
-              <h2><?= htmlspecialchars($featuredCourse['title']) ?></h2>
-              <p><?= htmlspecialchars($featuredLesson['title'] ?? ($featuredCourse['subject'] ?: 'บทเรียนของคุณ')) ?></p>
-              <div class="mobile-progress"><i style="width:<?= $featuredProgress ?>%"></i></div>
-              <small><?= $featuredLessonTotal > 0 ? 'เรียนแล้ว ' . $featuredLessonDone . ' จาก ' . $featuredLessonTotal . ' บท' : 'ความคืบหน้า ' . $featuredProgress . '%' ?></small>
-              <a href="<?= $featuredLesson ? '../lesson.php?id=' . (int)$featuredLesson['id'] : 'my-courses.php' ?>" class="mobile-primary">▶ เรียนต่อ</a>
-            <?php elseif (!empty($availableExams)): ?>
-              <span class="mobile-hero-label">แนะนำสำหรับคุณ</span>
-              <h2><?= htmlspecialchars($availableExams[0]['subject'] ?: 'ฝึกทำข้อสอบ') ?></h2>
-              <p><?= htmlspecialchars($availableExams[0]['title']) ?></p>
-              <small><?= (int)$availableExams[0]['question_count'] ?> ข้อ<?= $availableExams[0]['time_limit_minutes'] ? ' • ' . (int)$availableExams[0]['time_limit_minutes'] . ' นาที' : '' ?></small>
-              <a href="take-test.php?id=<?= (int)$availableExams[0]['id'] ?>" class="mobile-primary">▶ เริ่มฝึก</a>
-            <?php else: ?>
-              <span class="mobile-hero-label">เริ่มต้นวันนี้</span>
-              <h2>เลือกเส้นทางที่ใช่</h2>
-              <p>สร้างเป้าหมายการเรียนของคุณ</p>
-              <small>มี Roadmap ให้เลือกตามระดับ</small>
-              <a href="roadmap.php" class="mobile-primary">เลือก Roadmap</a>
-            <?php endif; ?>
-          </div>
-          <img class="mobile-owl" src="../assets/images/next-owl.png" alt="มาสคอตนกฮูก Next Beyond">
-        </article>
-
-        <nav class="mobile-quick-grid" aria-label="เมนูลัด">
-          <a href="tests.php"><span>▣</span><b>ทำข้อสอบ</b></a>
-          <a href="my-tests.php"><span>▥</span><b>ผลการเรียน</b></a>
-          <a href="roadmap.php"><span>◎</span><b>เป้าหมาย</b></a>
-          <a href="score-calculator.php"><span>▦</span><b>TCAS</b></a>
-        </nav>
-
-        <div class="mobile-section-heading"><h2>ภารกิจวันนี้</h2><a href="roadmap.php">ดูทั้งหมด</a></div>
-        <div class="mobile-task-list">
-          <?php if (!$mobileMissions): ?>
-            <a class="mobile-task" href="roadmap.php"><span class="mobile-task-check"></span><span><b>เลือก Study Roadmap</b><small>วางแผนการเรียนให้ตรงกับเป้าหมาย</small></span><em>เริ่มเลย</em></a>
-          <?php else: foreach (array_slice($mobileMissions, 0, 2) as $mission):
-            $isMissionDone = in_array($mission['progress_status'], ['completed', 'exempted'], true);
-            $missionUrl = 'roadmap.php';
-            if (!empty($mission['ref_lesson_id'])) $missionUrl = '../lesson.php?id=' . (int)$mission['ref_lesson_id'];
-            elseif (!empty($mission['ref_exam_id'])) $missionUrl = 'take-test.php?id=' . (int)$mission['ref_exam_id'];
-          ?>
-            <a class="mobile-task <?= $isMissionDone ? 'done' : '' ?>" href="<?= htmlspecialchars($missionUrl) ?>">
-              <span class="mobile-task-check"><?= $isMissionDone ? '✓' : '' ?></span>
-              <span><b><?= htmlspecialchars($mission['title']) ?></b><small><?= htmlspecialchars($mission['subject'] ?: 'ภารกิจใน Roadmap') ?></small></span>
-              <em><?= (int)$mission['points_reward'] > 0 ? '+' . (int)$mission['points_reward'] . ' NC' : 'ไปต่อ' ?></em>
-            </a>
-          <?php endforeach; endif; ?>
-        </div>
-
-        <div class="mobile-week-card">
-          <div><span>สถิติการเรียนรายสัปดาห์</span><strong><?= count(array_filter($activeWeekDays)) ?> วัน</strong></div>
-          <div class="mobile-week-days">
-            <?php foreach ($weekDayLabels as $index => $label): ?><span class="<?= $activeWeekDays[$index] ? 'active' : '' ?>"><?= $label ?></span><?php endforeach; ?>
-          </div>
-        </div>
-      </section>
-
-      <div class="student-home-desktop">
+      <div>
 
       <!-- Welcome Banner -->
       <div class="student-home-hero mb-6 rounded-xl bg-navy-950 p-7 text-white border border-[#17304f]">
@@ -975,9 +901,7 @@ try {
           <?php endif; ?>
         </div>
       </div>
-      </div>
     </main>
-    <?php include 'includes/bottom-nav.php'; ?>
   </div>
 </div>
 </body>

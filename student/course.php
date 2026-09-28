@@ -228,7 +228,7 @@ if ($hasAccess) {
       <?php endif; ?>
 
     </main>
-    <?php include 'includes/bottom-nav.php'; ?>
+
   </div>
 </div>
 </body>

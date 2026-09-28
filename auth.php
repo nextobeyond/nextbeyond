@@ -76,13 +76,21 @@ $isMaintenanceActive = SettingsService::isMaintenanceMode();
           </div>
           <div class="mb-4">
             <label class="block mb-1.5 text-[14px] font-bold text-navy-900" for="login-password">รหัสผ่าน</label>
-            <input class="w-full h-12 px-4 border border-[#dce4ef] rounded-xl text-navy-950 bg-white outline-none focus:border-[#3981f5] focus:shadow-[0_0_0_3px_rgba(57,129,245,.14)] text-[15px]" type="password" id="login-password" placeholder="••••••••">
+            <div class="relative">
+              <input class="w-full h-12 pl-4 pr-11 border border-[#dce4ef] rounded-xl text-navy-950 bg-white outline-none focus:border-[#3981f5] focus:shadow-[0_0_0_3px_rgba(57,129,245,.14)] text-[15px]" type="password" id="login-password" placeholder="••••••••">
+              <button type="button" class="absolute inset-y-0 right-0 flex items-center pr-3 text-[#65738a] hover:text-navy-900" data-toggle-password>
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="flex items-center justify-between mb-6">
             <label class="flex items-center gap-2 text-[13px] text-[#65738a] cursor-pointer">
               <input type="checkbox" class="w-4 h-4 rounded border-[#dce4ef] accent-pink-500"> จดจำฉัน
             </label>
-            <a href="#" class="text-[13px] text-[#2369dd] font-medium hover:underline">ลืมรหัสผ่าน?</a>
+            <a href="#" data-goto="forgot-password" class="text-[13px] text-[#2369dd] font-medium hover:underline">ลืมรหัสผ่าน?</a>
           </div>
           <button class="w-full h-12 rounded-xl bg-pink-500 text-white font-bold text-[15px] shadow-[0_8px_20px_rgba(231,45,130,.2)] transition-transform hover:-translate-y-0.5 mb-4" data-action="login">เข้าสู่ระบบ</button>
           <div class="text-center text-[13px] text-[#94a3b8] mb-4 hidden">หรือ</div>
@@ -124,6 +132,92 @@ $isMaintenanceActive = SettingsService::isMaintenanceMode();
         <?php else: ?>
           <p class="text-[13px] text-[#94a3b8]">ยังไม่มีบัญชี? <span class="text-amber-600 font-semibold">(ปิดรับสมัครชั่วคราว)</span></p>
         <?php endif; ?>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════
+       STEP: FORGOT PASSWORD
+  ═══════════════════════════════════════════════ -->
+  <section data-step="forgot-password" class="hidden min-h-[calc(100vh-78px)] bg-[#f6f8fc] flex items-center justify-center py-16 px-4">
+    <div class="w-full max-w-[440px]">
+      <div class="text-center mb-8 flex flex-col items-center">
+        <a href="index.php" class="inline-flex items-center gap-3 mb-6" aria-label="<?= htmlspecialchars($authSchoolName) ?>">
+          <?php if (!empty($authLogo)): ?>
+            <img src="<?= htmlspecialchars(ltrim($authLogo, '/')) ?>?v=<?= @filemtime(__DIR__ . '/' . ltrim($authLogo, '/')) ?: time() ?>" alt="Logo" class="w-[46px] h-[46px] object-contain rounded-lg shrink-0">
+          <?php else: ?>
+            <svg class="w-[46px] h-[46px] shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round" />
+              <line x1="10" y1="32" x2="26" y2="8" stroke="#168765" stroke-width="8" stroke-linecap="round" />
+            </svg>
+          <?php endif; ?>
+        </a>
+        <h2 class="text-[24px] font-black text-navy-950 tracking-tight">ลืมรหัสผ่าน</h2>
+        <p class="text-[#65738a] text-[15px] mt-1">กรุณากรอกอีเมลของคุณเพื่อรับลิงก์รีเซ็ตรหัสผ่าน</p>
+      </div>
+
+      <div class="border border-[#dce4ef] rounded-[18px] bg-white p-6 shadow-[0_8px_24px_rgba(15,42,83,.06)]">
+        <div id="forgot-password-message" class="hidden p-4 mb-4 rounded-xl text-[14px]"></div>
+        <div class="mb-6">
+          <label class="block mb-1.5 text-[14px] font-bold text-navy-900" for="forgot-email">อีเมลบัญชีผู้ใช้</label>
+          <input class="w-full h-12 px-4 border border-[#dce4ef] rounded-xl text-navy-950 bg-white outline-none focus:border-[#3981f5] focus:shadow-[0_0_0_3px_rgba(57,129,245,.14)] text-[15px]" type="email" id="forgot-email" placeholder="example@email.com">
+        </div>
+        <button class="w-full h-12 rounded-xl bg-pink-500 text-white font-bold text-[15px] shadow-[0_8px_20px_rgba(231,45,130,.2)] transition-transform hover:-translate-y-0.5" data-action="forgot-password">ส่งลิงก์รีเซ็ตรหัสผ่าน</button>
+        <div class="text-center mt-6">
+          <button class="text-[13px] text-[#2369dd] font-bold hover:underline" data-goto="login">กลับไปหน้าเข้าสู่ระบบ</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════
+       STEP: RESET PASSWORD
+  ═══════════════════════════════════════════════ -->
+  <section data-step="reset-password" class="hidden min-h-[calc(100vh-78px)] bg-[#f6f8fc] flex items-center justify-center py-16 px-4">
+    <div class="w-full max-w-[440px]">
+      <div class="text-center mb-8 flex flex-col items-center">
+        <a href="index.php" class="inline-flex items-center gap-3 mb-6" aria-label="<?= htmlspecialchars($authSchoolName) ?>">
+          <?php if (!empty($authLogo)): ?>
+            <img src="<?= htmlspecialchars(ltrim($authLogo, '/')) ?>?v=<?= @filemtime(__DIR__ . '/' . ltrim($authLogo, '/')) ?: time() ?>" alt="Logo" class="w-[46px] h-[46px] object-contain rounded-lg shrink-0">
+          <?php else: ?>
+            <svg class="w-[46px] h-[46px] shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <line x1="25" y1="32" x2="31" y2="8" stroke="#f54696" stroke-width="8" stroke-linecap="round" />
+              <line x1="10" y1="32" x2="26" y2="8" stroke="#168765" stroke-width="8" stroke-linecap="round" />
+            </svg>
+          <?php endif; ?>
+        </a>
+        <h2 class="text-[24px] font-black text-navy-950 tracking-tight">ตั้งรหัสผ่านใหม่</h2>
+        <p class="text-[#65738a] text-[15px] mt-1">กรุณากำหนดรหัสผ่านใหม่สำหรับบัญชีของคุณ</p>
+      </div>
+
+      <div class="border border-[#dce4ef] rounded-[18px] bg-white p-6 shadow-[0_8px_24px_rgba(15,42,83,.06)]">
+        <div id="reset-password-message" class="hidden p-4 mb-4 rounded-xl text-[14px]"></div>
+        <input type="hidden" id="reset-token" value="">
+        <div class="mb-4">
+          <label class="block mb-1.5 text-[14px] font-bold text-navy-900" for="reset-password">รหัสผ่านใหม่</label>
+          <div class="relative">
+            <input class="w-full h-12 pl-4 pr-11 border border-[#dce4ef] rounded-xl text-navy-950 bg-white outline-none focus:border-[#3981f5] focus:shadow-[0_0_0_3px_rgba(57,129,245,.14)] text-[15px]" type="password" id="reset-new-password" placeholder="••••••••">
+            <button type="button" class="absolute inset-y-0 right-0 flex items-center pr-3 text-[#65738a] hover:text-navy-900" data-toggle-password>
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="mb-6">
+          <label class="block mb-1.5 text-[14px] font-bold text-navy-900" for="reset-confirm">ยืนยันรหัสผ่านใหม่</label>
+          <div class="relative">
+            <input class="w-full h-12 pl-4 pr-11 border border-[#dce4ef] rounded-xl text-navy-950 bg-white outline-none focus:border-[#3981f5] focus:shadow-[0_0_0_3px_rgba(57,129,245,.14)] text-[15px]" type="password" id="reset-confirm-password" placeholder="••••••••">
+            <button type="button" class="absolute inset-y-0 right-0 flex items-center pr-3 text-[#65738a] hover:text-navy-900" data-toggle-password>
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <button class="w-full h-12 rounded-xl bg-pink-500 text-white font-bold text-[15px] shadow-[0_8px_20px_rgba(231,45,130,.2)] transition-transform hover:-translate-y-0.5" data-action="reset-password">เปลี่ยนรหัสผ่าน</button>
       </div>
     </div>
   </section>
@@ -326,8 +420,30 @@ $isMaintenanceActive = SettingsService::isMaintenanceMode();
             <input class="w-full h-[42px] px-3.5 border border-[#dce4ef] rounded-xl text-navy-950 bg-white outline-none focus:border-[#3981f5] text-[14px] mb-1" type="text" data-field="accountEmail" placeholder="parent@example.com">
             <p class="text-[12px] text-[#65738a] mb-4">ใช้สำหรับเข้าสู่ระบบและกู้คืนบัญชี ควรเป็นช่องทางที่ใช้งานได้จริง</p>
             <div class="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
-              <div><label class="block mb-1.5 text-[13px] font-bold text-navy-900">รหัสผ่าน *</label><input class="w-full h-[42px] px-3.5 border border-[#dce4ef] rounded-xl text-navy-950 bg-white outline-none focus:border-[#3981f5] text-[14px]" type="password" data-field="password" placeholder="••••••••"></div>
-              <div><label class="block mb-1.5 text-[13px] font-bold text-navy-900">ยืนยันรหัสผ่าน *</label><input class="w-full h-[42px] px-3.5 border border-[#dce4ef] rounded-xl text-navy-950 bg-white outline-none focus:border-[#3981f5] text-[14px]" type="password" data-field="confirmPassword" placeholder="••••••••"></div>
+              <div>
+                <label class="block mb-1.5 text-[13px] font-bold text-navy-900">รหัสผ่าน *</label>
+                <div class="relative">
+                  <input class="w-full h-[42px] pl-3.5 pr-10 border border-[#dce4ef] rounded-xl text-navy-950 bg-white outline-none focus:border-[#3981f5] text-[14px]" type="password" data-field="password" placeholder="••••••••">
+                  <button type="button" class="absolute inset-y-0 right-0 flex items-center pr-3 text-[#65738a] hover:text-navy-900" data-toggle-password>
+                    <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="block mb-1.5 text-[13px] font-bold text-navy-900">ยืนยันรหัสผ่าน *</label>
+                <div class="relative">
+                  <input class="w-full h-[42px] pl-3.5 pr-10 border border-[#dce4ef] rounded-xl text-navy-950 bg-white outline-none focus:border-[#3981f5] text-[14px]" type="password" data-field="confirmPassword" placeholder="••••••••">
+                  <button type="button" class="absolute inset-y-0 right-0 flex items-center pr-3 text-[#65738a] hover:text-navy-900" data-toggle-password>
+                    <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
             <div class="mt-3 p-3 rounded-xl bg-[#f6f8fc] border border-[#e8ecf2]">
               <p class="text-[12px] text-[#65738a] mb-0">รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร และประกอบด้วยตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลข</p>

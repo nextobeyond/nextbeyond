@@ -40,6 +40,9 @@ RewriteCond %{THE_REQUEST} !-api\.php [NC]
 RewriteCond %{THE_REQUEST} \s/+(.+?)\.php[\s?] [NC]
 RewriteRule ^ /%1 [R=301,L,NE]
 
+# 2.5 Map /admin/students/[studentId] to admin/student-detail.php?id=[studentId]
+RewriteRule ^admin/students/([0-9]+)/?$ admin/student-detail.php?id=$1 [L,QSA]
+
 # 3. ตรวจสอบว่าคำขอไม่ใช่โฟลเดอร์ และถ้าเติม .php แล้วมีไฟล์นั้นอยู่จริง
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME}.php -f

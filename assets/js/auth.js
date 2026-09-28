@@ -222,4 +222,124 @@
     });
   }
 
+  // Password Visibility Toggle
+  root.querySelectorAll('[data-toggle-password]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = btn.previousElementSibling;
+      if (input && input.tagName === 'INPUT') {
+        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+        input.setAttribute('type', type);
+        
+        const svg = btn.querySelector('svg');
+        if (svg) {
+          if (type === 'text') {
+            svg.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />`;
+          } else {
+            svg.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />`;
+          }
+        }
+      }
+    });
+  });
+
+  // Initialization Check for Reset Password Flow
+  const urlParams = new URLSearchParams(window.location.search);
+  const authAction = urlParams.get('action');
+  const resetToken = urlParams.get('token');
+
+  if (authAction === 'reset-password' && resetToken) {
+    const tokenInput = root.querySelector('#reset-token');
+    if (tokenInput) tokenInput.value = resetToken;
+    showStep('reset-password');
+  }
+
+  // Forgot Password
+  const forgotBtn = root.querySelector("[data-action='forgot-password']");
+  if (forgotBtn) {
+    forgotBtn.addEventListener("click", async () => {
+      const emailInput = root.querySelector("#forgot-email");
+      const email = emailInput ? emailInput.value.trim() : "";
+      if (!email) {
+        alert("กรุณากรอกอีเมลบัญชีผู้ใช้");
+        return;
+      }
+      
+      try {
+        forgotBtn.disabled = true;
+        const result = await callAuthApi({ action: 'forgot-password', email });
+        const msgEl = root.querySelector("#forgot-password-message");
+        if (msgEl) {
+          msgEl.className = "p-4 mb-4 rounded-xl text-[14px] bg-[#e8f5e9] text-[#168765] border border-[#168765]/20";
+          msgEl.innerHTML = `ส่งลิงก์รีเซ็ตรหัสผ่านแล้ว! (Simulation: <a href="${result.resetLink}" class="underline font-bold">คลิกที่นี่เพื่อรีเซ็ต</a>)`;
+          msgEl.classList.remove("hidden");
+        }
+      } catch (error) {
+        const msgEl = root.querySelector("#forgot-password-message");
+        if (msgEl) {
+          msgEl.className = "p-4 mb-4 rounded-xl text-[14px] bg-red-50 text-red-600 border border-red-200";
+          msgEl.textContent = error.message;
+          msgEl.classList.remove("hidden");
+        } else {
+          alert(error.message);
+        }
+      } finally {
+        forgotBtn.disabled = false;
+      }
+    });
+  }
+
+  // Reset Password
+  const resetBtn = root.querySelector("[data-action='reset-password']");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", async () => {
+      const tokenInput = root.querySelector("#reset-token");
+      const newPasswordInput = root.querySelector("#reset-new-password");
+      const confirmPasswordInput = root.querySelector("#reset-confirm-password");
+      
+      const token = tokenInput ? tokenInput.value : "";
+      const password = newPasswordInput ? newPasswordInput.value : "";
+      const confirmPassword = confirmPasswordInput ? confirmPasswordInput.value : "";
+      
+      if (!password || !confirmPassword) {
+        alert("กรุณากรอกรหัสผ่านใหม่และยืนยันรหัสผ่าน");
+        return;
+      }
+      
+      if (password.length < 8 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) {
+        alert("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร และประกอบด้วยตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลข");
+        return;
+      }
+      
+      if (password !== confirmPassword) {
+        alert("รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน");
+        return;
+      }
+      
+      try {
+        resetBtn.disabled = true;
+        await callAuthApi({ action: 'reset-password', token, password });
+        const msgEl = root.querySelector("#reset-password-message");
+        if (msgEl) {
+          msgEl.className = "p-4 mb-4 rounded-xl text-[14px] bg-[#e8f5e9] text-[#168765] border border-[#168765]/20";
+          msgEl.textContent = "เปลี่ยนรหัสผ่านสำเร็จ! กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่";
+          msgEl.classList.remove("hidden");
+        }
+        setTimeout(() => {
+          window.location.href = "auth.php";
+        }, 2000);
+      } catch (error) {
+        const msgEl = root.querySelector("#reset-password-message");
+        if (msgEl) {
+          msgEl.className = "p-4 mb-4 rounded-xl text-[14px] bg-red-50 text-red-600 border border-red-200";
+          msgEl.textContent = error.message;
+          msgEl.classList.remove("hidden");
+        } else {
+          alert(error.message);
+        }
+      } finally {
+        resetBtn.disabled = false;
+      }
+    });
+  }
+
 })();

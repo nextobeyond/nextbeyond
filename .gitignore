@@ -24,5 +24,6 @@ __pycache__/
 services/exam-export/venv/
 services/exam-export/fonts/*.ttf
 !services/exam-export/fonts/.gitkeep
-
-
+# Archives and Review bundles
+*.zip
+chatgpt-review/

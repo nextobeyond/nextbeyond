@@ -118,7 +118,7 @@ $subjectLabels = [
         </div>
       <?php endif; ?>
     </main>
-    <?php include 'includes/bottom-nav.php'; ?>
+
   </div>
 </div>
 

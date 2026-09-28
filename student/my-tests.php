@@ -197,7 +197,7 @@ function testScoreMeta(float $score): array
         </section>
       <?php endif; ?>
     </main>
-    <?php include 'includes/bottom-nav.php'; ?>
+
   </div>
 </div>
 </body>

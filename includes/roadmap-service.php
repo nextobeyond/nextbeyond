@@ -6,17 +6,6 @@ function ensureRoadmapSchema(PDO $pdo): void
     static $ready = false;
     if ($ready) return;
 
-    // Check if the new 'roadmaps' table exists
-    $stmt = $pdo->query("SHOW TABLES LIKE 'roadmaps'");
-    if ($stmt->rowCount() === 0) {
-        // Run migration script
-        $sql = file_get_contents(__DIR__ . '/../database/roadmap_v2_migration.sql');
-        if ($sql !== false) {
-            $pdo->exec($sql);
-        }
-    } else {
-        // Fallback simple checks for tables if needed, but migration covers it.
-    }
     
     seedRoadmapTemplates($pdo);
     $ready = true;

@@ -246,6 +246,14 @@ try {
             ]);
         }
 
+        // P1.2: Learning Gain Report
+        if ($sessionId !== '' && isset($_GET['learningGainReport'])) {
+            liveSessionRespond([
+                'sessionId' => $sessionId,
+                'report'    => $_p2->getSessionLearningGainReport($sessionId),
+            ]);
+        }
+
         // List all sessions for teacher
         $stmt = $pdo->prepare("
             SELECT s.*, e.title AS exam_title,
@@ -417,6 +425,15 @@ try {
                 ]);
 
                 liveSessionRespond(['success' => true, 'bossName' => $bossName, 'bossTheme' => $bossTheme, 'bossMaxHp' => $bossMaxHp]);
+            }
+
+            // P1.2: Save pre-test score for a student
+            if ($action === 'save_pretest_score') {
+                $studentId  = (int) ($body['studentId'] ?? 0);
+                $scorePct   = (float) ($body['scorePct'] ?? 0.0);
+                if ($studentId < 1) liveSessionRespond(['error' => 'studentId required'], 422);
+                $_p2->savePreTestScore($sessionId, $studentId, $scorePct);
+                liveSessionRespond(['success' => true, 'studentId' => $studentId, 'scorePct' => $scorePct]);
             }
 
             liveSessionRespond(['error' => 'ไม่พบคำสั่ง action ที่ระบุ'], 400);

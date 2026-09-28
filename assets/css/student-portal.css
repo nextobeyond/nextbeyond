@@ -24,7 +24,7 @@
 #studentSidebar > div:last-child a:last-child { color:#ef4444 !important; }
 #studentSidebar > div:last-child a:last-child:hover { color:#ef4444 !important; background:#fef2f2 !important; }
 .student-topbar { min-height:64px; box-shadow:none !important; }
-.student-mobile-brand,.student-bottom-nav,.student-mobile-home,.student-mobile-courses,.student-mobile-journey { display:none; }
+.student-mobile-brand,.student-mobile-home,.student-mobile-courses,.student-mobile-journey { display:none; }
 .student-kicker { color:#8190a5; font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
 .student-section-title { display:flex; align-items:center; gap:10px; }
 .student-section-title::before { content:""; width:3px; height:18px; background:var(--student-pink); border-radius:2px; }
@@ -40,9 +40,9 @@
 
 @media (max-width:768px) {
   html { background:#f3f7fd; }
-  body.student-portal { min-width:320px; padding-bottom:calc(76px + env(safe-area-inset-bottom)); background:linear-gradient(180deg,#fff 0,#f8fbff 28%,#f3f7fd 100%) !important; }
+  body.student-portal { min-width:320px; background:linear-gradient(180deg,#fff 0,#f8fbff 28%,#f3f7fd 100%) !important; }
   body.student-portal.student-menu-open { overflow:hidden; }
-  .student-portal > .min-h-screen { min-height:calc(100dvh - 76px); }
+
   #studentSidebar { display:flex !important; width:min(84vw,300px) !important; }
   #sidebarOverlay:not(.hidden) { display:block !important; }
   .student-topbar { position:sticky; top:0; min-height:60px; border-color:rgba(219,228,242,.82) !important; background:rgba(255,255,255,.92) !important; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); }
@@ -66,126 +66,7 @@
   .student-portal [class*="rounded-[16px]"] { border-radius:16px !important; }
   .student-portal .student-section-title { font-size:19px !important; }
 
-  .student-home-desktop { display:none !important; }
-  .student-mobile-home { display:block; }
-  .mobile-home-intro { margin:2px 2px 14px; }
-  .mobile-home-intro p { margin:0 0 2px; color:#1548d8; font-size:12px; font-weight:900; letter-spacing:.08em; }
-  .mobile-home-intro h1 { margin:0; color:#071936; font-size:29px; font-weight:900; line-height:1.16; letter-spacing:-.045em; }
-  .mobile-home-intro span { display:block; margin-top:4px; color:#657695; font-size:14px; }
 
-  .mobile-learning-hero { position:relative; display:flex; align-items:center; min-height:236px; overflow:hidden; padding:18px; border-radius:20px; color:#fff; background:linear-gradient(135deg,#061a40,#0b2d68 58%,#1548d8); box-shadow:0 12px 28px rgba(6,26,64,.16); }
-  .mobile-learning-hero::after { content:""; position:absolute; inset:0; background:radial-gradient(circle at 80% 10%,rgba(21,72,216,.38),transparent 36%),repeating-radial-gradient(circle at 100% 0,transparent 0 22px,rgba(255,255,255,.045) 23px 24px); pointer-events:none; }
-  .mobile-hero-orbit { position:absolute; z-index:0; width:260px; height:260px; right:-90px; top:-65px; border:1px solid rgba(255,255,255,.15); border-radius:50%; box-shadow:0 0 0 28px rgba(255,255,255,.025),0 0 0 56px rgba(255,255,255,.025); }
-  .mobile-hero-copy { position:relative; z-index:2; width:68%; min-width:0; }
-  .mobile-hero-label { display:inline-flex; padding:5px 9px; border:1px solid rgba(255,255,255,.3); border-radius:999px; color:#fff; background:rgba(255,255,255,.12); font-size:10px; font-weight:800; }
-  .mobile-hero-copy h2 { display:-webkit-box; overflow:hidden; margin:10px 0 4px; color:#fff; font-size:23px; font-weight:900; line-height:1.2; letter-spacing:-.035em; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
-  .mobile-hero-copy p { overflow:hidden; margin:0 0 10px; color:#dce8ff; font-size:12px; white-space:nowrap; text-overflow:ellipsis; }
-  .mobile-hero-copy small { display:block; color:#cfddf5; font-size:10px; }
-  .mobile-progress { height:7px; overflow:hidden; margin:12px 0 7px; border-radius:999px; background:rgba(255,255,255,.2); }
-  .mobile-progress i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#ff168b,#ff58aa); }
-  .mobile-primary { display:flex; align-items:center; justify-content:center; min-height:43px; width:100%; margin-top:15px; padding:0 12px; border-radius:14px; color:#fff; background:linear-gradient(135deg,#ff168b,#ed0878); box-shadow:0 9px 20px rgba(255,22,139,.23); font-size:13px; font-weight:900; text-decoration:none; }
-  .mobile-owl { position:absolute; z-index:1; width:190px; height:190px; right:-38px; bottom:25px; object-fit:contain; filter:drop-shadow(0 13px 16px rgba(0,0,0,.42)); }
-
-  .mobile-quick-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px; margin:10px 0 16px; }
-  .mobile-quick-grid a { display:flex; min-width:0; flex-direction:column; align-items:center; padding:7px 1px; color:#071936; font-size:11px; text-decoration:none; }
-  .mobile-quick-grid a span { display:grid; width:47px; height:47px; margin-bottom:7px; place-items:center; border:1px solid #e5ecf8; border-radius:15px; color:#061a40; background:linear-gradient(145deg,#fff,#e8eeff); box-shadow:0 5px 14px rgba(6,26,64,.08); font-size:22px; font-weight:900; }
-  .mobile-quick-grid a b { overflow:hidden; max-width:100%; font-weight:800; white-space:nowrap; text-overflow:ellipsis; }
-
-  .mobile-section-heading { display:flex; align-items:center; justify-content:space-between; margin:0 2px 9px; }
-  .mobile-section-heading h2 { margin:0; color:#071936; font-size:19px; font-weight:900; }
-  .mobile-section-heading a { color:#ff168b; font-size:12px; font-weight:800; text-decoration:none; }
-  .mobile-task-list { display:grid; gap:9px; }
-  .mobile-task { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:9px; padding:11px; border:1px solid #dbe4f2; border-radius:15px; color:#071936; background:#fff; text-decoration:none; }
-  .mobile-task-check { display:grid; width:33px; height:33px; place-items:center; border:2px solid #b8c7dd; border-radius:50%; color:#fff; font-size:15px; font-weight:900; }
-  .mobile-task.done .mobile-task-check { border-color:#ff168b; background:#ff168b; }
-  .mobile-task > span:nth-child(2) { min-width:0; }
-  .mobile-task b,.mobile-task small { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-  .mobile-task b { font-size:12px; font-weight:800; }
-  .mobile-task small { margin-top:3px; color:#657695; font-size:10px; }
-  .mobile-task em { padding:6px 7px; border-radius:999px; color:#3c5480; background:#e8eeff; font-size:9px; font-style:normal; font-weight:800; white-space:nowrap; }
-  .mobile-week-card { margin-top:10px; padding:11px 12px; border-radius:17px; background:linear-gradient(90deg,#ffe0f0,#fff0f7); }
-  .mobile-week-card > div:first-child { display:flex; align-items:center; justify-content:space-between; color:#071936; font-size:11px; }
-  .mobile-week-card strong { color:#d70a70; }
-  .mobile-week-days { display:flex; justify-content:space-between; margin-top:10px; }
-  .mobile-week-days span { display:grid; width:27px; height:27px; place-items:center; border:1px solid #c1cce0; border-radius:50%; color:#657695; background:rgba(255,255,255,.55); font-size:9px; font-weight:800; }
-  .mobile-week-days span.active { border-color:#ff168b; color:#fff; background:#ff168b; }
-
-  .student-courses-desktop { display:none !important; }
-  .student-mobile-courses { display:block; }
-  .mobile-courses-intro { margin:2px 6px 18px; }
-  .mobile-courses-intro p { margin:0 0 4px; color:#1548d8; font-size:13px; font-weight:900; letter-spacing:.08em; }
-  .mobile-courses-intro h1 { margin:0; color:#071936; font-size:30px; font-weight:900; line-height:1.12; letter-spacing:-.045em; }
-  .mobile-courses-intro span { display:block; margin-top:7px; color:#657695; font-size:14px; font-weight:600; }
-  .mobile-course-hero { position:relative; min-height:260px; overflow:hidden; padding:20px; border-radius:20px; color:#fff; background:linear-gradient(135deg,#061a40,#0b2d68 58%,#1548d8); box-shadow:0 12px 28px rgba(6,26,64,.16); }
-  .mobile-course-hero::after { content:""; position:absolute; inset:0; background:radial-gradient(circle at 83% 12%,rgba(49,96,229,.42),transparent 34%),repeating-radial-gradient(circle at 100% 0,transparent 0 22px,rgba(255,255,255,.04) 23px 24px); pointer-events:none; }
-  .mobile-course-hero-copy { position:relative; z-index:3; width:64%; }
-  .mobile-course-status { display:inline-flex; padding:6px 11px; border:1px solid rgba(255,255,255,.35); border-radius:999px; color:#fff; background:rgba(255,255,255,.12); font-size:11px; font-weight:800; }
-  .mobile-course-hero h2 { display:-webkit-box; overflow:hidden; margin:17px 0 7px; color:#fff; font-size:24px; font-weight:900; line-height:1.2; letter-spacing:-.035em; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
-  .mobile-course-hero p { margin:0; color:#dce8ff; font-size:14px; font-weight:700; }
-  .mobile-course-progress { height:7px; overflow:hidden; width:100%; margin:13px 0 0; border-radius:999px; background:rgba(255,255,255,.25); }
-  .mobile-course-progress i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#ff168b,#ff58aa); }
-  .mobile-course-hero-copy > a { display:flex; align-items:center; justify-content:center; min-height:48px; width:100%; margin-top:19px; border-radius:15px; color:#fff; background:linear-gradient(135deg,#ff168b,#ed0878); box-shadow:0 9px 20px rgba(255,22,139,.25); font-size:15px; font-weight:900; text-decoration:none; }
-  .mobile-course-hero img { position:absolute; z-index:2; width:205px; height:205px; right:-32px; bottom:10px; object-fit:contain; filter:drop-shadow(0 13px 16px rgba(0,0,0,.4)); }
-  .mobile-course-hero > strong { position:absolute; z-index:4; right:30px; bottom:39px; display:grid; width:72px; height:72px; place-items:center; color:#fff; background:#ff168b; box-shadow:0 7px 18px rgba(6,26,64,.2); font-size:35px; font-weight:500; }
-  .mobile-course-hero.empty .mobile-course-hero-copy { width:68%; }
-  .mobile-course-hero.empty h2 { font-size:22px; }
-  .mobile-course-filters { display:flex; gap:7px; overflow-x:auto; margin:13px 0 22px; padding:0 0 2px; scrollbar-width:none; }
-  .mobile-course-filters::-webkit-scrollbar { display:none; }
-  .mobile-course-filters a { flex:none; min-width:90px; padding:11px 15px; border-radius:999px; color:#071936; background:#e8eeff; font-size:12px; font-weight:900; text-align:center; text-decoration:none; }
-  .mobile-course-filters a.active { color:#fff; background:#ff168b; }
-  .mobile-course-list { display:grid; gap:10px; }
-  .mobile-course-row { display:grid; grid-template-columns:58px minmax(0,1fr) 40px; align-items:center; gap:12px; padding:13px; border:1px solid #dbe4f2; border-radius:16px; color:#071936; background:#fff; box-shadow:0 5px 18px rgba(6,26,64,.045); text-decoration:none; }
-  .mobile-course-code { display:grid; width:56px; height:56px; place-items:center; border-radius:15px; color:#fff; background:linear-gradient(145deg,#061a40,#1548d8); font-size:18px; font-weight:900; }
-  .mobile-course-info { display:block; min-width:0; }
-  .mobile-course-info b,.mobile-course-info small,.mobile-course-info em { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-  .mobile-course-info b { font-size:14px; font-weight:900; }
-  .mobile-course-info small { margin-top:2px; color:#657695; font-size:10px; }
-  .mobile-course-info i { display:block; height:6px; overflow:hidden; margin:7px 0 3px; border-radius:999px; background:#dbe5f8; }
-  .mobile-course-info i span { display:block; height:100%; border-radius:inherit; background:#1548d8; }
-  .mobile-course-info em { color:#071936; font-size:10px; font-style:normal; font-weight:800; }
-  .mobile-course-arrow { display:grid; width:38px; height:38px; place-items:center; border-radius:50%; color:#ff168b; background:#ffe0f0; font-size:29px; font-weight:500; }
-  .mobile-find-courses { display:flex; align-items:center; justify-content:center; min-height:49px; margin-top:22px; border:1px solid #9db1d3; border-radius:14px; color:#071936; background:#fff; font-size:14px; font-weight:900; text-decoration:none; }
-
-  .student-learning-desktop { display:none !important; }
-  .student-mobile-journey { display:block; }
-  .mobile-journey-intro { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:2px 6px 18px; }
-  .mobile-journey-intro p { margin:0 0 3px; color:#1548d8; font-size:13px; font-weight:900; letter-spacing:.08em; }
-  .mobile-journey-intro h1 { margin:0; color:#071936; font-size:30px; font-weight:900; line-height:1.12; letter-spacing:-.045em; }
-  .mobile-journey-intro select,.mobile-journey-stage { display:grid; min-width:69px; height:62px; padding:0 12px; place-items:center; border:0; border-radius:19px; color:#071936; background:#e8eeff; font-size:17px; font-weight:900; text-align:center; }
-  .mobile-journey-intro select { appearance:auto; outline:none; }
-  .mobile-journey-tabs { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:14px; padding:4px; border-radius:15px; background:#e8eeff; }
-  .mobile-journey-tabs a { display:flex; min-height:50px; align-items:center; justify-content:center; border-radius:13px; color:#071936; font-size:13px; font-weight:900; text-decoration:none; }
-  .mobile-journey-tabs a.active { color:#fff; background:#ff168b; }
-  .mobile-goal-card { display:grid; grid-template-columns:minmax(0,1fr) 90px; align-items:center; gap:13px; min-height:162px; padding:19px; border-radius:20px; color:#fff; background:linear-gradient(135deg,#061a40,#0b2d68 58%,#1548d8); box-shadow:0 12px 28px rgba(6,26,64,.13); }
-  .mobile-goal-card small { display:block; color:#fff; font-size:12px; font-weight:800; }
-  .mobile-goal-card h2 { display:-webkit-box; overflow:hidden; margin:7px 0 5px; color:#fff; font-size:21px; font-weight:900; line-height:1.25; letter-spacing:-.035em; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
-  .mobile-goal-card p { display:-webkit-box; overflow:hidden; margin:0; color:#d5e2f8; font-size:11px; line-height:1.5; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
-  .mobile-progress-ring { position:relative; display:grid; width:82px; height:82px; place-items:center; border-radius:50%; background:conic-gradient(#ff168b var(--journey-progress),#3c65ae 0); }
-  .mobile-progress-ring::after { content:""; position:absolute; inset:9px; border-radius:50%; background:#0a2a62; }
-  .mobile-progress-ring strong { position:relative; z-index:1; color:#fff; font-size:20px; font-weight:900; }
-  .mobile-journey-timeline { position:relative; margin:26px 0 12px; }
-  .mobile-route-line { position:absolute; left:31px; top:30px; bottom:34px; width:4px; border-radius:9px; background:#c8d7ea; }
-  .mobile-milestone { position:relative; display:grid; grid-template-columns:62px minmax(0,1fr) 25px; align-items:center; gap:10px; min-height:104px; padding:11px 8px 11px 0; color:#071936; text-decoration:none; }
-  .mobile-milestone-number { position:relative; z-index:2; display:grid; width:54px; height:54px; place-items:center; border:6px solid #c8d7ea; border-radius:50%; color:#071936; background:#fff; font-size:18px; font-weight:900; }
-  .mobile-milestone.done .mobile-milestone-number { border-color:#ffd3e8; color:#fff; background:#ff168b; }
-  .mobile-milestone.done::after { content:""; position:absolute; left:29px; top:60px; width:6px; height:52px; background:#ff168b; }
-  .mobile-milestone-copy { display:block; min-width:0; }
-  .mobile-milestone-copy small,.mobile-milestone-copy b,.mobile-milestone-copy em { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-  .mobile-milestone-copy small { color:#657695; font-size:11px; font-weight:800; }
-  .mobile-milestone-copy b { margin-top:4px; color:#071936; font-size:19px; font-weight:900; line-height:1.2; }
-  .mobile-milestone-copy em { margin-top:4px; color:#657695; font-size:11px; font-style:normal; font-weight:700; }
-  .mobile-milestone.current { min-height:112px; margin:0; padding:13px 10px 13px 14px; border-left:5px solid #ff168b; border-radius:18px; background:#fff; box-shadow:0 12px 30px rgba(6,26,64,.09); }
-  .mobile-milestone.current .mobile-milestone-number { width:54px; height:54px; border-color:#ffd3e8; color:#fff; background:#ff168b; }
-  .mobile-milestone.current .mobile-milestone-copy b { font-size:20px; }
-  .mobile-milestone.current .mobile-milestone-copy em { color:#526d98; }
-  .mobile-milestone-arrow { color:#071936; font-size:34px; font-weight:500; }
-  .mobile-next-lesson { display:flex; min-height:64px; margin-top:12px; padding:0 17px 0 23px; align-items:center; justify-content:space-between; border-radius:17px; color:#fff; background:#061a40; box-shadow:0 12px 28px rgba(6,26,64,.14); text-decoration:none; }
-  .mobile-next-lesson span { font-size:17px; font-weight:900; }
-  .mobile-next-lesson b { display:grid; width:31px; height:31px; place-items:center; border-radius:50%; background:#ff168b; font-size:24px; line-height:1; }
-  .mobile-journey-empty { margin:22px 0; padding:30px 20px; border:1px solid #dbe4f2; border-radius:18px; background:#fff; text-align:center; }
-  .mobile-journey-empty > span { display:grid; width:52px; height:52px; margin:0 auto 13px; place-items:center; border-radius:16px; color:#ff168b; background:#ffe0f0; font-size:25px; }
-  .mobile-journey-empty h2 { margin:0; color:#071936; font-size:18px; font-weight:900; }
-  .mobile-journey-empty p { margin:7px 0 0; color:#657695; font-size:12px; line-height:1.6; }
 
   .student-profile-shell { padding:2px 2px 34px; }
   .student-profile-shell form { display:grid; gap:18px; }
@@ -222,14 +103,6 @@
   .student-portal main > .grid.grid-cols-5 .space-y-3 > div { padding:13px !important; gap:10px !important; border-radius:15px !important; }
   .student-portal main > .grid.grid-cols-5 .space-y-3 .w-11 { width:42px !important; height:42px !important; }
   .student-portal main > .grid.grid-cols-5 .space-y-3 a[href*="take-test"] { padding:0 12px !important; }
-
-  .student-bottom-nav { position:fixed; z-index:60; left:0; right:0; bottom:0; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); width:100%; height:calc(68px + env(safe-area-inset-bottom)); padding:5px 8px calc(5px + env(safe-area-inset-bottom)); border-top:1px solid rgba(219,228,242,.92); background:rgba(255,255,255,.94); box-shadow:0 -8px 24px rgba(6,26,64,.07); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); }
-  .student-bottom-link { display:flex; min-width:0; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:3px 1px; border-radius:15px; color:#587091; text-decoration:none; transition:.18s ease; }
-  .student-bottom-icon { display:grid; width:32px; height:28px; place-items:center; border-radius:12px; }
-  .student-bottom-link svg { width:19px; height:19px; }
-  .student-bottom-link span { overflow:hidden; max-width:100%; font-size:9px; font-weight:800; line-height:1.2; white-space:nowrap; text-overflow:ellipsis; }
-  .student-bottom-link.active { color:#ff168b; background:#ffe0f0; }
-  .student-bottom-link.active .student-bottom-icon { color:#ff168b; }
 }
 
 @media (min-width:769px) and (max-width:960px) { .student-mobile-brand { display:none !important; } }

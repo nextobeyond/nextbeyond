@@ -996,7 +996,7 @@ if (!function_exists('renderPathStatusBadge')) {
       <?php endif; ?>
 
     </main>
-    <?php include 'includes/bottom-nav.php'; ?>
+
   </div>
 </div>
 

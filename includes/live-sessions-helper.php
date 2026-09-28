@@ -84,6 +84,38 @@ function ensureLiveSessionSchema(PDO $pdo): void
     if (class_exists('Phase2SessionService')) {
         (new Phase2SessionService($pdo))->ensurePhase2Schema();
     }
+
+    // P1.1: Pulse question tables (session_pulse_questions, session_pulse_answers)
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `session_pulse_questions` (
+                `id`            VARCHAR(64) NOT NULL PRIMARY KEY,
+                `session_id`    VARCHAR(64) NOT NULL,
+                `question_text` TEXT        NOT NULL,
+                `options`       JSON        NOT NULL,
+                `correct_key`   VARCHAR(10) NULL,
+                `is_active`     TINYINT(1)  NOT NULL DEFAULT 1,
+                `pushed_at`     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `expires_at`    DATETIME    NULL,
+                `closed_at`     DATETIME    NULL,
+                INDEX `idx_pq_session` (`session_id`),
+                INDEX `idx_pq_active`  (`session_id`, `is_active`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `session_pulse_answers` (
+                `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                `question_id` VARCHAR(64)     NOT NULL,
+                `session_id`  VARCHAR(64)     NOT NULL,
+                `student_id`  INT             NOT NULL,
+                `chosen_key`  VARCHAR(10)     NOT NULL,
+                `is_correct`  TINYINT(1)      NOT NULL DEFAULT 0,
+                `answered_at` DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY `uq_pulse_student` (`question_id`, `student_id`),
+                INDEX `idx_pa_question` (`question_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    } catch (Throwable $e) { /* silently continue if already exists */ }
 }
 
 function getBossArchetypes(): array

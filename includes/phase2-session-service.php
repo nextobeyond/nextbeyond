@@ -494,4 +494,145 @@ class Phase2SessionService
         }
         return $ev;
     }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // P1.2  PRE-TEST / POST-TEST LIFECYCLE
+    // ──────────────────────────────────────────────────────────────────────
+
+    /**
+     * Ensure session_readiness has a readiness_score column for pre-test scores.
+     * Called once; safe to call multiple times.
+     */
+    private function ensurePreTestColumn(): void
+    {
+        static $preTestColDone = false;
+        if ($preTestColDone) return;
+        try {
+            $cols = [];
+            foreach ($this->pdo->query("SHOW COLUMNS FROM session_readiness")->fetchAll() as $c) {
+                $cols[$c['Field']] = true;
+            }
+            if (!isset($cols['readiness_score'])) {
+                $this->pdo->exec("
+                    ALTER TABLE `session_readiness`
+                    ADD COLUMN `readiness_score` FLOAT NULL COMMENT 'Pre-test score % (0-100)' AFTER `status`,
+                    ADD COLUMN `session_id` VARCHAR(64) NULL COMMENT 'Linked live session' AFTER `readiness_score`
+                ");
+            }
+        } catch (Throwable $e) { /* silently continue */ }
+        $preTestColDone = true;
+    }
+
+    /**
+     * Record (or update) a student's pre-test score for a session.
+     * Pre-test score is stored in session_readiness keyed by (student_id, session_id).
+     *
+     * @param string $sessionId
+     * @param int    $studentId
+     * @param float  $scorePct   Score as percentage 0–100
+     * @param int    $calendarEventId  If 0, uses session's linked event
+     */
+    public function savePreTestScore(string $sessionId, int $studentId, float $scorePct, int $calendarEventId = 0): void
+    {
+        $this->ensurePreTestColumn();
+
+        if ($calendarEventId < 1) {
+            $stmt = $this->pdo->prepare("SELECT calendar_event_id FROM classroom_sessions WHERE id = :id LIMIT 1");
+            $stmt->execute([':id' => $sessionId]);
+            $calendarEventId = (int)($stmt->fetchColumn() ?: 0);
+        }
+
+        if ($calendarEventId < 1) {
+            // No calendar event linked — still persist using a synthetic event id 0
+            $this->pdo->prepare("
+                INSERT INTO session_readiness (student_id, calendar_event_id, topic_name, status, readiness_score, session_id)
+                VALUES (:uid, 0, '_pretest', 'reviewed', :score, :sid)
+                ON DUPLICATE KEY UPDATE readiness_score = :score, session_id = :sid, checked_at = NOW()
+            ")->execute([':uid' => $studentId, ':score' => $scorePct, ':sid' => $sessionId]);
+            return;
+        }
+
+        $this->pdo->prepare("
+            INSERT INTO session_readiness (student_id, calendar_event_id, topic_name, status, readiness_score, session_id)
+            VALUES (:uid, :eid, '_pretest', 'reviewed', :score, :sid)
+            ON DUPLICATE KEY UPDATE readiness_score = :score, session_id = :sid, checked_at = NOW()
+        ")->execute([':uid' => $studentId, ':eid' => $calendarEventId, ':score' => $scorePct, ':sid' => $sessionId]);
+    }
+
+    /**
+     * Get a student's pre-test score for a session (null if not recorded).
+     */
+    public function getPreTestScore(string $sessionId, int $studentId): ?float
+    {
+        $this->ensurePreTestColumn();
+        $stmt = $this->pdo->prepare("
+            SELECT readiness_score FROM session_readiness
+            WHERE session_id = :sid AND student_id = :uid AND topic_name = '_pretest'
+            ORDER BY id DESC LIMIT 1
+        ");
+        $stmt->execute([':sid' => $sessionId, ':uid' => $studentId]);
+        $val = $stmt->fetchColumn();
+        return $val !== false ? (float)$val : null;
+    }
+
+    /**
+     * Compute Learning Gain (Δ Score) for a single student in a session.
+     * Returns null if either pre-test or post-test is missing.
+     */
+    public function getLearningGain(string $sessionId, int $studentId): ?float
+    {
+        $pre = $this->getPreTestScore($sessionId, $studentId);
+        if ($pre === null) return null;
+
+        $stmt = $this->pdo->prepare("
+            SELECT ta.score FROM test_attempts ta
+            JOIN session_participants sp ON sp.attempt_id = ta.id
+            WHERE sp.session_id = :sid AND sp.student_id = :uid
+              AND ta.completed_at IS NOT NULL
+            ORDER BY ta.completed_at DESC LIMIT 1
+        ");
+        $stmt->execute([':sid' => $sessionId, ':uid' => $studentId]);
+        $post = $stmt->fetchColumn();
+        if ($post === false) return null;
+
+        return round((float)$post - $pre, 2);
+    }
+
+    /**
+     * Get full Learning Gain report for a session:
+     * Returns array of {studentId, name, prePct, postPct, gain} for all participants.
+     */
+    public function getSessionLearningGainReport(string $sessionId): array
+    {
+        $this->ensurePreTestColumn();
+
+        $stmt = $this->pdo->prepare("
+            SELECT sp.student_id,
+                   CONCAT_WS(' ', u.first_name, u.last_name) AS name,
+                   ta.score AS post_score,
+                   sr.readiness_score AS pre_score
+            FROM session_participants sp
+            JOIN users u ON u.id = sp.student_id
+            LEFT JOIN test_attempts ta ON ta.id = sp.attempt_id AND ta.completed_at IS NOT NULL
+            LEFT JOIN session_readiness sr ON sr.student_id = sp.student_id
+                AND sr.session_id = :sid AND sr.topic_name = '_pretest'
+            WHERE sp.session_id = :sid
+            ORDER BY u.first_name ASC
+        ");
+        $stmt->execute([':sid' => $sessionId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(function ($r) {
+            $pre  = $r['pre_score']  !== null ? (float)$r['pre_score']  : null;
+            $post = $r['post_score'] !== null ? (float)$r['post_score'] : null;
+            $gain = ($pre !== null && $post !== null) ? round($post - $pre, 2) : null;
+            return [
+                'studentId' => (int)$r['student_id'],
+                'name'      => (string)$r['name'],
+                'prePct'    => $pre,
+                'postPct'   => $post,
+                'gain'      => $gain,
+            ];
+        }, $rows);
+    }
 }
