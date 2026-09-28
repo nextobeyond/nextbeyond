@@ -1,44 +1,30 @@
 <?php
 
-$localConfig = __DIR__ . '/db.local.php';
-if (is_file($localConfig)) {
-    require_once $localConfig;
-}
-
 if (!defined('ADMIN_DB_HOST')) {
     define('ADMIN_DB_HOST', getenv('ADMIN_DB_HOST') ?: 'localhost');
-    define('ADMIN_DB_NAME', getenv('ADMIN_DB_NAME') ?: 'nextbeyond');
-    define('ADMIN_DB_USER', getenv('ADMIN_DB_USER') ?: 'root');
-    define('ADMIN_DB_PASS', getenv('ADMIN_DB_PASS') ?: '');
+    define('ADMIN_DB_NAME', getenv('ADMIN_DB_NAME') ?: 'u292923614_nextbeyond_M');
+    define('ADMIN_DB_USER', getenv('ADMIN_DB_USER') ?: 'u292923614_nextbeyond_M');
+    define('ADMIN_DB_PASS', getenv('ADMIN_DB_PASS') ?: '@Nextbeyond1234');
     define('ADMIN_DB_CHARSET', getenv('ADMIN_DB_CHARSET') ?: 'utf8mb4');
 }
 
 try {
-    $dsn = 'mysql:host=' . ADMIN_DB_HOST;
-    $xamppSocket = '/Applications/XAMPP/xamppfiles/var/mysql/mysql.sock';
-    if (ADMIN_DB_HOST === 'localhost' && file_exists($xamppSocket)) {
-        $dsn .= ';unix_socket=' . $xamppSocket;
+    // Build DSN — ใช้ unix_socket เฉพาะเมื่อตั้งค่า ADMIN_DB_SOCKET ไว้ใน env
+    $adminDbSocket = getenv('ADMIN_DB_SOCKET') ?: '';
+    if ($adminDbSocket && file_exists($adminDbSocket)) {
+        $dsn = 'mysql:unix_socket=' . $adminDbSocket . ';dbname=' . ADMIN_DB_NAME . ';charset=' . ADMIN_DB_CHARSET;
+    } else {
+        $dsn = 'mysql:host=' . ADMIN_DB_HOST . ';dbname=' . ADMIN_DB_NAME . ';charset=' . ADMIN_DB_CHARSET;
     }
-    $dsn .= ';dbname=' . ADMIN_DB_NAME . ';charset=' . ADMIN_DB_CHARSET;
+
     $options = [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::ATTR_EMULATE_PREPARES   => false,
     ];
     $pdo = new PDO($dsn, ADMIN_DB_USER, ADMIN_DB_PASS, $options);
 } catch (PDOException $e) {
-    // If database 'nextbeyond' does not exist, attempt fallback to imported database 'u292923614_nextbeyond_M'
-    if ((str_contains($e->getMessage(), '1049') || (int)$e->getCode() === 1049) && ADMIN_DB_NAME === 'nextbeyond') {
-        try {
-            $fallbackDsn = str_replace(';dbname=nextbeyond', ';dbname=u292923614_nextbeyond_M', $dsn);
-            $pdo = new PDO($fallbackDsn, ADMIN_DB_USER, ADMIN_DB_PASS, $options);
-        } catch (PDOException $e2) {
-            $e = $e2;
-        }
-    }
-
-    if (!isset($pdo)) {
-        error_log('Database connection failed: ' . $e->getMessage());
+    error_log('Database connection failed: ' . $e->getMessage());
 
     $requestPath = (string) ($_SERVER['REQUEST_URI'] ?? '');
     $accept = (string) ($_SERVER['HTTP_ACCEPT'] ?? '');
@@ -48,13 +34,12 @@ try {
         http_response_code(503);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
-            'error' => 'เซิร์ฟเวอร์ยังไม่ได้ตั้งค่าการเชื่อมต่อฐานข้อมูล กรุณาตั้งค่า ADMIN_DB_HOST, ADMIN_DB_NAME, ADMIN_DB_USER และ ADMIN_DB_PASS',
-            'code' => 'DATABASE_NOT_CONFIGURED',
+            'error' => 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาติดต่อผู้ดูแลระบบ',
+            'code'  => 'DATABASE_UNAVAILABLE',
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
     http_response_code(503);
     die('Database service is temporarily unavailable.');
-    }
 }
