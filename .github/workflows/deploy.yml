@@ -1,0 +1,45 @@
+name: 🚀 Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: SSH Deploy → nextbeyond.com
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 🔑 Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: 🚀 Deploy via git pull
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} \
+              -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=30 \
+              -i ~/.ssh/id_ed25519 \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+              "cd ${{ secrets.DEPLOY_PATH }} && \
+               git fetch origin && \
+               git reset --hard origin/main && \
+               echo '✅ Deploy สำเร็จ: '$(date '+%Y-%m-%d %H:%M:%S')"
+
+      - name: ✅ Notify Success
+        if: success()
+        run: |
+          echo "🎉 Deploy สำเร็จแล้ว!"
+          echo "Branch: main"
+          echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: ${{ github.actor }}"
+
+      - name: ❌ Notify Failure
+        if: failure()
+        run: |
+          echo "💥 Deploy ล้มเหลว — กรุณาตรวจสอบ log"
