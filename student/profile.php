@@ -3,6 +3,14 @@ $pageTitle = 'โปรไฟล์ของฉัน';
 $currentPage = 'profile.php';
 require_once __DIR__ . '/includes/guard.php';
 
+// Block all writes when admin is inspecting (read-only mode)
+if (!empty($adminInspectMode) && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'โหมดตรวจระบบ: ไม่สามารถแก้ไขข้อมูลนักเรียนได้'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 // AJAX auto-upload handler
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && ($_POST['action'] ?? '') === 'upload_avatar_ajax') {
     header('Content-Type: application/json; charset=utf-8');
@@ -265,7 +273,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 </form>
             </div>
         </main>
-        <?php include 'includes/bottom-nav.php'; ?>
+
     </div>
 </div>
 

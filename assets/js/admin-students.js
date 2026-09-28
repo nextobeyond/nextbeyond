@@ -263,6 +263,10 @@
           </td>
           <td class="p-4 text-right whitespace-nowrap">
             <div class="flex items-center justify-end gap-1.5">
+              <button data-inspect-btn="${st.id}" title="ตรวจระบบในมุมมองนักเรียน" class="h-8 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-xs flex items-center gap-1.5 transition-colors border border-amber-200/60">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <span>ตรวจระบบ</span>
+              </button>
               <a href="student-detail.php?id=${st.id}" class="h-8 px-3 rounded-xl bg-pink-50 hover:bg-pink-100 text-pink-600 font-bold text-xs flex items-center gap-1.5 transition-colors border border-pink-200/50">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 <span>จัดการสิทธิ์</span>
@@ -405,7 +409,42 @@
     }
   });
 
+  // ---- Inspect Student ----
+  async function inspectStudent(studentId, btnEl) {
+    const st = allStudents.find(s => s.id == studentId);
+    const name = st ? `${st.first_name} ${st.last_name}` : "นักเรียน";
+
+    // Show loading state
+    const originalHtml = btnEl.innerHTML;
+    btnEl.disabled = true;
+    btnEl.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg><span>กำลังเข้า...</span>`;
+
+    try {
+      const res = await api("inspect-api.php", {
+        method: "POST",
+        body: JSON.stringify({ action: "start", student_id: parseInt(studentId, 10) }),
+      });
+      if (res.redirect) {
+        window.location.href = res.redirect;
+      } else {
+        window.location.href = "../student/index.php";
+      }
+    } catch (err) {
+      btnEl.disabled = false;
+      btnEl.innerHTML = originalHtml;
+      alert("ไม่สามารถเข้าโหมดตรวจระบบได้: " + err.message);
+    }
+  }
+
   body.addEventListener("click", async e => {
+    // Inspect student
+    const inspectBtn = e.target.closest("[data-inspect-btn]");
+    if (inspectBtn) {
+      e.stopPropagation();
+      await inspectStudent(inspectBtn.dataset.inspectBtn, inspectBtn);
+      return;
+    }
+
     // Delete student
     const delBtn = e.target.closest("[data-delete-btn]");
     if (delBtn) {

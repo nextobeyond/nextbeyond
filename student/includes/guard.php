@@ -3,6 +3,12 @@
  * student/includes/guard.php
  * ป้องกันหน้า Student — ถ้ายังไม่ Login redirect ไป /auth
  * ถ้า Login แล้วแต่เป็น admin ก็ผ่านได้ (admin ดูในนามนักเรียนได้)
+ *
+ * Admin Inspection Mode:
+ *   เมื่อ Admin ตั้ง $_SESSION['admin_inspect_student_id'] ระบบจะโหลดข้อมูล
+ *   ของนักเรียนนั้นแทน เพื่อให้ Admin เห็นระบบในมุมมองนักเรียน
+ *   $adminInspectMode = true   → กำลัง inspect
+ *   $adminRealUser            → ข้อมูล admin จริง (role=admin)
  */
 declare(strict_types=1);
 
@@ -111,4 +117,36 @@ function studentGuard(): array {
     return $user;
 }
 
+// ============================================================
+// Admin Inspection Mode
+// ============================================================
+/** @var bool $adminInspectMode   true เมื่อ admin กำลัง inspect นักเรียน */
+$adminInspectMode = false;
+/** @var array|null $adminRealUser  ข้อมูล admin จริง (เมื่ออยู่ใน inspect mode) */
+$adminRealUser = null;
+
 $currentUser = studentGuard();
+
+// ตรวจสอบว่า admin กำลัง inspect นักเรียนหรือไม่
+if ($currentUser['role'] === 'admin' && !empty($_SESSION['admin_inspect_student_id'])) {
+    $inspectId = (int)$_SESSION['admin_inspect_student_id'];
+    try {
+        $inspStmt = $pdo->prepare(
+            'SELECT id, first_name, last_name, nickname, email, phone, role, avatar_url, is_active
+             FROM users WHERE id = :id AND role = "student" AND is_active = 1 LIMIT 1'
+        );
+        $inspStmt->execute([':id' => $inspectId]);
+        $inspectedStudent = $inspStmt->fetch();
+
+        if ($inspectedStudent) {
+            $adminRealUser    = $currentUser;   // เก็บ admin จริงไว้
+            $adminInspectMode = true;
+            $currentUser      = $inspectedStudent; // สวมบทบาทเป็นนักเรียน
+        } else {
+            // นักเรียนที่ inspect ถูกลบ/ปิดใช้งานแล้ว → ล้าง session
+            unset($_SESSION['admin_inspect_student_id']);
+        }
+    } catch (Throwable $e) {
+        unset($_SESSION['admin_inspect_student_id']);
+    }
+}

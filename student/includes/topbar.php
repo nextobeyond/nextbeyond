@@ -4,6 +4,18 @@
  */
 $pageTitle = $pageTitle ?? 'Student Dashboard';
 ?>
+<?php if (!empty($adminInspectMode) && !empty($adminRealUser)): ?>
+<div id="admin-inspect-banner" style="position:sticky;top:0;z-index:40;background:linear-gradient(90deg,#d97706,#f59e0b);color:#fff;padding:0 20px;height:44px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(217,119,6,0.35);">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <svg style="width:18px;height:18px;flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+    <span>⚠️ Admin Inspection Mode — กำลังดูระบบในมุมมอง: <strong><?= htmlspecialchars(trim(($currentUser['first_name'] ?? '') . ' ' . ($currentUser['last_name'] ?? ''))) ?></strong><?= !empty($currentUser['nickname']) ? ' (' . htmlspecialchars($currentUser['nickname']) . ')' : '' ?></span>
+  </div>
+  <button id="btn-exit-inspect" type="button" style="flex-shrink:0;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:5px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background 0.15s;" onmouseover="this.style.background='rgba(0,0,0,0.4)'" onmouseout="this.style.background='rgba(0,0,0,0.25)'">
+    <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+    ออกจากโหมดตรวจระบบ
+  </button>
+</div>
+<?php endif; ?>
 <header class="student-topbar sticky top-0 z-30 bg-white border-b border-[#e8ecf2]">
   <div class="flex items-center h-[60px] px-6 gap-4">
     <!-- Mobile hamburger -->
@@ -84,3 +96,23 @@ $topbarSchoolName = (string) SettingsService::get('school_name', 'NEXT BEYOND', 
     });
   })();
 </script>
+<?php if (!empty($adminInspectMode)): ?>
+<script>
+(() => {
+  const btn = document.getElementById('btn-exit-inspect');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = 'กำลังออก...';
+    try {
+      await fetch('../admin/inspect-api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'stop' }),
+      });
+    } catch(e) {}
+    window.location.href = '../admin/students.php';
+  });
+})();
+</script>
+<?php endif; ?>
