@@ -74,9 +74,10 @@ try {
 
         $clientAttemptId = (int) ($_GET['attemptId'] ?? 0);
         $resetAttempt = false;
-        if ($part && $clientAttemptId > 0) {
-            // If client has an attemptId, but participant attempt_id was wiped or changed
-            if ($part['attempt_id'] === null || (int) $part['attempt_id'] !== $clientAttemptId) {
+        if ($part && $clientAttemptId > 0 && $part['attempt_id'] !== null) {
+            // Only trigger reset when DB explicitly has a DIFFERENT attempt_id
+            // (null = not yet assigned, not a reset signal)
+            if ((int) $part['attempt_id'] !== $clientAttemptId) {
                 $resetAttempt = true;
             }
         }
