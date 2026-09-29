@@ -93,8 +93,15 @@ foreach ($enrollments as $en) {
     }
 }
 
-// Fetch All Active Courses for the Assignment Modal
-$allCourses = $pdo->query("SELECT id, title, subject, level, price FROM courses WHERE status = 'active' ORDER BY title ASC")->fetchAll(PDO::FETCH_ASSOC);
+// Fetch All Active/Available Courses for the Assignment Modal
+try {
+    $allCourses = $pdo->query("SELECT id, title, subject, level, price, status FROM courses WHERE status <> 'archived' ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END, title ASC")->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($allCourses)) {
+        $allCourses = $pdo->query("SELECT id, title, subject, level, price, status FROM courses ORDER BY title ASC")->fetchAll(PDO::FETCH_ASSOC);
+    }
+} catch (Throwable $e) {
+    $allCourses = [];
+}
 ?>
 <!DOCTYPE html>
 <html lang="th" class="scroll-smooth">
@@ -1019,6 +1026,13 @@ $allCourses = $pdo->query("SELECT id, title, subject, level, price FROM courses 
   formAssign?.addEventListener("submit", async e => {
     e.preventDefault();
     errorBox.classList.add("hidden");
+    const submitBtn = document.getElementById("btn-submit-assign");
+    const originalText = submitBtn ? submitBtn.textContent : "บันทึกสิทธิ์คอร์ส";
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "กำลังบันทึกสิทธิ์...";
+    }
+
     const formData = new FormData(formAssign);
     const body = Object.fromEntries(formData.entries());
 
@@ -1031,26 +1045,53 @@ $allCourses = $pdo->query("SELECT id, title, subject, level, price FROM courses 
       const d = await res.json();
 
       if (d.success) {
-        alert("กำหนดสิทธิ์คอร์สเรียบร้อยแล้ว");
+        alert("✓ กำหนดสิทธิ์คอร์สให้นักเรียนเรียบร้อยแล้ว");
         window.location.reload();
       } else {
         errorBox.textContent = d.error || "เกิดข้อผิดพลาดในการกำหนดสิทธิ์";
         errorBox.classList.remove("hidden");
         if (d.is_duplicate) {
-          if (confirm(`${d.error}\nต้องการขยายเวลาเรียนแทนหรือไม่?`)) {
+          if (confirm(`${d.error}\n\nกด OK: เพื่อขยายเวลาเรียนเพิ่ม 30 วันทันที\nกด Cancel: เพื่อบังคับมอบสิทธิ์ใหม่ทับสิทธิ์เดิม`)) {
             // Quick extend call
-            await fetch("enrollments-api.php?action=extend", {
+            const extRes = await fetch("enrollments-api.php?action=extend", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ enrollment_id: d.existing_enrollment.id, days_or_date: 30 })
             });
-            window.location.reload();
+            const extD = await extRes.json();
+            if (extD.success) {
+              alert("✓ ขยายเวลาเรียนเพิ่ม 30 วันเรียบร้อยแล้ว");
+              window.location.reload();
+            } else {
+              alert(extD.error || "ขยายเวลาเรียนไม่สำเร็จ");
+            }
+          } else {
+            // Force override assign
+            body.force_override = true;
+            const overRes = await fetch("enrollments-api.php?action=assign", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body)
+            });
+            const overD = await overRes.json();
+            if (overD.success) {
+              alert("✓ กำหนดสิทธิ์คอร์สใหม่ทับสิทธิ์เดิมเรียบร้อยแล้ว");
+              window.location.reload();
+            } else {
+              errorBox.textContent = overD.error || "เกิดข้อผิดพลาดในการกำหนดสิทธิ์";
+              errorBox.classList.remove("hidden");
+            }
           }
         }
       }
     } catch (err) {
       errorBox.textContent = "เชื่อมต่อระบบล้มเหลว: " + err.message;
       errorBox.classList.remove("hidden");
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
     }
   });
 

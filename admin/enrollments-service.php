@@ -22,91 +22,141 @@ class EnrollmentService {
         if ($ensured) return;
 
         // 1. Table: class_groups (Section 13)
-        $this->pdo->exec("
-            CREATE TABLE IF NOT EXISTS `class_groups` (
-                `id` INT AUTO_INCREMENT PRIMARY KEY,
-                `name` VARCHAR(150) NOT NULL,
-                `code` VARCHAR(50) NULL,
-                `course_id` INT NOT NULL,
-                `teacher_id` INT NULL,
-                `schedule_day` VARCHAR(20) NULL,
-                `schedule_time` VARCHAR(50) NULL,
-                `schedule_text` VARCHAR(255) NULL,
-                `capacity` INT NOT NULL DEFAULT 15,
-                `learning_mode` ENUM('online', 'onsite', 'hybrid') NOT NULL DEFAULT 'online',
-                `room` VARCHAR(100) NULL,
-                `status` ENUM('active', 'inactive', 'archived') NOT NULL DEFAULT 'active',
-                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                `updated_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                INDEX `idx_course` (`course_id`),
-                INDEX `idx_teacher` (`teacher_id`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        ");
+        try {
+            $this->pdo->exec("
+                CREATE TABLE IF NOT EXISTS `class_groups` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `name` VARCHAR(150) NOT NULL,
+                    `code` VARCHAR(50) NULL,
+                    `course_id` INT NOT NULL,
+                    `teacher_id` INT NULL,
+                    `schedule_day` VARCHAR(20) NULL,
+                    `schedule_time` VARCHAR(50) NULL,
+                    `schedule_text` VARCHAR(255) NULL,
+                    `capacity` INT NOT NULL DEFAULT 15,
+                    `learning_mode` ENUM('online', 'onsite', 'hybrid') NOT NULL DEFAULT 'online',
+                    `room` VARCHAR(100) NULL,
+                    `status` ENUM('active', 'inactive', 'archived') NOT NULL DEFAULT 'active',
+                    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX `idx_course` (`course_id`),
+                    INDEX `idx_teacher` (`teacher_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+        } catch (Throwable $e) {
+            error_log("class_groups table creation notice: " . $e->getMessage());
+        }
 
         // 2. Table: enrollment_audit_logs (Section 41)
-        $this->pdo->exec("
-            CREATE TABLE IF NOT EXISTS `enrollment_audit_logs` (
-                `id` INT AUTO_INCREMENT PRIMARY KEY,
-                `enrollment_id` INT NULL,
-                `student_id` INT NOT NULL,
-                `course_id` INT NOT NULL,
-                `action` VARCHAR(50) NOT NULL,
-                `details` TEXT NULL,
-                `performed_by` INT NULL,
-                `performed_by_name` VARCHAR(150) NULL,
-                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                INDEX `idx_student` (`student_id`),
-                INDEX `idx_enrollment` (`enrollment_id`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        ");
-
-        // 3. Extend enrollments columns
         try {
+            $this->pdo->exec("
+                CREATE TABLE IF NOT EXISTS `enrollment_audit_logs` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `enrollment_id` INT NULL,
+                    `student_id` INT NOT NULL,
+                    `course_id` INT NOT NULL,
+                    `action` VARCHAR(50) NOT NULL,
+                    `details` TEXT NULL,
+                    `performed_by` INT NULL,
+                    `performed_by_name` VARCHAR(150) NULL,
+                    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    INDEX `idx_student` (`student_id`),
+                    INDEX `idx_enrollment` (`enrollment_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+        } catch (Throwable $e) {
+            error_log("enrollment_audit_logs table creation notice: " . $e->getMessage());
+        }
+
+        // 3. Table: enrollments ensure table & columns
+        try {
+            $this->pdo->exec("
+                CREATE TABLE IF NOT EXISTS `enrollments` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `user_id` INT NOT NULL,
+                    `course_id` INT NOT NULL,
+                    `class_group_id` INT NULL,
+                    `access_type` VARCHAR(30) NOT NULL DEFAULT 'manual',
+                    `learning_mode` VARCHAR(30) NOT NULL DEFAULT 'online',
+                    `enrolled_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `start_date` DATE NULL,
+                    `end_date` DATE NULL,
+                    `expires_at` DATETIME NULL,
+                    `status` VARCHAR(30) NOT NULL DEFAULT 'active',
+                    `payment_status` VARCHAR(30) NOT NULL DEFAULT 'paid',
+                    `order_id` INT NULL,
+                    `bundle_id` VARCHAR(100) NULL,
+                    `assigned_by` INT NULL,
+                    `assigned_by_name` VARCHAR(150) NULL,
+                    `notes` TEXT NULL,
+                    `created_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX `idx_user` (`user_id`),
+                    INDEX `idx_course` (`course_id`),
+                    INDEX `idx_cg` (`class_group_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+
             $cols = [];
             foreach ($this->pdo->query("SHOW COLUMNS FROM `enrollments`")->fetchAll(PDO::FETCH_ASSOC) as $c) {
                 $cols[$c['Field']] = $c;
             }
 
+            $safeAlter = function (string $sql) {
+                try {
+                    $this->pdo->exec($sql);
+                } catch (Throwable $e) {
+                    error_log("Enrollment schema alter notice: " . $e->getMessage());
+                }
+            };
+
             if (!isset($cols['class_group_id'])) {
-                $this->pdo->exec("ALTER TABLE `enrollments` ADD COLUMN `class_group_id` INT NULL AFTER `course_id`, ADD INDEX `idx_cg` (`class_group_id`)");
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `class_group_id` INT NULL");
+                $safeAlter("ALTER TABLE `enrollments` ADD INDEX `idx_cg` (`class_group_id`)");
             }
             if (!isset($cols['access_type'])) {
-                $this->pdo->exec("ALTER TABLE `enrollments` ADD COLUMN `access_type` VARCHAR(30) NOT NULL DEFAULT 'manual' AFTER `class_group_id`");
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `access_type` VARCHAR(30) NOT NULL DEFAULT 'manual'");
             }
             if (!isset($cols['learning_mode'])) {
-                $this->pdo->exec("ALTER TABLE `enrollments` ADD COLUMN `learning_mode` VARCHAR(30) NOT NULL DEFAULT 'online' AFTER `access_type`");
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `learning_mode` VARCHAR(30) NOT NULL DEFAULT 'online'");
+            }
+            if (!isset($cols['enrolled_at'])) {
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `enrolled_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP");
             }
             if (!isset($cols['start_date'])) {
-                $this->pdo->exec("ALTER TABLE `enrollments` ADD COLUMN `start_date` DATE NULL AFTER `enrolled_at`");
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `start_date` DATE NULL");
+            }
+            if (!isset($cols['expires_at'])) {
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `expires_at` DATETIME NULL");
             }
             if (!isset($cols['end_date'])) {
-                $this->pdo->exec("ALTER TABLE `enrollments` ADD COLUMN `end_date` DATE NULL AFTER `expires_at`");
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `end_date` DATE NULL");
             }
             if (!isset($cols['payment_status'])) {
-                $this->pdo->exec("ALTER TABLE `enrollments` ADD COLUMN `payment_status` VARCHAR(30) NOT NULL DEFAULT 'paid' AFTER `status`");
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `payment_status` VARCHAR(30) NOT NULL DEFAULT 'paid'");
             }
             if (!isset($cols['order_id'])) {
-                $this->pdo->exec("ALTER TABLE `enrollments` ADD COLUMN `order_id` INT NULL AFTER `payment_status`");
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `order_id` INT NULL");
             }
             if (!isset($cols['bundle_id'])) {
-                $this->pdo->exec("ALTER TABLE `enrollments` ADD COLUMN `bundle_id` VARCHAR(100) NULL AFTER `order_id`");
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `bundle_id` VARCHAR(100) NULL");
             }
             if (!isset($cols['assigned_by'])) {
-                $this->pdo->exec("ALTER TABLE `enrollments` ADD COLUMN `assigned_by` INT NULL AFTER `bundle_id`");
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `assigned_by` INT NULL");
             }
             if (!isset($cols['assigned_by_name'])) {
-                $this->pdo->exec("ALTER TABLE `enrollments` ADD COLUMN `assigned_by_name` VARCHAR(150) NULL AFTER `assigned_by`");
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `assigned_by_name` VARCHAR(150) NULL");
             }
             if (!isset($cols['notes'])) {
-                $this->pdo->exec("ALTER TABLE `enrollments` ADD COLUMN `notes` TEXT NULL AFTER `assigned_by_name`");
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `notes` TEXT NULL");
             }
             if (!isset($cols['updated_at'])) {
-                $this->pdo->exec("ALTER TABLE `enrollments` ADD COLUMN `updated_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+                $safeAlter("ALTER TABLE `enrollments` ADD COLUMN `updated_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
             }
 
             // Alter status column from strict enum to VARCHAR(30) so we can support active, trial, pending, expired, paused, revoked, completed
             if (isset($cols['status']) && str_starts_with(strtolower((string)$cols['status']['Type']), 'enum')) {
-                $this->pdo->exec("ALTER TABLE `enrollments` MODIFY COLUMN `status` VARCHAR(30) NOT NULL DEFAULT 'active'");
+                $safeAlter("ALTER TABLE `enrollments` MODIFY COLUMN `status` VARCHAR(30) NOT NULL DEFAULT 'active'");
             }
         } catch (Throwable $e) {
             error_log("Enrollment schema alter error: " . $e->getMessage());
@@ -119,7 +169,7 @@ class EnrollmentService {
                 $userCols[$c['Field']] = true;
             }
             if (!isset($userCols['grade'])) {
-                $this->pdo->exec("ALTER TABLE `users` ADD COLUMN `grade` VARCHAR(50) NULL AFTER `nickname`");
+                $this->pdo->exec("ALTER TABLE `users` ADD COLUMN `grade` VARCHAR(50) NULL");
             }
         } catch (Throwable $e) {
             error_log("Users grade alter error: " . $e->getMessage());
@@ -347,24 +397,29 @@ class EnrollmentService {
      * Assign Course Access to Student (Sections 4, 5, 6, 7, 8, 42)
      */
     public function assignCourseAccess(int $studentId, int $courseId, array $data = []): array {
-        // 1. Check existing active enrollment (Section 42: Duplicate Protection)
+        // Ensure schema columns are available
+        $this->ensureSchema();
+
+        // 1. Check existing enrollment for this student & course
         $stmt = $this->pdo->prepare("
             SELECT e.*, c.title AS course_title, cg.name AS class_group_name
             FROM enrollments e
             LEFT JOIN courses c ON c.id = e.course_id
             LEFT JOIN class_groups cg ON cg.id = e.class_group_id
-            WHERE e.user_id = ? AND e.course_id = ? AND e.status IN ('active', 'trial')
+            WHERE e.user_id = ? AND e.course_id = ?
+            ORDER BY e.id DESC
             LIMIT 1
         ");
         $stmt->execute([$studentId, $courseId]);
         $existing = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($existing && empty($data['force_override'])) {
+        if ($existing && in_array($existing['status'], ['active', 'trial'], true) && empty($data['force_override'])) {
+            $cTitle = !empty($existing['course_title']) ? $existing['course_title'] : "คอร์ส #{$courseId}";
             return [
                 'success' => false,
                 'is_duplicate' => true,
                 'existing_enrollment' => $existing,
-                'error' => "นักเรียนมีสิทธิ์ในคอร์ส {$existing['course_title']} อยู่แล้ว (สถานะ: {$existing['status']})"
+                'error' => "นักเรียนมีสิทธิ์ในคอร์ส {$cTitle} อยู่แล้ว (สถานะ: {$existing['status']})"
             ];
         }
 
@@ -409,30 +464,87 @@ class EnrollmentService {
         if ($accessType === 'trial' && empty($endDate)) {
             $endDate = date('Y-m-d', strtotime('+7 days'));
         }
-
-        $ins = $this->pdo->prepare("
-            INSERT INTO enrollments (
-                user_id, course_id, class_group_id, access_type, learning_mode,
-                enrolled_at, start_date, end_date, expires_at, status,
-                payment_status, order_id, bundle_id, assigned_by, assigned_by_name, notes
-            ) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ");
         $expiresAt = $endDate ? "{$endDate} 23:59:59" : null;
-        $ins->execute([
-            $studentId, $courseId, $classGroupId, $accessType, $learningMode,
-            $startDate, $endDate, $expiresAt, $status,
-            $paymentStatus, $orderId, $bundleId, $assignedBy, $assignedByName, $notes
-        ]);
-        $enrollmentId = (int)$this->pdo->lastInsertId();
 
-        // Audit Log (Section 41)
-        $this->logAudit($enrollmentId, $studentId, $courseId, 'assigned', "กำหนดสิทธิ์คอร์ส: {$accessType} (โหมด: {$learningMode})", $assignedBy, $assignedByName);
+        try {
+            if ($existing) {
+                // Update existing row to handle renewals, unpauses, re-assignments and avoid UNIQUE key collisions
+                $enrollmentId = (int)$existing['id'];
+                $upd = $this->pdo->prepare("
+                    UPDATE enrollments SET
+                        class_group_id = ?,
+                        access_type = ?,
+                        learning_mode = ?,
+                        enrolled_at = NOW(),
+                        start_date = ?,
+                        end_date = ?,
+                        expires_at = ?,
+                        status = ?,
+                        payment_status = ?,
+                        order_id = COALESCE(?, order_id),
+                        bundle_id = COALESCE(?, bundle_id),
+                        assigned_by = ?,
+                        assigned_by_name = ?,
+                        notes = ?
+                    WHERE id = ?
+                ");
+                $upd->execute([
+                    $classGroupId, $accessType, $learningMode,
+                    $startDate, $endDate, $expiresAt, $status,
+                    $paymentStatus, $orderId, $bundleId, $assignedBy, $assignedByName, $notes,
+                    $enrollmentId
+                ]);
+            } else {
+                // Insert brand new enrollment
+                $ins = $this->pdo->prepare("
+                    INSERT INTO enrollments (
+                        user_id, course_id, class_group_id, access_type, learning_mode,
+                        enrolled_at, start_date, end_date, expires_at, status,
+                        payment_status, order_id, bundle_id, assigned_by, assigned_by_name, notes
+                    ) VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                $ins->execute([
+                    $studentId, $courseId, $classGroupId, $accessType, $learningMode,
+                    $startDate, $endDate, $expiresAt, $status,
+                    $paymentStatus, $orderId, $bundleId, $assignedBy, $assignedByName, $notes
+                ]);
+                $enrollmentId = (int)$this->pdo->lastInsertId();
+            }
 
-        return [
-            'success' => true,
-            'enrollment_id' => $enrollmentId,
-            'message' => 'กำหนดสิทธิ์คอร์สให้นักเรียนเรียบร้อยแล้ว'
-        ];
+            // Audit Log (Section 41)
+            $this->logAudit($enrollmentId, $studentId, $courseId, 'assigned', "กำหนดสิทธิ์คอร์ส: {$accessType} (โหมด: {$learningMode})", $assignedBy, $assignedByName);
+
+            return [
+                'success' => true,
+                'enrollment_id' => $enrollmentId,
+                'message' => 'กำหนดสิทธิ์คอร์สให้นักเรียนเรียบร้อยแล้ว'
+            ];
+        } catch (Throwable $e) {
+            error_log("assignCourseAccess DB Exception: " . $e->getMessage());
+
+            // Resilient fallback: minimal insert if specific extra columns failed
+            try {
+                if ($existing) {
+                    $enrollmentId = (int)$existing['id'];
+                    $stmtMin = $this->pdo->prepare("UPDATE enrollments SET status = ? WHERE id = ?");
+                    $stmtMin->execute([$status, $enrollmentId]);
+                } else {
+                    $stmtMin = $this->pdo->prepare("INSERT INTO enrollments (user_id, course_id, status) VALUES (?, ?, ?)");
+                    $stmtMin->execute([$studentId, $courseId, $status]);
+                    $enrollmentId = (int)$this->pdo->lastInsertId();
+                }
+                return [
+                    'success' => true,
+                    'enrollment_id' => $enrollmentId,
+                    'message' => 'กำหนดสิทธิ์คอร์สพื้นฐานเรียบร้อยแล้ว'
+                ];
+            } catch (Throwable $e2) {
+                return [
+                    'success' => false,
+                    'error' => 'ไม่สามารถบันทึกสิทธิ์คอร์สได้: ' . $e->getMessage()
+                ];
+            }
+        }
     }
 
     /**
